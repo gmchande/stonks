@@ -412,12 +412,12 @@ FocusScope {
       width: Math.ceil(Math.max(addHint.advanceWidth, showHint.advanceWidth))
       horizontalAlignment: Text.AlignRight
       textFormat: Text.PlainText
-      text: "↵  " + root.chosenAction.toLowerCase() + "  ·  esc  cancel"
+      text: "⏎  " + root.chosenAction.toLowerCase() + "  ·  esc  cancel"
       color: root.dimmer
       font.family: root.fontFamily
       font.pixelSize: Style.font.caption
-      TextMetrics { id: addHint; font: searchHint.font; text: "↵  add  ·  esc  cancel" }
-      TextMetrics { id: showHint; font: searchHint.font; text: "↵  show  ·  esc  cancel" }
+      TextMetrics { id: addHint; font: searchHint.font; text: "⏎  add  ·  esc  cancel" }
+      TextMetrics { id: showHint; font: searchHint.font; text: "⏎  show  ·  esc  cancel" }
     }
   }
 }

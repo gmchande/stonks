@@ -8,7 +8,7 @@
 function hintGroups(surface, order) {
   var navigate = [
     { key: "↑ ↓", does: "Move the row cursor" },
-    { key: "↵", does: "Feature the cursor row" },
+    { key: "⏎", does: "Feature the cursor row" },
     { key: "1–9", does: "Feature that row" }
   ]
   if (surface !== "window") navigate.push({ key: "tab", does: "Next panel on the bar" })

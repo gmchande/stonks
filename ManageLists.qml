@@ -339,7 +339,7 @@ FocusScope {
               view: root
               objectName: "confirmDelete"
               anchors.verticalCenter: parent.verticalCenter
-              text: "↵ DELETE"
+              text: "⏎ DELETE"
               strong: true
               onActivated: root.confirmDelete()
             }
@@ -416,9 +416,9 @@ FocusScope {
       width: Math.min(implicitWidth, parent.width - Style.space(20))
       elide: Text.ElideRight
       textFormat: Text.PlainText
-      text: root.renaming ? "↵ save  ·  esc cancel"
-        : root.confirming ? "↵ delete  ·  esc keep"
-        : "↵ rename  ·  J K move  ·  x delete  ·  esc done"
+      text: root.renaming ? "⏎ save  ·  esc cancel"
+        : root.confirming ? "⏎ delete  ·  esc keep"
+        : "⏎ rename  ·  J K move  ·  x delete  ·  esc done"
       color: root.dim
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall

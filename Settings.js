@@ -59,10 +59,10 @@ function sortsAscending(order, reversed) {
 }
 
 // The order control's word, its arrow the way the values run down the list:
-// ↑ ascending, ↓ descending, ⇅ manual.
+// ↑ ascending, ↓ descending, ↕ manual.
 function orderLabel(order, reversed) {
   order = normalizeOrder(order)
-  var arrow = order === "manual" ? "⇅" : sortsAscending(order, reversed) ? "↑" : "↓"
+  var arrow = order === "manual" ? "↕" : sortsAscending(order, reversed) ? "↑" : "↓"
   return arrow + "  " + ORDER_LABELS[order]
 }
 

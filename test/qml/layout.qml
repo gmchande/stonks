@@ -866,31 +866,41 @@ ShellRoot {
         wait(200)
 
         // The order word shows its direction with an arrow, on one line, and
-        // a flip moves nothing beside it: the word's ends and the rule's. In
-        // every sorted order, both looks, both widths.
+        // no order moves anything: a flip moves nothing beside it, the word's
+        // ends and the rule's, and every order, manual included, holds the
+        // word's top, bottom, and right end, and the first row's top. Manual's
+        // arrow came from a fallback font 1 px taller, and dropped the rows.
+        // In both looks, both widths.
         var word = find(body, "orderLabel")
         var rule = find(body, "breadthRule")
         var wordFaults = []
-        var wants = { symbol: ["↑  SYMBOL", "↓  SYMBOL"], name: ["↑  NAME", "↓  NAME"],
+        var wants = { manual: ["↕  MANUAL"], symbol: ["↑  SYMBOL", "↓  SYMBOL"], name: ["↑  NAME", "↓  NAME"],
           pct: ["↓  % CHANGE", "↑  % CHANGE"], abs: ["↓  $ CHANGE", "↑  $ CHANGE"] }
         for (var ow = 0; ow < 2; ow++) {
           surface.wide = ow === 1
           for (var olook = 0; olook < 2; olook++) {
             stub.retro = olook === 1
+            var held = []
             Object.keys(wants).forEach(function(order) {
               stub.order = order
               var at = []
               var spot = (surface.wide ? "window " : "popup ") + (stub.retro ? "retro " : "smooth ") + order
-              for (var dir = 0; dir < 2; dir++) {
+              for (var dir = 0; dir < wants[order].length; dir++) {
                 stub.reversed = dir === 1
                 wait(20)
                 if (word.text !== wants[order][dir] || word.lineCount !== 1 || word.truncated
                     || xIn(word, 0) <= xIn(rule, rule.width) || xIn(word, word.width) > body.width)
                   wordFaults.push(spot + (dir ? " reversed" : "") + ": \"" + word.text + "\" " + word.lineCount + " lines")
                 at.push([xIn(word, 0), xIn(word, word.width), yIn(word, 0), yIn(word, word.height), xIn(rule, rule.width)].join(","))
+                var firstRow = body.watchlist.rowItem(body.watchlist.displayedSymbols[0])
+                held.push({ order: order + (dir ? " reversed" : ""), at: [yIn(firstRow, 0), yIn(word, 0), yIn(word, word.height), xIn(word, word.width)].join(",") })
               }
-              if (at[0] !== at[1]) wordFaults.push(spot + " moved: " + at.join(" -> "))
+              if (at.length > 1 && at[0] !== at[1]) wordFaults.push(spot + " moved: " + at.join(" -> "))
             })
+            if (!held.every(function(h) { return h.at === held[0].at }))
+              wordFaults.push((surface.wide ? "window " : "popup ") + (stub.retro ? "retro" : "smooth")
+                + " across orders (first row's top, word's top, bottom, right): "
+                + held.map(function(h) { return h.order + " " + h.at }).join(" / "))
           }
         }
         stub.reversed = false
@@ -898,7 +908,7 @@ ShellRoot {
         stub.retro = false
         surface.wide = false
         wait(200)
-        root.check("the order word names its direction on one line, and a flip moves nothing beside it, in both looks at both widths",
+        root.check("the order word names its direction on one line, and no order or flip moves it or the rows, in both looks at both widths",
           wordFaults.length === 0, wordFaults.join(" | "))
 
         // Every key-hint row is one line, never elided or wrapped, inside the

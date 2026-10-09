@@ -338,7 +338,7 @@ ShellRoot {
       for (var i = 0; i < 4; i++) { keyClick(Qt.Key_O); ring.push(service.order, label.text) }
       harness.check("o runs the ring back to manual, names each order, and leaves the change mode alone",
         harness.same(ring, ["↑  SYMBOL", "name", "↑  NAME", "pct", "↓  % CHANGE", "abs", "↓  $ CHANGE",
-          "manual", "⇅  MANUAL"]) && service.changeMode === "pct",
+          "manual", "↕  MANUAL"]) && service.changeMode === "pct",
         ring + "|" + service.changeMode)
 
       // Shift+O and a Shift-click on the order word run a sorted order the
@@ -346,7 +346,7 @@ ShellRoot {
       // direction, and o starts the next order in its own.
       keyClick("O")
       wait(50)
-      var manualStays = !service.reversed && label.text === "⇅  MANUAL" && service.order === "manual"
+      var manualStays = !service.reversed && label.text === "↕  MANUAL" && service.order === "manual"
       keyClick(Qt.Key_O)
       wait(50)
       var ahead = watchlist.displayedSymbols.slice()
