@@ -14,8 +14,12 @@ if ! STONKS_FIXTURES=$("$plugin/test/fixtures-dir.sh" 2>&1); then
   exit 77
 fi
 export STONKS_FIXTURES
+source "$here/quickshell.sh"
 work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
+# However the run ends, its Quickshell's group and marked processes go first.
+trap 'quickshell_stop; rm -rf "$work"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 export HOME="$work/home"
 # The reader is in New York: an exchange's time names its
 # zone only where it differs from the reader's clock.
@@ -80,13 +84,10 @@ scratch_home() {
 }
 
 # run_qs SECONDS: run Quickshell on the tree, with the fake curl first on
-# PATH, into $work/log. --foreground keeps it in the harness's process group,
-# which is what test/all.sh stops on an interrupt.
+# PATH, into $work/log (quickshell.sh).
 run_qs() {
-  set +e
-  PATH="$here/bin:$PATH" timeout --foreground "${1}s" quickshell -p "$root" --no-color > "$work/log" 2>&1
-  code=$?
-  set -e
+  PATH="$here/bin:$PATH" quickshell_run "$1" "$work/log" -p "$root" --no-color
+  code=$qs_code
 }
 
 # fetched NAME: how many times the fake curl answered NAME.

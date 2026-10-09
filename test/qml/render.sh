@@ -59,12 +59,8 @@ for state in $states; do
   # picture this run wrote counts. It is judged in this run's own folder,
   # where no other run's picture can stand in for it, then moved to $out.
   rm -f "$dest"
-  set +e
-  # --foreground keeps Quickshell in this script's process group (lib.sh).
-  STONKS_VISUAL_STATE="$state" STONKS_VISUAL_OUT="$shot" \
-    timeout --foreground 15s quickshell -p "$root" > "$work/$state.log" 2>&1
-  code=$?
-  set -e
+  STONKS_VISUAL_STATE="$state" STONKS_VISUAL_OUT="$shot" quickshell_run 15 "$work/$state.log" -p "$root"
+  code=$qs_code
   # A state whose QML threw still writes a picture; the log is what tells,
   # and so is a Qt warning from the plugin's files (lib.sh).
   warnings=$(stonks_warnings "$work/$state.log")
