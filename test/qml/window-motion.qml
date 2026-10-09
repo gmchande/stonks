@@ -388,9 +388,8 @@ ShellRoot {
       service.persist({ style: "smooth" })
       tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000)
       var busyRange = run("range-busy", function() { keyClick(Qt.Key_BracketLeft) }, true)
-      console.log("  read: " + busyRange.detail)
-      harness.check("on a busy machine, whose animation clock ticks later and later, the chart still reads as drawing in over about 320 ms",
-        busyRange.ok, busyRange.detail)
+      harness.check("on a busy machine, whose animation clock ticks later and later, the chart still reads as drawing in over about 320 ms"
+        + (busyRange.ok ? " — " + busyRange.detail.replace(/^edge [^|]*\| /, "") : ""), busyRange.ok, busyRange.detail)
 
       // Loading holds still: while the chart asked for is on its way, the
       // one on show is the same picture on every frame; when it lands, it
