@@ -45,6 +45,9 @@ quickshell_run() {
     echo "$! $?" > "$log.ended"
     exec sleep infinity' _ "$log" "$@" &
   qs_leader=$!
+  # The stop kills the leader on purpose; out of the job table, its end
+  # prints no "Killed" notice. How Quickshell ended comes through the fifo.
+  disown "$qs_leader"
   set +m
   if read -r -t "$secs" -u "$fd" pid qs_code; then
     if (( qs_code > 128 )); then
