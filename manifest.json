@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "grvc.stonks",
+  "name": "Stonks",
+  "version": "0.3.0",
+  "author": "Gaurav Chande",
+  "license": "MIT",
+  "description": "Your watchlist in the bar and as a tiled window: a day chart, historical ranges, session phases, and honest market data.",
+  "kinds": ["service", "bar-widget"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Plugin.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Stonks",
+    "description": "Watchlist pill with a scrubbable day chart panel.",
+    "category": "Info",
+    "aliases": ["stocks", "stonks", "ticker"],
+    "allowMultiple": false,
+    "defaultSection": "center",
+    "defaults": {
+      "barStyle": "sparkline"
+    },
+    "schema": [
+      { "key": "barStyle", "type": "enum", "label": "Bar pill", "options": ["sparkline", "arrow", "text", "icon"], "defaultValue": "sparkline", "description": "How the bar shows the featured symbol in the centre and left sections. Middle-click the pill to cycle." },
+      { "key": "barStyleRight", "type": "enum", "label": "Bar pill on the right", "options": ["sparkline", "arrow", "text", "icon"], "defaultValue": "icon", "description": "How the bar shows the featured symbol in the right section, among the bar's icons. Middle-click the pill there to cycle." }
+    ]
+  }
+}

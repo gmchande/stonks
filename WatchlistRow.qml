@@ -1,0 +1,266 @@
+import QtQuick
+import qs.Commons
+import "Chart.js" as Chart
+import "Figures.js" as Figures
+import "Format.js" as Format
+import "Tones.js" as Tones
+// One watchlist row: symbol over name, the day line, price over change.
+// Three states, each with its own mark so they read apart at a glance: the
+// featured row sits in the shell's selected fill, the keyboard cursor is a
+// bar down the left edge, and the pointer is a faint tint. A row held in a
+// drag takes the pressed fill and a border.
+Rectangle {
+  id: row
+
+  required property string symbol
+  property var quote: null
+  property var view: null
+  property string status: "loading"
+  property bool featuredRow: false
+  property bool cursor: false
+  property bool retro: false
+  // True while the pointer carries this row; the panel positions it.
+  property bool lifted: false
+  // While it moves, lifted or sliding, the row carries the card's own ground
+  // under its fill, so the rows it passes never show through.
+  property bool moving: false
+  property color ground: "transparent"
+  property bool movable: true
+  property real scrubX: -1
+  // The exchanges' calendars, for the breaks in the day line.
+  property var calendars: null
+  property color foreground: Color.foreground
+  property color dim: Tones.dim(foreground, Color.background)
+  property color dimmer: Tones.dimmer(foreground, Color.background)
+  property color upColor: Color.foreground
+  property color downColor: Color.urgent
+  property string fontFamily: Style.font.family
+
+  signal featureRequested()
+  signal removeRequested()
+  // Ctrl-click, Apple's Control-click: this row's lists.
+  signal listsRequested()
+  // Shift and the wheel over this row, by its angle.
+  signal moveWheeled(real angle)
+  // Drag positions are in the parent's coordinates, since the row itself
+  // moves under the pointer.
+  signal dragStarted(real y)
+  signal dragMoved(real y)
+  signal dragEnded()
+  signal dragCanceled()
+
+  // The day line is the quote's own drawing: it changes when the quote does,
+  // never with the clock, the change mode, or another symbol's quote.
+  readonly property var geometry: quote ? Chart.chartGeometry(quote, calendars) : null
+
+  readonly property bool hovered: mouse.containsMouse
+  readonly property color trend: !view || view.tone === "flat" ? dim : view.tone === "up" ? upColor : downColor
+  // What the feed has done for this symbol, from Figures.freshness. A failed
+  // or overdue refresh is said in words on the name line, so it reads
+  // without hover and without color; an aged quote during trading, or one
+  // kept from an earlier session, says when it is from.
+  property var freshness: null
+  readonly property bool warns: Figures.freshnessWarns(freshness)
+  readonly property string freshnessNote: quote ? Figures.freshnessText(freshness, quote, calendars) : ""
+  // An aged quote is said plainly; only a failed or overdue refresh warns.
+  // The hero says the same on its listing line.
+  readonly property string detail: quote
+    ? (freshnessNote !== "" ? (warns ? "! " : "") + capitalize(freshnessNote) : view.name)
+    : (status === "failed" ? "! No data for this symbol" : warns ? "! No data" : "Loading…")
+
+  // Sentence case, a day's name kept a name and a zone's its capitals:
+  // "As of Fri 16:00", "As of Thu 16:39 BST".
+  function capitalize(text) {
+    var sentence = String(text.charAt(0) + text.slice(1).toLowerCase())
+    return sentence.replace(/\b(mon|tue|wed|thu|fri|sat|sun)\b/, function(day) { return day.charAt(0).toUpperCase() + day.slice(1) })
+      .replace(/(\d\d:\d\d) (\S+)/, function(all, clock, zone) { return clock + " " + zone.toUpperCase() })
+  }
+
+  // Two lines, the way Apple's Stocks sets a row: symbol over name on the
+  // left, price over change on the right, the day line between them.
+  readonly property int sparkWidth: Style.space(72)
+  readonly property int priceWidth: Style.space(96)
+  readonly property int gap: Style.space(10)
+  readonly property int inset: Style.space(4)
+
+  height: Style.space(40)
+  radius: retro ? 0 : Style.cornerRadius
+  // The fill the row's state asks for; the row eases to it, and the
+  // retro stems are weighed against it over the ground, so a featured or
+  // hovered row's two colours still read alike.
+  readonly property color fill: lifted ? Style.pressedFillFor(foreground, Color.accent)
+    : featuredRow ? Style.selectedFillFor(foreground, Color.accent)
+    : hovered ? Style.normalFillFor(foreground, Color.accent) : "transparent"
+  color: fill
+  border.width: lifted ? 1 : 0
+  border.color: Style.normalBorderFor(foreground, Color.accent)
+
+  Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+  // Under the fill, and there at once: the fill fades, the ground must not.
+  Rectangle {
+    objectName: "rowGround"
+    z: -1
+    anchors.fill: parent
+    radius: row.radius
+    visible: row.moving
+    color: row.ground
+  }
+
+  Rectangle {
+    objectName: "cursorBar"
+    visible: row.cursor
+    x: 0
+    y: Style.space(6)
+    width: Style.space(2)
+    height: row.height - Style.space(12)
+    radius: row.retro ? 0 : width / 2
+    color: Style.selectedStateColor(row.foreground, Color.accent)
+  }
+
+  Text {
+    id: symbolText
+    x: row.gap
+    y: row.inset
+    textFormat: Text.PlainText
+    text: row.symbol
+    color: row.foreground
+    font.family: row.fontFamily
+    font.pixelSize: Style.font.body
+    font.bold: true
+  }
+
+  Text {
+    id: detailText
+    x: row.gap
+    anchors.bottom: parent.bottom
+    anchors.bottomMargin: row.inset
+    width: row.width - x - row.priceWidth - row.gap * 2 - row.sparkWidth - row.gap
+    textFormat: Text.PlainText
+    text: row.detail
+    color: row.warns ? row.foreground : row.dim
+    font.family: row.fontFamily
+    font.pixelSize: Style.font.bodySmall
+    font.bold: row.warns
+    elide: Text.ElideRight
+  }
+
+  Item {
+    x: row.width - row.gap - row.priceWidth - row.gap - row.sparkWidth
+    width: row.sparkWidth
+    height: Style.space(22)
+    anchors.verticalCenter: parent.verticalCenter
+
+    // Only the shown look draws: the other rests, drawing nothing and
+    // following no scrub, until `s` shows it and it draws before that frame.
+    Sparkline {
+      objectName: "rowLine"
+      visible: !row.retro
+      anchors.fill: parent
+      geometry: row.retro ? null : row.geometry
+      // The hero's rule at row size: up above the baseline, down below it.
+      up: row.view ? row.view.dayUp : null
+      upColor: row.upColor
+      downColor: row.downColor
+      lineColor: row.dim
+      baselineColor: row.dimmer
+      cursorX: row.retro ? -1 : row.scrubX
+    }
+
+    // The hero histogram at a finer pitch, so a row and the hero are one
+    // drawing at two sizes.
+    PixelChart {
+      objectName: "rowCells"
+      visible: row.retro
+      anchors.fill: parent
+      geometry: row.retro ? row.geometry : null
+      // Unknown direction draws dim, the way the hero's chart does.
+      up: row.view ? row.view.dayUp : null
+      upColor: row.upColor
+      downColor: row.downColor
+      baselineColor: row.dimmer
+      hairlineColor: row.foreground
+      ground: Qt.tint(row.ground, row.fill)
+      pixel: 2
+      gap: 1
+      scrubX: row.retro ? row.scrubX : -1
+    }
+  }
+
+  Text {
+    x: row.width - row.gap - row.priceWidth
+    y: row.inset
+    width: row.priceWidth
+    horizontalAlignment: Text.AlignRight
+    textFormat: Text.PlainText
+    text: row.view ? row.view.priceText : ""
+    color: row.foreground
+    font.family: row.fontFamily
+    font.pixelSize: Style.font.body
+  }
+
+  Text {
+    x: row.width - row.gap - row.priceWidth
+    width: row.priceWidth
+    anchors.bottom: parent.bottom
+    anchors.bottomMargin: row.inset
+    horizontalAlignment: Text.AlignRight
+    textFormat: Text.PlainText
+    text: row.view ? Format.lookSigns(row.view.changeLine, row.retro) : ""
+    color: row.trend
+    font.family: row.fontFamily
+    font.pixelSize: Style.font.body
+    font.bold: true
+  }
+
+  // Press and move a few pixels to lift the row; a plain click features it.
+  // The list never steals the press, so the wheel is how it scrolls.
+  MouseArea {
+    id: mouse
+    anchors.fill: parent
+    hoverEnabled: true
+    preventStealing: true
+    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+    cursorShape: row.lifted ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+
+    property real pressY: -1
+    property bool dragged: false
+
+    onPressed: function(event) {
+      pressY = event.button === Qt.LeftButton ? event.y : -1
+      dragged = false
+    }
+    onPositionChanged: function(event) {
+      if (!pressed || pressY < 0) return
+      if (!dragged) {
+        if (Math.abs(event.y - pressY) < 6) return
+        dragged = true
+        row.dragStarted(row.mapToItem(row.parent, event.x, pressY).y)
+      }
+      row.dragMoved(row.mapToItem(row.parent, event.x, event.y).y)
+    }
+    onReleased: {
+      if (dragged) row.dragEnded()
+    }
+    onCanceled: {
+      if (dragged) row.dragCanceled()
+    }
+    onClicked: function(event) {
+      if (dragged) return
+      if (event.button === Qt.RightButton || event.button === Qt.MiddleButton) row.removeRequested()
+      else if (event.modifiers & Qt.ControlModifier) row.listsRequested()
+      else if (event.button === Qt.LeftButton) row.featureRequested()
+    }
+    // A double-click is one click: its second would land on whatever took
+    // the first one's place, a row sliding up or the rows back from search.
+    onDoubleClicked: {}
+    // The wheel scrolls the list; with Shift held it moves this row.
+    onWheel: function(wheel) {
+      if (wheel.modifiers & Qt.ShiftModifier) {
+        if (row.movable) row.moveWheeled(wheel.angleDelta.y)
+        wheel.accepted = true
+      }
+      else wheel.accepted = false
+    }
+  }
+}

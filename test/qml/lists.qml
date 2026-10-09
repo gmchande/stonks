@@ -1,0 +1,1330 @@
+import QtQuick
+import QtTest
+import Quickshell
+import Quickshell.Io
+import "plugin" as Stonks
+
+// Named watchlists through the real Service and App with real keys. The data
+// file starts as the version-1 fixture (AAPL, MSFT, NVDA; the fake curl
+// answers all three) and is read back with cat, never through a FileView.
+ShellRoot {
+  id: harness
+
+  property int failures: 0
+  property var fileRead: null
+  readonly property string dataPath: Quickshell.env("HOME") + "/.config/omarchy/grvc.stonks.json"
+
+  function check(label, ok, detail) {
+    console.log((ok ? "PASS " : "FAIL ") + label + (!ok && detail !== undefined ? " — " + detail : ""))
+    if (!ok) failures++
+  }
+
+  function same(got, want) { return (got || []).join(",") === want.join(",") }
+
+  // The fake curl counts its calls per symbol. A fresh view per read: a
+  // FileView that has loaded once returns its old text straight after reload().
+  function calls(symbol) {
+    var view = Qt.createQmlObject('import Quickshell.Io; FileView { blockLoading: true; printErrors: false }', harness)
+    view.path = Quickshell.env("STONKS_FAKE_STATE") + "/" + symbol + ".calls"
+    var n = Number(String(view.text()).trim() || "0")
+    view.destroy()
+    return n
+  }
+
+  function readFile() {
+    harness.fileRead = null
+    catProc.running = true
+  }
+
+  function find(item, name) {
+    if (!item) return null
+    if (item.objectName === name) return item
+    for (var i = 0; i < item.children.length; i++) {
+      var found = find(item.children[i], name)
+      if (found) return found
+    }
+    return null
+  }
+
+  function findAll(item, name, into) {
+    var out = into || []
+    if (!item) return out
+    if (item.objectName === name) out.push(item)
+    for (var i = 0; i < item.children.length; i++) findAll(item.children[i], name, out)
+    return out
+  }
+
+  function finish() {
+    console.log("LISTS DONE")
+    done.exitCode = failures ? 1 : 0
+    done.start()
+  }
+
+  Stonks.Service { id: service }
+  Stonks.App { id: app; service: service }
+
+  Component { id: serviceAgain; Stonks.Service {} }
+
+  Process {
+    id: catProc
+    command: ["cat", harness.dataPath]
+    stdout: StdioCollector {
+      id: catOut
+      waitForEnd: true
+      onStreamFinished: {
+        try { harness.fileRead = JSON.parse(String(text || "").trim()) } catch (e) { harness.fileRead = {} }
+      }
+    }
+  }
+
+  // Hashes of saved frames, path to sha1.
+  Process {
+    id: hashProc
+    property var sums: null
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var out = {}
+        String(text || "").trim().split("\n").forEach(function(line) {
+          // sha1sum prints the hash, two spaces, then the path as given.
+          out[line.slice(42)] = line.slice(0, 40)
+        })
+        hashProc.sums = out
+      }
+    }
+  }
+
+  TestCase {
+    name: "NamedWatchlists"
+    when: service.pluginsReady
+
+    // Waits up to ms for fn to hold and returns whether it does, so the
+    // check that reads it is the one that fails.
+    function within(ms, fn) {
+      for (var t = 0; t < ms && !fn(); t += 20) wait(20)
+      return fn()
+    }
+
+    function typeText(text) {
+      for (var i = 0; i < text.length; i++) keyClick(text.charAt(i))
+    }
+
+    // The body as drawn now, into out/render/lists-flow-<name>.png.
+    function grab(name) {
+      var saved = false
+      var path = Quickshell.env("STONKS_LISTS_OUT") + "/lists-flow-" + name + ".png"
+      app.testBody.grabToImage(function(result) { saved = result.saveToFile(path) })
+      tryVerify(function() { return saved }, 3000, "grab " + name)
+    }
+
+    function center(item) { return item.mapToItem(app.testBody, item.width / 2, item.height / 2) }
+
+    function test_list_flows() {
+      tryVerify(function() {
+        return service.quotes.AAPL && service.quotes.MSFT && service.quotes.NVDA
+          && service.testFeed.firstRun.length + service.testFeed.refreshRun.length === 0
+      }, 10000)
+
+      harness.readFile()
+      tryVerify(function() { return harness.fileRead !== null }, 3000)
+      harness.check("a version-1 file loads as All with no lists and is not rewritten",
+        service.listName === "" && service.lists.length === 1 && service.lists[0].label === "All"
+          && harness.same(service.symbols, ["AAPL", "MSFT", "NVDA"])
+          && harness.fileRead.lists === undefined)
+
+      app.open("{}")
+      wait(200)
+      var body = app.testBody
+      var watchlist = body.watchlist
+      var keys = app.testKeyCatcher
+      keys.forceActiveFocus()
+
+      keyClick(Qt.Key_W)
+      wait(50)
+      var menu = body.children.filter(function(child) { return child.objectName === "listMenu" })[0]
+      harness.check("w opens the list menu with the cursor on the current list",
+        body.listMenuOpen && menu.visible && menu.cursor === 0 && menu.current === "")
+      keyClick(Qt.Key_Down)
+      keyClick(Qt.Key_Return)
+      wait(50)
+      harness.check("Enter on New list… turns it into a name field", menu.naming)
+      typeText("Energy")
+      keyClick(Qt.Key_Return)
+      wait(100)
+      harness.check("a new list is made, current, empty, and search opens to fill it",
+        service.listName === "Energy" && service.symbols.length === 0
+          && !body.listMenuOpen && body.adding
+          && body.search.placeholder === "Add symbols to Energy…",
+        service.listName + "|" + service.symbols + "|" + body.listMenuOpen + "|" + body.adding + "|" + body.search.placeholder)
+
+      // An add whose row joins in view, fresh or already quoted in All, is
+      // featured once its join has finished, and its chart draws in. Found
+      // in the review of the untangle: it was featured mid-fade.
+      var addMotions = []
+      var watchAddDraw = function() { if (body.motion.reveal === 0) addMotions.push("draw " + service.featuredSymbol) }
+      body.motion.revealChanged.connect(watchAddDraw)
+      var nvdaCalls = harness.calls("NVDA")
+      body.search.picked("NVDA")
+      wait(400)
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_A)
+      wait(50)
+      body.search.picked("AAPL")
+      wait(400)
+      body.motion.revealChanged.disconnect(watchAddDraw)
+      harness.check("an add joining in view draws its chart in once its join is done, each time",
+        addMotions.join(",") === "draw NVDA,draw AAPL", addMotions.join(","))
+      harness.readFile()
+      tryVerify(function() { return harness.fileRead !== null }, 3000)
+      harness.check("adding on a list puts the symbol in it without a second copy in All, and writes it featured",
+        harness.same(service.symbols, ["NVDA", "AAPL"]) && service.lists[1].count === 2 && service.lists[0].count === 3
+          && harness.same(harness.fileRead.symbols, ["AAPL", "MSFT", "NVDA"]) && harness.fileRead.featured === "AAPL",
+        service.symbols + "|" + service.lists[1].count + "|" + JSON.stringify(harness.fileRead))
+      harness.check("a symbol already in All is not fetched again for a list",
+        harness.calls("NVDA") === nvdaCalls)
+
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_Comma)
+      wait(100)
+      harness.check(", steps back to All", service.listName === "" && harness.same(service.symbols, ["AAPL", "MSFT", "NVDA"]))
+
+      // Only the current list's rows, in the look on screen, are drawn: a
+      // row outside the list and the hidden look rest, deriving and drawing
+      // nothing, and one shown again draws before the first frame that shows
+      // it. A switch still rebuilds no row. Found in the code-quality
+      // review: every row in All, in both looks, repainted with every quote.
+      tryVerify(function() { return service.testFeed.firstRun.length + service.testFeed.refreshRun.length === 0 }, 5000)
+      var rowsBefore = service.library.map(function(s) { return watchlist.rowItem(s) })
+      var sameRows = function() {
+        return service.library.every(function(s, i) { return watchlist.rowItem(s) === rowsBefore[i] })
+      }
+      // Paints per symbol and look, every layer of each.
+      var paints = {}
+      var painted = function(symbol, look) { return paints[symbol + "|" + look] || 0 }
+      var hookPaints = function(item, key) {
+        if (typeof item.requestPaint === "function")
+          item.painted.connect(function() { paints[key] = (paints[key] || 0) + 1 })
+        for (var i = 0; i < item.children.length; i++) hookPaints(item.children[i], key)
+      }
+      service.library.forEach(function(s) {
+        hookPaints(harness.find(watchlist.rowItem(s), "rowLine"), s + "|smooth")
+        hookPaints(harness.find(watchlist.rowItem(s), "rowCells"), s + "|retro")
+      })
+      var total = function() { var n = 0; for (var k in paints) n += paints[k]; return n }
+      // What the next frame shows of `item`, saved; its path.
+      var shoot = function(item, name) {
+        var saved = false
+        var path = Quickshell.env("STONKS_LISTS_OUT") + "/lists-first-frame-" + name + ".png"
+        item.grabToImage(function(result) { saved = result.saveToFile(path) })
+        tryVerify(function() { return saved }, 3000, "grab " + name)
+        return path
+      }
+      var sums = function(paths) {
+        hashProc.sums = null
+        hashProc.command = ["sha1sum"].concat(paths)
+        hashProc.running = true
+        tryVerify(function() { return hashProc.sums !== null }, 3000, "sha1sum answered")
+        return paths.map(function(path) { return hashProc.sums[path] })
+      }
+      // A symbol's day turned upside down, so an old line reads apart.
+      var turnLine = function(symbol) {
+        var next = Object.assign({}, service.testFeed.quotes)
+        var quote = next[symbol]
+        var prices = quote.points.map(function(point) { return point.p })
+        var mid = (Math.max.apply(null, prices) + Math.min.apply(null, prices)) / 2
+        next[symbol] = Object.assign({}, quote, {
+          points: quote.points.map(function(point) { return { t: point.t, p: 2 * mid - point.p } })
+        })
+        service.testFeed.quotes = next
+      }
+      var feedQuote = function(symbol, price) {
+        var next = Object.assign({}, service.testFeed.quotes)
+        next[symbol] = Object.assign({}, next[symbol], { price: price })
+        service.testFeed.quotes = next
+      }
+      var msft = watchlist.rowItem("MSFT")
+      var rowsShot = watchlist
+      // The list's first frame after `reveal`, as drawn, must be the frame it
+      // settles on, and not `stalePath`, the lines it last showed.
+      var firstIsNew = function(name, stalePath, reveal) {
+        reveal()
+        var first = shoot(rowsShot, name + "-first")
+        wait(300)
+        var settled = shoot(rowsShot, name + "-settled")
+        var hashes = sums([stalePath, first, settled])
+        return { ok: hashes[1] === hashes[2] && hashes[1] !== hashes[0], settled: settled,
+          detail: hashes.map(function(h) { return String(h).slice(0, 8) }).join(" ") }
+      }
+      var quotesBefore = service.testFeed.quotes
+      var smoothOld = shoot(rowsShot, "smooth-old")
+      keyClick(Qt.Key_S)
+      wait(100)
+      var retroOld = shoot(rowsShot, "retro-old")
+      keyClick(Qt.Key_S)
+      wait(100)
+      keyClick(Qt.Key_Period)
+      wait(100)
+      paints = {}
+      turnLine("MSFT")
+      feedQuote("NVDA", 180.25)
+      wait(100)
+      harness.check("off the list and in the hidden look, a changed quote derives and draws nothing",
+        service.listName === "Energy" && painted("MSFT", "smooth") + painted("MSFT", "retro") === 0
+          && msft.view === null && msft.geometry === null
+          && painted("NVDA", "smooth") > 0 && painted("NVDA", "retro") === 0,
+        JSON.stringify(paints) + "|" + (msft.view === null))
+      paints = {}
+      var switched = firstIsNew("switch", smoothOld, function() { keyClick(Qt.Key_Comma) })
+      harness.check("a list switch rebuilds no row, and the row it shows has its new line in its first frame",
+        service.listName === "" && sameRows() && switched.ok
+          && painted("AAPL", "smooth") + painted("NVDA", "smooth") === 0,
+        sameRows() + "|" + switched.detail + "|" + JSON.stringify(paints))
+      var toRetro = firstIsNew("retro", retroOld, function() { keyClick(Qt.Key_S) })
+      turnLine("MSFT")
+      var toSmooth = firstIsNew("smooth", switched.settled, function() { keyClick(Qt.Key_S) })
+      harness.check("s shows the row's current line in its first frame, both ways",
+        toRetro.ok && toSmooth.ok && !service.retro, toRetro.detail + " / " + toSmooth.detail)
+      // Turned back to the line the switch showed; an open refetches every
+      // quote, so the frame to match is that line's, not a later one.
+      app.close()
+      turnLine("MSFT")
+      app.open("{}")
+      var reopenFirst = shoot(rowsShot, "reopen-first")
+      keys.forceActiveFocus()
+      var reopenHashes = sums([toSmooth.settled, reopenFirst, switched.settled])
+      harness.check("a window reopened after the line changed shows the new line in its first frame",
+        reopenHashes[1] === reopenHashes[2] && reopenHashes[1] !== reopenHashes[0],
+        reopenHashes.map(function(h) { return String(h).slice(0, 8) }).join(" "))
+      service.testFeed.quotes = quotesBefore
+      wait(100)
+      paints = {}
+      wait(1100)
+      harness.check("a clock tick redraws no line", total() === 0, JSON.stringify(paints))
+      keyClick(Qt.Key_C)
+      wait(100)
+      harness.check("the change mode redraws no line", service.changeMode === "abs" && total() === 0,
+        service.changeMode + "|" + JSON.stringify(paints))
+      keyClick(Qt.Key_C)
+      keyClick(Qt.Key_C)
+      wait(50)
+      keyClick(Qt.Key_Period)
+      wait(100)
+      harness.check(". steps forward to Energy", service.listName === "Energy",
+        service.listName + "|" + JSON.stringify(service.lists))
+
+      // A switch with the pointer resting on the rows still lays out the new
+      // list, which a resort under the pointer would hold back.
+      var row = watchlist.rowItem("NVDA")
+      mouseMove(row, row.width / 2, row.height / 2)
+      wait(50)
+      keyClick(Qt.Key_Comma)
+      wait(100)
+      harness.check("a list switch under the pointer shows the new list's rows",
+        watchlist.sortHeld && harness.same(watchlist.displayedSymbols, service.shown)
+          && watchlist.contentY === 0,
+        watchlist.sortHeld + "|" + watchlist.displayedSymbols + "|" + service.shown + "|" + watchlist.contentY)
+      mouseMove(body, body.width / 2, 10)
+      keyClick(Qt.Key_Period)
+      wait(100)
+
+      keyClick(Qt.Key_O)
+      wait(50)
+      harness.check("each list keeps its own order",
+        service.order === "symbol" && service.dataSettings.order === "manual")
+      // The order as the control names it, and as the service keeps it: the
+      // arrow says which way the values run down the list.
+      var label = harness.find(body, "orderLabel")
+      var ring = [label.text]
+      for (var i = 0; i < 4; i++) { keyClick(Qt.Key_O); ring.push(service.order, label.text) }
+      harness.check("o runs the ring back to manual, names each order, and leaves the change mode alone",
+        harness.same(ring, ["↑  SYMBOL", "name", "↑  NAME", "pct", "↓  % CHANGE", "abs", "↓  $ CHANGE",
+          "manual", "⇅  MANUAL"]) && service.changeMode === "pct",
+        ring + "|" + service.changeMode)
+
+      // Shift+O and a Shift-click on the order word run a sorted order the
+      // other way, kept in the list's own entry in the file; manual has no
+      // direction, and o starts the next order in its own.
+      keyClick("O")
+      wait(50)
+      var manualStays = !service.reversed && label.text === "⇅  MANUAL" && service.order === "manual"
+      keyClick(Qt.Key_O)
+      wait(50)
+      var ahead = watchlist.displayedSymbols.slice()
+      keyClick("O")
+      wait(50)
+      var byKey = [service.reversed, label.text, watchlist.displayedSymbols.join(",")]
+      harness.readFile()
+      tryVerify(function() { return harness.fileRead !== null }, 3000)
+      var energyEntry = (harness.fileRead.lists || []).filter(function(l) { return l.name === "Energy" })[0] || {}
+      mouseClick(label, label.width / 2, label.height / 2, Qt.LeftButton, Qt.ShiftModifier)
+      wait(50)
+      var byClick = [service.reversed, label.text, watchlist.displayedSymbols.join(",")]
+      keyClick("O")
+      keyClick(Qt.Key_O)
+      wait(50)
+      var nextOrder = [service.order, service.reversed, label.text]
+      for (var back = 0; back < 3; back++) keyClick(Qt.Key_O)
+      wait(50)
+      harness.check("Shift+O and a Shift-click on the order word reverse a sorted order, kept for the list alone; o and manual have no reversal",
+        manualStays && ahead.length === 2
+          && harness.same(byKey, [true, "↓  SYMBOL", ahead.slice().reverse().join(",")])
+          && energyEntry.order === "symbol" && energyEntry.reversed === true && harness.fileRead.reversed === false
+          && harness.same(byClick, [false, "↑  SYMBOL", ahead.join(",")])
+          && harness.same(nextOrder, ["name", false, "↑  NAME"]) && service.order === "manual",
+        [manualStays, ahead, byKey, JSON.stringify(energyEntry), harness.fileRead.reversed, byClick, nextOrder, service.order].join(" | "))
+
+      watchlist.cursorSymbol = "AAPL"
+      keyClick(Qt.Key_X)
+      wait(100)
+      harness.check("x on a named list removes that membership only, and the hero stays",
+        harness.same(service.symbols, ["NVDA"]) && service.library.indexOf("AAPL") >= 0
+          && service.featuredSymbol === "AAPL")
+      harness.check("with the hero outside the list, the cursor sits on the first row",
+        watchlist.cursorRow === "NVDA")
+      keyClick(Qt.Key_X)
+      wait(100)
+      var empty = body.children.filter(function(child) { return child.objectName === "emptyList" })[0]
+      harness.check("a named list may empty, and says so, with no refusal",
+        service.symbols.length === 0 && body.note === "Removed NVDA from Energy · u to undo" && empty.visible
+          && empty.text === "No symbols in Energy yet"
+          && body.wholeListHeight === watchlist.rowHeight,
+        service.symbols.length + "|" + body.note + "|" + empty.visible + "|" + empty.text + "|" + body.wholeListHeight + "|" + watchlist.rowHeight)
+
+      service.addSymbol("MSFT")
+      wait(50)
+      keyClick(Qt.Key_Comma)
+      wait(100)
+      watchlist.cursorSymbol = "MSFT"
+      keyClick(Qt.Key_X)
+      wait(100)
+      var energy = service.dataSettings.lists[0]
+      harness.check("x on All removes the symbol from every list",
+        harness.same(service.library, ["AAPL", "NVDA"]) && harness.same(energy.symbols, []))
+      // A removal is instant and needs no confirm, so it can be taken back:
+      // the footer names what went, and u puts it back where it was.
+      harness.check("the footer names the removed symbol and offers undo",
+        body.note === "Removed MSFT · u to undo", body.note)
+      keyClick(Qt.Key_U)
+      // It used to slide down from above the list, over every row between.
+      // Read on its first frame part way into the fade.
+      var back = watchlist.rowItem("MSFT")
+      var firstFrame = null
+      var readFade = function() {
+        if (firstFrame === null && back.opacity > 0 && back.opacity < 1)
+          firstFrame = { visible: back.visible, y: back.y, opacity: back.opacity }
+      }
+      back.opacityChanged.connect(readFade)
+      within(2000, function() { return firstFrame !== null })
+      back.opacityChanged.disconnect(readFade)
+      harness.check("the returned row starts at its own place and fades in",
+        !!firstFrame && firstFrame.visible && firstFrame.y === watchlist.rowPitch,
+        firstFrame ? JSON.stringify(firstFrame) : "no frame part way into a fade")
+      wait(80)
+      harness.check("u puts it back in its place in All and in every list it was in",
+        harness.same(service.library, ["AAPL", "MSFT", "NVDA"])
+          && harness.same(service.dataSettings.lists[0].symbols, ["MSFT"]) && body.note === "",
+        service.library + "|" + service.dataSettings.lists[0].symbols + "|" + body.note)
+      wait(200)
+      // A row that passes others rides on top, on the window's own ground,
+      // so their text never shows through it.
+      // Read on a frame part way along the slide.
+      var climber = watchlist.rowItem("NVDA")
+      var riding = null
+      var readRide = function() {
+        if (riding !== null || climber.shift === 0 || Math.abs(climber.shift) >= 2 * watchlist.rowPitch) return
+        var ground = harness.find(climber, "rowGround")
+        riding = {
+          over: climber.z > watchlist.rowItem("AAPL").z && climber.z > watchlist.rowItem("MSFT").z,
+          ground: ground !== null && ground.visible && ground.color.a === 1,
+          detail: climber.z + "|" + watchlist.rowItem("AAPL").z + "|" + (ground ? ground.visible + "|" + ground.color : "no ground")
+        }
+      }
+      climber.shiftChanged.connect(readRide)
+      service.setManualOrder(["NVDA", "AAPL", "MSFT"])
+      within(2000, function() { return riding !== null })
+      climber.shiftChanged.disconnect(readRide)
+      harness.check("a row passing two others rides over them on the window's ground",
+        !!riding && riding.over && riding.ground, riding ? riding.detail : "no frame part way along a slide")
+      wait(200)
+      harness.check("once still, no row carries a ground",
+        !harness.find(climber, "rowGround").visible && climber.z === 0)
+      service.setManualOrder(["AAPL", "MSFT", "NVDA"])
+      wait(200)
+      watchlist.cursorSymbol = "MSFT"
+      keyClick(Qt.Key_X)
+      wait(100)
+
+      keyClick(Qt.Key_W)
+      wait(50)
+      keyClick(Qt.Key_Down)
+      keyClick(Qt.Key_Down)
+      keyClick(Qt.Key_Return)
+      wait(50)
+      keyClick(Qt.Key_Return)
+      harness.check("an empty name is refused, and the menu asks for one",
+        body.listMenuOpen && menu.naming && menu.problem === "Name the list", menu.problem)
+      typeText(" energy ")
+      keyClick(Qt.Key_Return)
+      wait(50)
+      harness.check("a taken name is refused whatever its case and padding, and the menu stays open",
+        body.listMenuOpen && menu.naming && menu.problem === "energy already exists"
+          && service.dataSettings.lists.length === 1)
+      keyClick(Qt.Key_Escape)
+      wait(20)
+      harness.check("Escape leaves the name field for the menu", body.listMenuOpen && !menu.naming && menu.activeFocus,
+        body.listMenuOpen + "|" + menu.naming + "|" + menu.activeFocus + "|" + app.testKeyCatcher.activeFocus)
+      keyClick(Qt.Key_2)
+      wait(100)
+      harness.check("a number key in the menu picks that list",
+        !body.listMenuOpen && service.listName === "Energy",
+        body.listMenuOpen + "|" + service.listName)
+
+      // Found live: once the menu closed, the window took no keys at all.
+      keyClick(Qt.Key_Period)
+      wait(100)
+      harness.check("keys work again after a list is picked from the menu", service.listName === "",
+        service.listName)
+      var beforeEscape = service.listName
+      keyClick(Qt.Key_W)
+      wait(50)
+      keyClick(Qt.Key_Escape)
+      wait(100)
+      keyClick(Qt.Key_Comma)
+      wait(100)
+      harness.check("keys work again after Escape closes the menu",
+        !body.listMenuOpen && service.listName === "Energy", beforeEscape + " -> " + service.listName)
+
+      harness.readFile()
+      tryVerify(function() { return harness.fileRead !== null }, 3000)
+      harness.check("the file keeps All in the version-1 keys and adds the lists",
+        harness.same(harness.fileRead.symbols, ["AAPL", "NVDA"]) && harness.fileRead.list === "Energy"
+          && harness.fileRead.lists.length === 1 && harness.fileRead.lists[0].name === "Energy",
+        JSON.stringify(harness.fileRead))
+
+      var again = serviceAgain.createObject(harness)
+      tryVerify(function() { return again.pluginsReady }, 5000)
+      harness.check("a restarted service comes back on the same list and library",
+        again.listName === "Energy" && again.lists.length === 2
+          && harness.same(again.library, ["AAPL", "NVDA"]) && again.symbols.length === 0,
+        again.listName + "|" + again.lists.length + "|" + again.library + "|" + again.symbols)
+      again.destroy()
+
+      // The pointer: the same flows by hand, with an image at each state.
+      var body2 = app.testBody
+      var wl = body2.watchlist
+      mouseMove(body2, 5, body2.height - 2)
+      wait(50)
+      grab("empty")
+      var control = harness.find(body2, "listControl")
+      var at = center(control)
+      mouseMove(body2, at.x, at.y)
+      wait(260)
+      harness.check("the list name takes the hover fill", !Qt.colorEqual(control.color, "transparent"))
+      mouseClick(body2, at.x, at.y)
+      wait(100)
+      harness.check("a click on the list name opens the menu", body2.listMenuOpen)
+      grab("menu")
+      var choices = harness.findAll(body2, "listChoice")
+      var allAt = center(choices[0])
+      mouseMove(body2, allAt.x, allAt.y)
+      wait(100)
+      grab("menu-hover")
+      harness.check("hovering a list leaves the keyboard's choice where it was",
+        menu.cursor === 1)
+      var allTint = choices[0].children[0].color
+      harness.check("the list under the pointer takes a tint", !Qt.colorEqual(allTint, "transparent"), String(allTint))
+      // A tint alone did not show on the owner's theme against the menu's
+      // opaque ground; the pointer's row is also outlined, as a lifted row is.
+      harness.check("the list under the pointer is outlined, and the keyboard's row is not",
+        choices[0].children[0].border.width === 1 && choices[1].children[0].border.width === 0)
+      mouseClick(body2, allAt.x, allAt.y)
+      wait(150)
+      harness.check("a click on a list switches to it and closes the menu",
+        service.listName === "" && !body2.listMenuOpen)
+      mouseMove(body2, 5, body2.height - 2)
+
+      mouseClick(body2, at.x, at.y)
+      wait(100)
+      var newRow = harness.find(body2, "newListRow")
+      var newAt = center(newRow)
+      mouseClick(body2, newAt.x, newAt.y)
+      wait(100)
+      harness.check("a click on New list… opens the name field", menu.naming)
+      typeText(" Wins ")
+      wait(50)
+      grab("naming")
+      keyClick(Qt.Key_Return)
+      wait(150)
+      grab("search-empty-list")
+      keyClick(Qt.Key_Escape)
+      wait(100)
+      harness.check("Escape leaves search on the new, empty list, its name trimmed",
+        !body2.adding && service.listName === "Wins" && service.symbols.length === 0)
+
+      // A click off the open menu closes it and does nothing else; the
+      // pointer resting there does nothing either (found live: it scrubbed).
+      mouseClick(body2, at.x, at.y)
+      wait(100)
+      var chart = body2.chartItem
+      var chartAt = center(chart)
+      mouseMove(body2, chartAt.x, chartAt.y)
+      wait(100)
+      harness.check("the pointer over the chart does not scrub while the menu is open",
+        body2.listMenuOpen && body2.scrubT === 0)
+      var rangeBefore = app.range
+      mouseClick(body2, chartAt.x, chartAt.y)
+      wait(100)
+      harness.check("a click off the menu closes it and reaches nothing under it",
+        !body2.listMenuOpen && app.range === rangeBefore && service.listName === "Wins")
+      mouseMove(body2, 5, body2.height - 2)
+      wait(50)
+
+      mouseClick(body2, at.x, at.y)
+      wait(100)
+      mouseClick(body2, at.x, at.y)
+      wait(100)
+      harness.check("a second click on the list name closes the menu", !body2.listMenuOpen)
+
+      mouseClick(body2, at.x, at.y)
+      wait(100)
+      // Wins pushed "New list…" down a row.
+      newAt = center(harness.find(body2, "newListRow"))
+      mouseClick(body2, newAt.x, newAt.y)
+      wait(100)
+      typeText("all")
+      keyClick(Qt.Key_Return)
+      wait(100)
+      harness.check("All is refused as a name, and the menu says why",
+        body2.listMenuOpen && menu.problem === "All is the whole library",
+        body2.listMenuOpen + "|" + menu.naming + "|" + menu.problem + "|" + service.listName + "|" + JSON.stringify(service.lists))
+      grab("refused")
+      keyClick(Qt.Key_Escape)
+      keyClick(Qt.Key_Escape)
+      wait(100)
+      harness.check("Escape twice leaves the name field, then the menu", !body2.listMenuOpen)
+
+      service.addSymbol("AAPL")
+      service.addSymbol("NVDA")
+      wait(150)
+      var nvdaRow = wl.rowItem("NVDA")
+      mouseClick(nvdaRow, nvdaRow.width / 2, nvdaRow.height / 2)
+      wait(150)
+      harness.check("a click on a row of a named list features it", service.featuredSymbol === "NVDA")
+      grab("named")
+      var aaplRow = wl.rowItem("AAPL")
+      mouseClick(aaplRow, aaplRow.width / 2, aaplRow.height / 2, Qt.RightButton)
+      wait(150)
+      harness.check("right-clicking a row on a named list takes it out of that list only",
+        harness.same(service.symbols, ["NVDA"]) && service.library.indexOf("AAPL") >= 0)
+
+      // Manage lists by keyboard: Energy and Wins, Wins current.
+      var names = function() { return service.dataSettings.lists.map(function(l) { return l.name }) }
+      var manage = harness.find(body2, "manageLists")
+      keys.forceActiveFocus()
+      keyClick("W")
+      wait(100)
+      harness.check("W opens Manage lists in the rows' place, on the first named list",
+        body2.managingLists && manage.visible && manage.activeFocus && manage.cursor === 1
+          && !wl.visible && !harness.find(body2, "footer").visible,
+        body2.managingLists + "|" + manage.activeFocus + "|" + manage.cursor)
+      grab("manage")
+      keyClick(Qt.Key_Return)
+      wait(50)
+      typeText("wins")
+      keyClick(Qt.Key_Return)
+      wait(50)
+      harness.check("a rename to a taken name is refused under the field",
+        manage.renaming && manage.problem === "wins already exists" && harness.same(names(), ["Energy", "Wins"]),
+        manage.renaming + "|" + manage.problem + "|" + names())
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      harness.check("Escape leaves the field and keeps the name",
+        !manage.renaming && body2.managingLists && manage.activeFocus && harness.same(names(), ["Energy", "Wins"]))
+      keyClick(Qt.Key_Return)
+      wait(50)
+      typeText("ENERGY")
+      keyClick(Qt.Key_Return)
+      wait(100)
+      harness.check("a change of case alone renames",
+        !manage.renaming && harness.same(names(), ["ENERGY", "Wins"]), names())
+      keyClick("J")
+      wait(100)
+      harness.check("J moves the list down, and the cursor goes with it",
+        harness.same(names(), ["Wins", "ENERGY"]) && manage.cursor === 2, names() + "|" + manage.cursor)
+      keyClick(Qt.Key_X)
+      wait(50)
+      harness.check("x asks before deleting", manage.confirming && harness.same(names(), ["Wins", "ENERGY"]))
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      harness.check("Escape keeps the list and the view",
+        !manage.confirming && body2.managingLists && harness.same(names(), ["Wins", "ENERGY"]))
+      keyClick(Qt.Key_K)
+      keyClick(Qt.Key_X)
+      wait(50)
+      grab("manage-confirm")
+      keyClick(Qt.Key_Return)
+      wait(100)
+      harness.check("deleting the current list switches to All and leaves All untouched",
+        harness.same(names(), ["ENERGY"]) && service.listName === ""
+          && harness.same(service.library, ["AAPL", "NVDA"]),
+        names() + "|" + service.listName + "|" + service.library)
+      keyClick(Qt.Key_K)
+      keyClick(Qt.Key_Return)
+      keyClick("J")
+      keyClick(Qt.Key_X)
+      wait(50)
+      harness.check("All cannot be renamed, moved, or deleted",
+        manage.cursor === 0 && !manage.renaming && !manage.confirming && harness.same(names(), ["ENERGY"]))
+      keyClick(Qt.Key_Escape)
+      wait(100)
+      keyClick(Qt.Key_Period)
+      wait(100)
+      harness.check("Escape closes Manage lists and the keys come back",
+        !body2.managingLists && wl.visible && service.listName === "ENERGY", service.listName)
+      keyClick(Qt.Key_Comma)
+      wait(100)
+
+      // Manage lists by hand, from the menu.
+      service.createList("Wins")
+      wait(100)
+      mouseClick(body2, at.x, at.y)
+      wait(100)
+      var manageAt = center(harness.find(body2, "manageListsRow"))
+      mouseClick(body2, manageAt.x, manageAt.y)
+      wait(100)
+      harness.check("Manage lists… in the menu opens the view", body2.managingLists && !body2.listMenuOpen)
+      var manageRows = harness.findAll(body2, "manageRow")
+      var winsRow = manageRows[2]
+      var winsAt = center(winsRow)
+      mouseMove(body2, winsAt.x, winsAt.y)
+      wait(50)
+      var upAt = center(harness.find(winsRow, "moveUp"))
+      mouseClick(body2, upAt.x, upAt.y)
+      wait(100)
+      harness.check("↑ on a hovered row moves that list up", harness.same(names(), ["Wins", "ENERGY"]), names())
+      var energyRow = harness.findAll(body2, "manageRow")[2]
+      var energyAt = center(energyRow)
+      mouseMove(body2, energyAt.x, energyAt.y)
+      wait(50)
+      var renameAt = center(harness.find(energyRow, "renameAction"))
+      mouseClick(body2, renameAt.x, renameAt.y)
+      wait(100)
+      typeText("Power")
+      keyClick(Qt.Key_Return)
+      wait(100)
+      harness.check("RENAME opens the field on that row, and Enter saves",
+        harness.same(names(), ["Wins", "Power"]) && !manage.renaming, names())
+      var winsRowNow = harness.findAll(body2, "manageRow")[1]
+      var winsNowAt = center(winsRowNow)
+      mouseMove(body2, winsNowAt.x, winsNowAt.y)
+      wait(50)
+      var deleteAt = center(harness.find(winsRowNow, "deleteAction"))
+      mouseClick(body2, deleteAt.x, deleteAt.y)
+      wait(50)
+      var keepAt = center(harness.find(winsRowNow, "keepList"))
+      mouseClick(body2, keepAt.x, keepAt.y)
+      wait(50)
+      harness.check("DELETE asks, and KEEP keeps", !manage.confirming && harness.same(names(), ["Wins", "Power"]))
+      mouseMove(body2, winsNowAt.x, winsNowAt.y)
+      wait(50)
+      mouseClick(body2, deleteAt.x, deleteAt.y)
+      wait(50)
+      var confirmAt = center(harness.find(winsRowNow, "confirmDelete"))
+      mouseClick(body2, confirmAt.x, confirmAt.y)
+      wait(100)
+      harness.check("the confirmed DELETE removes the current list and goes to All",
+        harness.same(names(), ["Power"]) && service.listName === "", names() + "|" + service.listName)
+      var doneAt = center(harness.find(body2, "manageDone"))
+      mouseClick(body2, doneAt.x, doneAt.y)
+      wait(100)
+      harness.check("DONE closes Manage lists", !body2.managingLists && wl.visible)
+
+      // A symbol's lists: m on the cursor row, then Ctrl-click.
+      var checklist = harness.find(body2, "symbolLists")
+      var power = function() { return service.dataSettings.lists[0].symbols }
+      keys.forceActiveFocus()
+      wl.cursorSymbol = "NVDA"
+      keyClick(Qt.Key_M)
+      wait(100)
+      harness.check("m opens the cursor row's lists on the first named list",
+        body2.listsSymbol === "NVDA" && checklist.visible && checklist.activeFocus && checklist.cursor === 1
+          && !wl.visible)
+      keyClick(Qt.Key_Return)
+      wait(100)
+      harness.check("Enter ticks a list, which gains the symbol", harness.same(power(), ["NVDA"]), power())
+      grab("symbol-lists")
+      keyClick(Qt.Key_2)
+      wait(100)
+      harness.check("a number key unticks that list, and All keeps the symbol",
+        harness.same(power(), []) && harness.same(service.library, ["AAPL", "NVDA"]))
+      keyClick(Qt.Key_Space)
+      wait(100)
+      keyClick(Qt.Key_Escape)
+      wait(100)
+      keyClick(Qt.Key_Period)
+      wait(100)
+      harness.check("Escape closes the checklist and the keys come back",
+        body2.listsSymbol === "" && harness.same(power(), ["NVDA"]) && service.listName === "Power")
+      keyClick(Qt.Key_Comma)
+      wait(100)
+
+      var aaplRowAgain = wl.rowItem("AAPL")
+      mouseClick(aaplRowAgain, aaplRowAgain.width / 2, aaplRowAgain.height / 2, Qt.LeftButton, Qt.ControlModifier)
+      wait(100)
+      harness.check("Ctrl-click opens that row's lists without featuring it",
+        body2.listsSymbol === "AAPL" && service.featuredSymbol === "NVDA", body2.listsSymbol + "|" + service.featuredSymbol)
+      var powerAt = center(harness.findAll(body2, "symbolListRow")[1])
+      mouseClick(body2, powerAt.x, powerAt.y)
+      wait(100)
+      harness.check("a click ticks that row's list", harness.same(power(), ["NVDA", "AAPL"]), power())
+      keyClick(Qt.Key_1)
+      wait(100)
+      harness.check("unticking All removes the symbol everywhere and closes the checklist",
+        harness.same(service.library, ["NVDA"]) && harness.same(power(), ["NVDA"]) && body2.listsSymbol === "",
+        service.library + "|" + power() + "|" + body2.listsSymbol)
+      harness.check("unticking All names the symbol in the footer, like any removal",
+        body2.note === "Removed AAPL · u to undo", body2.note)
+      var noteAt = center(harness.find(body2, "footer"))
+      mouseClick(body2, noteAt.x, noteAt.y)
+      wait(100)
+      harness.check("a click on the note undoes it, and does not open search",
+        harness.same(service.library, ["AAPL", "NVDA"]) && harness.same(power(), ["NVDA", "AAPL"])
+          && !body2.adding && body2.note === "",
+        service.library + "|" + power() + "|" + body2.adding + "|" + body2.note)
+      service.removeSymbol("AAPL")
+      wait(100)
+
+      // Undo puts back what the removal took and nothing more: a hero chosen
+      // after a removal from a named list stays chosen.
+      service.switchList("Power")
+      service.addSymbol("AAPL")
+      wait(100)
+      keys.forceActiveFocus()
+      wl.cursorSymbol = "AAPL"
+      keyClick(Qt.Key_X)
+      wait(100)
+      service.feature("NVDA")
+      wait(50)
+      keyClick(Qt.Key_U)
+      wait(100)
+      harness.check("undo restores the membership and leaves a hero chosen since",
+        harness.same(power(), ["NVDA", "AAPL"]) && service.featuredSymbol === "NVDA",
+        power() + "|" + service.featuredSymbol)
+
+      // An offer stands only while it is the service's last removal: one made
+      // on another surface replaces it, and this footer lets it go.
+      wl.cursorSymbol = "AAPL"
+      keyClick(Qt.Key_X)
+      wait(100)
+      service.setMembership("AAPL", "", false)
+      wait(100)
+      harness.check("a removal made elsewhere drops this surface's offer", body2.note === "", body2.note)
+      keyClick(Qt.Key_U)
+      wait(100)
+      harness.check("and u then puts nothing back",
+        harness.same(power(), ["NVDA"]) && harness.same(service.library, ["NVDA"]),
+        power() + "|" + service.library)
+      service.switchList("")
+      wait(100)
+
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_M)
+      wait(100)
+      keyClick(Qt.Key_1)
+      wait(100)
+      harness.check("All's last symbol cannot be unticked, and the checklist says why",
+        harness.same(service.library, ["NVDA"]) && body2.listsSymbol === "NVDA"
+          && checklist.note === "Keep at least one symbol")
+      var listsDoneAt = center(harness.find(body2, "symbolListsDone"))
+      mouseClick(body2, listsDoneAt.x, listsDoneAt.y)
+      wait(100)
+      harness.check("DONE closes the checklist", body2.listsSymbol === "" && wl.visible)
+
+      harness.readFile()
+      tryVerify(function() { return harness.fileRead !== null }, 3000)
+      harness.check("the file holds the renamed, reordered, and ticked lists",
+        harness.same(harness.fileRead.symbols, ["NVDA"]) && harness.fileRead.list === ""
+          && harness.fileRead.lists.length === 1 && harness.fileRead.lists[0].name === "Power"
+          && harness.same(harness.fileRead.lists[0].symbols, ["NVDA"]),
+        JSON.stringify(harness.fileRead))
+
+      // With no named lists the checklist has only All; the default cursor
+      // must not sit on it, or one Enter removes the symbol everywhere.
+      service.deleteList("Power")
+      service.addSymbol("AAPL")
+      wait(100)
+      keys.forceActiveFocus()
+      wl.cursorSymbol = "AAPL"
+      keyClick(Qt.Key_M)
+      wait(100)
+      keyClick(Qt.Key_Return)
+      keyClick(Qt.Key_Space)
+      wait(100)
+      harness.check("with no named lists, m then Enter or Space leaves the symbol in All",
+        body2.listsSymbol === "AAPL" && harness.same(service.library, ["NVDA", "AAPL"]),
+        body2.listsSymbol + "|" + service.library)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+
+      // A removal that moves the hero draws its chart in, as any change of
+      // the chart does, and undo brings the symbol back as it was, quote and
+      // all: no fetch, and the hero on its chart at once, drawing in. Found
+      // in motion pass 3: the hero swapped in one frame, and undo showed "No
+      // quote" until a refetch landed.
+      tryVerify(function() { return !!service.quotes.AAPL && service.testFeed.firstRun.length + service.testFeed.refreshRun.length === 0 }, 3000)
+      service.feature("AAPL")
+      wait(500)
+      var aaplCalls = harness.calls("AAPL")
+      keys.forceActiveFocus()
+      wl.cursorSymbol = "AAPL"
+      keyClick(Qt.Key_X)
+      var removal = [service.featuredSymbol, body2.motion.reveal < 1]
+      wait(100)
+      keyClick(Qt.Key_U)
+      var undone = [service.featuredSymbol, !!body2.featuredQuote, body2.motion.reveal < 1]
+      wait(400)
+      harness.check("a removal that moves the hero draws it in, and undo draws it back with its quote and no fetch",
+        removal.join("|") === "NVDA|true" && undone.join("|") === "AAPL|true|true"
+          && harness.calls("AAPL") === aaplCalls,
+        removal.join("|") + " / " + undone.join("|") + " / calls " + aaplCalls + " -> " + harness.calls("AAPL"))
+
+      // The rule under the list name is the list's breadth: the rows' own
+      // ups, flats, and downs, counted. DOWN answers a day that fell, FLAT
+      // one that closed at its previous close, so a rule that swapped or
+      // dropped a tone would miscount.
+      service.addSymbol("DOWN")
+      service.addSymbol("FLAT")
+      tryVerify(function() { return !!service.quotes.DOWN && !!service.quotes.FLAT }, 5000)
+      wait(150)
+      var rule = harness.find(body2, "breadthRule")
+      var tones = function() {
+        var count = { up: 0, flat: 0, down: 0 }
+        wl.displayedSymbols.forEach(function(s) {
+          var r = wl.rowItem(s)
+          if (r && r.view) count[r.view.tone]++
+        })
+        return count
+      }
+      var reads = function(up, flat, down) {
+        var t = tones()
+        return !!rule && rule.breadth.up === up && rule.breadth.flat === flat && rule.breadth.down === down
+          && t.up === up && t.flat === flat && t.down === down
+      }
+      harness.check("the rule under All counts two up, one flat, and one down, as the rows read",
+        service.listName === "" && reads(2, 1, 1), rule ? JSON.stringify(rule.breadth) + " rows " + JSON.stringify(tones()) : "no rule")
+      service.createList("Losers")
+      service.addSymbol("DOWN")
+      wait(100)
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_Comma)
+      wait(150)
+      keyClick(Qt.Key_Period)
+      wait(150)
+      harness.check("the rule follows , and . to a list with one row, which is down",
+        service.listName === "Losers" && reads(0, 0, 1), rule ? JSON.stringify(rule.breadth) : "no rule")
+      var ruleAt = rule ? rule.mapToItem(body2, rule.width / 2, rule.height / 2) : { x: 0, y: 0 }
+      mouseMove(body2, ruleAt.x, ruleAt.y)
+      var counts = null
+      within(2000, function() {
+        counts = harness.find(body2, "breadthCounts")
+        return !!counts && counts.opacity === 1
+      })
+      harness.check("hovering the rule says its counts in its place",
+        !!counts && counts.opacity === 1 && counts.text === "1 DOWN", counts ? counts.opacity + "|" + counts.text : "no counts")
+      mouseMove(body2, 5, body2.height - 2)
+      wait(50)
+
+      // Covered by a list view, the rule rests: a change of the list's
+      // breadth meanwhile moves nothing, and as the rows show again the
+      // rule shows the new breadth at once, not easing from the old one out
+      // of sight. Found in design pass 3's review: hidden, it would still
+      // ease, and show mid-way if the rows came back within 160 ms.
+      keys.forceActiveFocus()
+      keyClick("W")
+      wait(50)
+      var coveredDown = rule.downShare
+      service.setMembership("FLAT", "Losers", true)
+      wait(60)
+      var restedAt = rule.downShare
+      body2.closeListViews()
+      var shownAt = rule.downShare
+      harness.check("a breadth change under a list view waits, and shows settled as the rows come back",
+        coveredDown === 1 && restedAt === 1 && shownAt === 0.5 && rule.visible,
+        coveredDown + " -> " + restedAt + " -> " + shownAt)
+      service.setMembership("FLAT", "Losers", false)
+      wait(300)
+
+      // Every view opens at its own start, not at last time's: search empty,
+      // the menu on the current list, and each list view on its first named
+      // list, in the turn it appears, which is the frame first drawn. Found
+      // in motion pass 3: each showed last time's state for a frame (search
+      // the last query and its results) until its open() reset it a turn later.
+      // Each is first left off its start, then opened again.
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_A)
+      wait(50)
+      harness.find(body2.search, "searchField").text = "SH"
+      tryVerify(function() { return body2.search.results.length > 0 }, 3000)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      var menu2 = harness.find(body2, "listMenu")
+      var manage2 = harness.find(body2, "manageLists")
+      var checklist2 = harness.find(body2, "symbolLists")
+      keyClick(Qt.Key_W)
+      wait(50)
+      keyClick(Qt.Key_Down)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      keyClick("W")
+      wait(50)
+      keyClick(Qt.Key_Up)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      wl.cursorSymbol = "DOWN"
+      keyClick(Qt.Key_M)
+      wait(50)
+      keyClick(Qt.Key_Up)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      // Read as each view turns on, in that same turn: what its first frame
+      // will show.
+      var firstFrames = []
+      var onSearch = function() { if (body2.search.active) firstFrames.push(body2.search.results.length + "'" + body2.search.searchText + "'") }
+      var onMenu = function() { if (menu2.active) firstFrames.push(menu2.cursor) }
+      var onManage = function() { if (manage2.active) firstFrames.push(manage2.cursor) }
+      var onChecklist = function() { if (checklist2.active) firstFrames.push(checklist2.cursor) }
+      body2.search.activeChanged.connect(onSearch)
+      menu2.activeChanged.connect(onMenu)
+      manage2.activeChanged.connect(onManage)
+      checklist2.activeChanged.connect(onChecklist)
+      keyClick(Qt.Key_A)
+      wait(50)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      keyClick(Qt.Key_W)
+      wait(50)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      keyClick("W")
+      wait(50)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      wl.cursorSymbol = "DOWN"
+      keyClick(Qt.Key_M)
+      wait(50)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      body2.search.activeChanged.disconnect(onSearch)
+      menu2.activeChanged.disconnect(onMenu)
+      manage2.activeChanged.disconnect(onManage)
+      checklist2.activeChanged.disconnect(onChecklist)
+      harness.check("search, the list menu, and both list views open at their start in their first frame",
+        firstFrames.join("|") === "0''|1|1|1", firstFrames.join("|"))
+
+      // Every view gives up the keys however it closes, the window's closing
+      // included, its name field too, and a view closed before it took them
+      // never takes them later: afterwards the window's own keys act. Found
+      // in the garden review: closed with the menu open and reopened, the
+      // hidden menu kept the keys and s did nothing.
+      var keysAfter = function(open) {
+        keys.forceActiveFocus()
+        open()
+        wait(50)
+        app.close()
+        app.open("{}")
+        wait(100)
+        var retro = service.retro
+        keyClick(Qt.Key_S)
+        wait(50)
+        var acted = service.retro !== retro
+        if (acted) keyClick(Qt.Key_S)
+        wait(50)
+        return acted
+      }
+      var closings = [
+        keysAfter(function() { keyClick(Qt.Key_W) }),
+        keysAfter(function() { keyClick(Qt.Key_W); wait(50); keyClick(Qt.Key_Up); keyClick(Qt.Key_Up); keyClick(Qt.Key_Return) }),
+        keysAfter(function() { keyClick("W") }),
+        keysAfter(function() { keyClick("W"); wait(50); keyClick(Qt.Key_Return) }),
+        keysAfter(function() { keyClick(Qt.Key_M) }),
+        keysAfter(function() { keyClick(Qt.Key_A) })
+      ]
+      harness.check("closing the window with any view open, or its field, hands the keys back",
+        closings.every(function(acted) { return acted }), closings.join(","))
+      body2.openListMenu()
+      body2.closeListMenu()
+      wait(50)
+      var retroBefore = service.retro
+      keyClick(Qt.Key_S)
+      wait(50)
+      harness.check("a view closed before it took the keys never takes them",
+        service.retro !== retroBefore && !menu2.activeFocus, service.retro + "|" + menu2.activeFocus)
+      keyClick(Qt.Key_S)
+      wait(50)
+
+      // Opening a view, or acting on the rows, shows what it acts on: the key
+      // sheet closes first, in the window as in the popup. Found in the
+      // garden review: ? then a left the sheet drawn under search.
+      keyClick(Qt.Key_Question)
+      wait(50)
+      var sheetUp = body2.showingHelp
+      keyClick(Qt.Key_A)
+      wait(50)
+      var searchOnly = !body2.showingHelp && body2.adding
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      keyClick(Qt.Key_Question)
+      wait(50)
+      keyClick(Qt.Key_Down)
+      wait(50)
+      var rowsAgain = !body2.showingHelp
+      harness.check("? then a opens search alone, and ? then a row key shows the rows",
+        sheetUp && searchOnly && rowsAgain, sheetUp + "|" + searchOnly + "|" + rowsAgain)
+      // So does a click on the header's look, as s does. Found in the review
+      // of the untangle: the click changed the look behind the sheet.
+      keyClick(Qt.Key_Question)
+      wait(50)
+      var lookBefore = service.retro
+      var clickLook = function() {
+        var icon = harness.find(body2, "lookIcon")
+        var over = icon.mapToItem(body2, icon.width / 2, icon.height / 2)
+        mouseClick(body2, over.x, over.y)
+        wait(50)
+      }
+      clickLook()
+      harness.check("a click on the header's look over the key sheet closes it and changes the look once",
+        !body2.showingHelp && service.retro !== lookBefore, body2.showingHelp + "|" + service.retro)
+      clickLook()
+
+      // The list menu opens scrolled to its own start, the current list in
+      // view, however far the last visit scrolled it. Found in the review of
+      // the untangle: it reopened at the last visit's offset.
+      var extra = []
+      for (var n = 1; n <= 12; n++) { extra.push("Probe " + n); service.createList("Probe " + n) }
+      service.switchList("")
+      app.close()
+      var tallBefore = app.testWindow.implicitHeight
+      app.testWindow.implicitHeight = body2.chromeHeight + body2.listRowHeight
+      app.open("{}")
+      wait(200)
+      keys.forceActiveFocus()
+      var menuScroll = harness.find(menu2, "menuScroll")
+      var cursorShown = function() {
+        var top = menu2.cursor * menu2.itemHeight + (menu2.cursor < menu2.newIndex ? 0 : menu2.separatorHeight)
+        return top >= menuScroll.contentY && top + menu2.itemHeight <= menuScroll.contentY + menuScroll.height
+      }
+      keyClick(Qt.Key_W)
+      wait(50)
+      var scrolls = menuScroll.contentHeight > menuScroll.height
+      menuScroll.contentY = menuScroll.contentHeight - menuScroll.height
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      var reopenedAt = []
+      var readMenu = function() { if (menu2.active) reopenedAt.push(menuScroll.contentY + ":" + menu2.cursor + ":" + cursorShown()) }
+      menu2.activeChanged.connect(readMenu)
+      keyClick(Qt.Key_W)
+      wait(50)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      service.switchList("Probe 12")
+      wait(50)
+      keyClick(Qt.Key_W)
+      wait(50)
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      menu2.activeChanged.disconnect(readMenu)
+      var lastProbe = service.lists.map(function(l) { return l.name }).indexOf("Probe 12")
+      harness.check("the list menu opens at its start with the current list in view",
+        scrolls && reopenedAt.length === 2 && reopenedAt[0] === "0:0:true"
+          && new RegExp(":" + lastProbe + ":true$").test(reopenedAt[1]),
+        scrolls + "|" + reopenedAt.join(" "))
+      service.switchList("")
+      extra.forEach(function(name) { service.deleteList(name) })
+
+      // Each list comes back where this surface left it, at once and with no
+      // slide; a list it has not shown yet starts at the top, and a rename
+      // keeps the place. One row in sight, so three rows scroll.
+      app.close()
+      service.createList("Deep")
+      service.library.slice(0, 3).forEach(function(s) { service.setMembership(s, "Deep", true) })
+      service.switchList("")
+      app.open("{}")
+      wait(200)
+      keys.forceActiveFocus()
+      var rows = body2.watchlist
+      var still = function() { return !rows.settling }
+      keyClick(Qt.Key_Down)
+      within(2000, still)
+      var allAt = rows.contentY
+      keyClick(Qt.Key_Comma)
+      wait(50)
+      var deepFirst = [service.listName, rows.contentY].join(":")
+      keyClick(Qt.Key_Down)
+      keyClick(Qt.Key_Down)
+      within(2000, still)
+      var deepAt = rows.contentY
+      var comeBack = function(key) {
+        var seen = []
+        var watch = function() { seen.push(rows.contentY) }
+        rows.contentYChanged.connect(watch)
+        keyClick(key)
+        var resting = rows.displayedSymbols.every(function(s) { return rows.rowResting(s) })
+        wait(200)
+        rows.contentYChanged.disconnect(watch)
+        return [service.listName, rows.contentY, seen.join("/"), resting].join(":")
+      }
+      var backToAll = comeBack(Qt.Key_Period)
+      service.renameList("Deep", "Deeper")
+      wait(50)
+      var backToDeep = comeBack(Qt.Key_Comma)
+      harness.check("each list comes back where it was left, at once with no slide, a renamed one too; a first visit starts at the top",
+        allAt === rows.rowPitch && deepAt === 2 * rows.rowPitch && deepFirst === "Deep:0"
+          && backToAll === ":" + allAt + ":" + allAt + ":true"
+          && backToDeep === "Deeper:" + deepAt + ":" + deepAt + ":true",
+        [allAt, deepAt, deepFirst, backToAll, backToDeep].join(" | "))
+
+      // Lists renamed, and a freed name taken by a new list, while the
+      // surface is closed: two renames keep both places, and the new list is
+      // a first visit. Found in review: names compared across the close
+      // carried a deleted list's place to a new one and dropped two renamed.
+      service.createList("Mid")
+      service.library.slice(0, 3).forEach(function(s) { service.setMembership(s, "Mid", true) })
+      wait(50)
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_Down)
+      within(2000, still)
+      var midAt = rows.contentY
+      keyClick(Qt.Key_Period)
+      wait(50)
+      app.close()
+      service.renameList("Deeper", "Deep A")
+      service.renameList("Mid", "Mid B")
+      service.createList("Deeper")
+      service.library.slice(0, 3).forEach(function(s) { service.setMembership(s, "Deeper", true) })
+      service.switchList("")
+      app.open("{}")
+      wait(200)
+      keys.forceActiveFocus()
+      var landed = []
+      for (var step = 0; step < 3; step++) {
+        keyClick(Qt.Key_Comma)
+        wait(100)
+        landed.push(service.listName + ":" + rows.contentY)
+      }
+      harness.check("lists renamed while the surface was closed keep their places, and a new list under a freed name starts at the top",
+        midAt === rows.rowPitch && harness.same(landed, ["Deeper:0", "Mid B:" + midAt, "Deep A:" + deepAt]),
+        midAt + " | " + landed.join(" "))
+      service.switchList("")
+      service.deleteList("Deep A")
+      service.deleteList("Mid B")
+      service.deleteList("Deeper")
+      app.close()
+      app.testWindow.implicitHeight = tallBefore
+      app.open("{}")
+      wait(100)
+      keys.forceActiveFocus()
+
+      // Switching lists, or orders, changes the chrome at once: the breadth
+      // rule's ends follow its new length on every frame, whether the next
+      // list's breadth is the same or not, and the order word takes its
+      // brightness with its text. On , and . between a short and a long
+      // name, one manual and one sorted, between lists of different breadth,
+      // and on o; only the same list's breadth changing eases. Found in the
+      // transition audit (lists 9, lists 13): the rule's ends eased from
+      // their old lengths and met; the new order word showed in the old one's
+      // colour. And in the review of the fix: the ends eased between lists
+      // whose breadth differed.
+      var members = service.library.slice(0, 3)
+      var hadDown = service.library.indexOf("DOWN") >= 0
+      var hadFlat = service.library.indexOf("FLAT") >= 0
+      service.addSymbol("DOWN")
+      service.addSymbol("FLAT")
+      tryVerify(function() { return !!service.quotes.DOWN && !!service.quotes.FLAT && service.arriving.length === 0 }, 5000)
+      service.createList("Xy")
+      members.forEach(function(s) { service.setMembership(s, "Xy", true) })
+      service.createList("A much longer list name")
+      members.forEach(function(s) { service.setMembership(s, "A much longer list name", true) })
+      service.setOrder("symbol")
+      service.createList("Mixed")
+      service.setMembership("DOWN", "Mixed", true)
+      service.switchList("Xy")
+      wait(300)
+      var upEnd = harness.find(body2, "breadthUp")
+      var downEnd = harness.find(body2, "breadthDown")
+      var orderWord = harness.find(body2, "orderLabel")
+      var chrome = function(change) {
+        var faults = []
+        var frames = Qt.createQmlObject('import QtQuick; FrameAnimation { running: true }', harness)
+        var ruleWidth = upEnd.parent.width
+        var read = function() {
+          var total = body2.breadth.up + body2.breadth.flat + body2.breadth.down + body2.breadth.none
+          var wantUp = Math.floor(upEnd.parent.width * body2.breadth.up / total)
+          var wantDown = Math.floor(downEnd.parent.width * body2.breadth.down / total)
+          if (upEnd.width !== wantUp || downEnd.width !== wantDown) faults.push("ends " + upEnd.width + "/" + wantUp)
+          var bright = body2.order !== "manual"
+          if (String(orderWord.color) !== String(bright ? body2.foreground : body2.dim)) faults.push("word " + orderWord.color)
+        }
+        frames.triggered.connect(read)
+        keys.forceActiveFocus()
+        change()
+        read()
+        wait(300)
+        frames.destroy()
+        return faults.length === 0 ? "ok" : faults.slice(0, 3).join(";")
+      }
+      mouseMove(body2, 1, 1)
+      var toLong = chrome(function() { keyClick(Qt.Key_Period) })
+      var toShort = chrome(function() { keyClick(Qt.Key_Comma) })
+      var byO = chrome(function() { keyClick(Qt.Key_O) })
+      service.switchList("A much longer list name")
+      wait(300)
+      var toMixed = chrome(function() { keyClick(Qt.Key_Period) })
+      var fromMixed = chrome(function() { keyClick(Qt.Key_Comma) })
+      harness.check("a list or order switch changes the rule's ends and the order word at once, on every frame, same breadth or not",
+        [toLong, toShort, byO, toMixed, fromMixed].every(function(r) { return r === "ok" }),
+        [toLong, toShort, byO, toMixed, fromMixed].join(" | "))
+      // The same list's breadth changing eases: FLAT joins Mixed, all down,
+      // and the down end eases from the whole rule to half of it.
+      service.switchList("Mixed")
+      wait(300)
+      var downFrom = downEnd.width
+      var downSeen = []
+      var downFrames = Qt.createQmlObject('import QtQuick; FrameAnimation { running: true }', harness)
+      downFrames.triggered.connect(function() { downSeen.push(downEnd.width) })
+      service.setMembership("FLAT", "Mixed", true)
+      wait(300)
+      downFrames.destroy()
+      var downTo = downEnd.width
+      var eased = downFrom > downTo && downTo > 0 && downSeen.some(function(w) { return w > downTo && w < downFrom })
+      harness.check("the same list's breadth changing eases the rule's ends",
+        eased, downFrom + " -> " + downSeen.join(","))
+      service.switchList("")
+      service.deleteList("Xy")
+      service.deleteList("A much longer list name")
+      service.deleteList("Mixed")
+      if (!hadDown) service.removeSymbol("DOWN")
+      if (!hadFlat) service.removeSymbol("FLAT")
+      wait(50)
+
+      app.close()
+      harness.finish()
+    }
+  }
+
+  Timer {
+    id: done
+    property int exitCode: 0
+    interval: 1
+    onTriggered: Qt.exit(exitCode)
+  }
+
+  Timer {
+    interval: 45000
+    running: true
+    onTriggered: {
+      console.log("FAIL lists harness timed out")
+      done.exitCode = 1
+      done.start()
+    }
+  }
+}
