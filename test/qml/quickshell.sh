@@ -13,12 +13,15 @@
 # Each run is a process group of its own, which ends with the run, and
 # everything it starts carries the run's mark (STONKS_RUN, procs.sh), so
 # what left the group is found by the mark, never by name: the owner's shell
-# and other runs are Quickshells too.
+# and other runs are Quickshells too. The group's leader is a small shell,
+# marked too, that starts Quickshell, reports how it ended, and then holds
+# the group, shrugging off TERM, until the run kills it: so the group is
+# known to be the run's until its last member is stopped, a child that
+# cleared its environment included, and its number can't have passed to
+# another group.
 source "$(dirname "${BASH_SOURCE[0]}")/../procs.sh"
 qs_mark="STONKS_RUN=$$-$(date +%s%N)"
 qs_leader=""
-qs_start=""
-qs_watchdog=""
 qs_code=0
 
 # quickshell_run SECONDS LOG ARGS…: Quickshell ARGS into LOG, stopped after
@@ -27,55 +30,67 @@ qs_code=0
 # process carrying the mark are stopped (quickshell_stop), and a FAIL line
 # is added to LOG for a crash, a timeout, or a process that left the group.
 quickshell_run() {
-  local - secs=$1 log=$2 sig
+  local - secs=$1 log=$2 fd pid sig
   set +e
   shift 2
-  rm -f "$log.timeout"
+  rm -f "$log.ended"
+  mkfifo "$log.ended"
+  exec {fd}<> "$log.ended"
   set -m
-  STONKS_RUN=${qs_mark#STONKS_RUN=} QS_DISABLE_CRASH_HANDLER=1 quickshell "$@" > "$log" 2>&1 < /dev/null &
+  STONKS_RUN=${qs_mark#STONKS_RUN=} bash -c '
+    log=$1; shift
+    QS_DISABLE_CRASH_HANDLER=1 quickshell "$@" > "$log" 2>&1 < /dev/null &
+    trap "" TERM
+    wait $!
+    echo "$! $?" > "$log.ended"
+    exec sleep infinity' _ "$log" "$@" &
   qs_leader=$!
-  qs_start=$(start_of "$qs_leader")
-  # The watchdog leads its own group too, so stopping it stops its sleep.
-  ( sleep "$secs"; : > "$log.timeout"; signal_group TERM "$qs_leader" "$qs_start" "$qs_mark" ) &
-  qs_watchdog=$!
   set +m
-  wait "$qs_leader"
-  qs_code=$?
-  kill -- "-$qs_watchdog" 2> /dev/null
-  wait "$qs_watchdog" 2> /dev/null
-  qs_watchdog=""
-  if [ -e "$log.timeout" ]; then
+  if read -r -t "$secs" -u "$fd" pid qs_code; then
+    if (( qs_code > 128 )); then
+      sig=$(kill -l $((qs_code - 128)) 2> /dev/null)
+      echo "FAIL Quickshell crashed: SIG$sig ($((qs_code - 128))), pid $pid; its core dump: coredumpctl info $pid" >> "$log"
+    fi
+  else
     qs_code=124
     echo "FAIL Quickshell timed out after $secs s" >> "$log"
-  elif (( qs_code > 128 )); then
-    sig=$(kill -l $((qs_code - 128)) 2> /dev/null)
-    echo "FAIL Quickshell crashed: SIG$sig ($((qs_code - 128))), pid $qs_leader; its core dump: coredumpctl info $qs_leader" >> "$log"
   fi
-  rm -f "$log.timeout"
   quickshell_stop "$log"
+  exec {fd}<&-
+  rm -f "$log.ended"
 }
 
 # quickshell_stop [LOG]: stops the run's group, then any process still
 # carrying the mark, which left the group: that fails the run, named in LOG.
-# The EXIT trap runs it too, so an interrupt leaves nothing behind.
+# The EXIT trap runs it too, so an interrupt leaves nothing behind, one that
+# comes before the leader is recorded too: what started by then carries the
+# mark.
 quickshell_stop() {
   local - left i
   set +e
-  [ -n "$qs_watchdog" ] && kill -- "-$qs_watchdog" 2> /dev/null
-  [ -n "$qs_leader" ] || return 0
-  if signal_group TERM "$qs_leader" "$qs_start" "$qs_mark"; then
-    for i in 1 2 3 4 5 6 7 8 9 10; do pgrep -g "$qs_leader" > /dev/null || break; sleep 0.2; done
-    signal_group KILL "$qs_leader" "$qs_start" "$qs_mark"
-  fi
-  left=$(marked "$qs_mark")
-  if [ -n "$left" ]; then
-    kill -TERM $(cut -d' ' -f1 <<< "$left") 2> /dev/null
-    sleep 0.2
-    kill -KILL $(marked "$qs_mark" | cut -d' ' -f1) 2> /dev/null
-    if [ -n "${1:-}" ]; then
-      sed 's/^/FAIL a process Quickshell started left its group and outlived it (stopped): /' <<< "$left" >> "$1"
-      (( qs_code != 0 )) || qs_code=1
-    fi
+  # The group is the run's while its leader carries the mark and leads it,
+  # which it does until killed.
+  if leads_marked "$qs_leader"; then
+    kill -TERM -- "-$qs_leader" 2> /dev/null
+    for i in $(seq 10); do [ "$(pgrep -g "$qs_leader" | wc -l)" -le 1 ] && break; sleep 0.2; done
+    leads_marked "$qs_leader" && kill -KILL -- "-$qs_leader" 2> /dev/null
   fi
   qs_leader=""
+  left=$(marked "$qs_mark")
+  [ -n "$left" ] || return 0
+  kill -TERM $(cut -d' ' -f1 <<< "$left") 2> /dev/null
+  sleep 0.2
+  kill -KILL $(marked "$qs_mark" | cut -d' ' -f1) 2> /dev/null
+  if [ -n "${1:-}" ]; then
+    sed 's/^/FAIL a process Quickshell started left its group and outlived it (stopped): /' <<< "$left" >> "$1"
+    (( qs_code != 0 )) || qs_code=1
+  fi
 }
+
+# quickshell_exit: what a script's EXIT trap runs. A second interrupt during
+# it (test/all.sh's TERM after a Ctrl-C) must not cut the stop short.
+quickshell_exit() {
+  trap '' INT TERM
+  quickshell_stop
+}
+leads_marked() { [ -n "$1" ] && [ "$(pgid_of "$1")" = "$1" ] && grep -qzx -- "$qs_mark" "/proc/$1/environ" 2> /dev/null; }

@@ -17,7 +17,7 @@ export STONKS_FIXTURES
 source "$here/quickshell.sh"
 work="$(mktemp -d)"
 # However the run ends, its Quickshell's group and marked processes go first.
-trap 'quickshell_stop; rm -rf "$work"' EXIT
+trap 'quickshell_exit; rm -rf "$work"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 export HOME="$work/home"

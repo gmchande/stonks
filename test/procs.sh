@@ -5,12 +5,13 @@
 # other runs are the same programs.
 
 # stat_of PID: the fields of /proc/PID/stat after the command name, so
-# $3 is the process group and $20 the start time.
+# $2 is the parent, $3 the process group, and $20 the start time.
 stat_of() {
   local s
   s=$(cat "/proc/$1/stat" 2>/dev/null) || return 1
   printf '%s\n' "${s##*) }"
 }
+ppid_of() { stat_of "$1" | awk '{print $2}'; }
 pgid_of() { stat_of "$1" | awk '{print $3}'; }
 start_of() { stat_of "$1" | awk '{print $20}'; }
 
