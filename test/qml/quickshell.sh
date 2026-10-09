@@ -63,11 +63,13 @@ quickshell_run() {
 # quickshell_stop [LOG]: stops the run's group, then any process still
 # carrying the mark, which left the group: that fails the run, named in LOG.
 # The EXIT trap runs it too, so an interrupt leaves nothing behind, one that
-# comes before the leader is recorded too: what started by then carries the
-# mark.
+# comes before the leader is recorded too: the leader is then the marked
+# process this shell started that leads its group.
 quickshell_stop() {
-  local - left i
+  local - left pid i me=$BASHPID
   set +e
+  [ -n "$qs_leader" ] || qs_leader=$(marked "$qs_mark" | while read -r pid _; do
+    [ "$(ppid_of "$pid")" = "$me" ] && echo "$pid"; done | head -n 1)
   # The group is the run's while its leader carries the mark and leads it,
   # which it does until killed.
   if leads_marked "$qs_leader"; then

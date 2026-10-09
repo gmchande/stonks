@@ -81,8 +81,8 @@ gone() {
 # harness CASE MODE SECONDS [LEAVE] [EARLY]: one run in a harness of its
 # own, as lib.sh runs it, in the background in a group of its own (job
 # control, so INT is not ignored): its pid in h, its folder $tmp/CASE. With
-# EARLY, the harness is sent TERM the moment Quickshell has started, before
-# it records the group's leader.
+# EARLY, the harness is sent TERM as it is about to record the group's
+# leader, once the stand-in has started its children.
 harness() {
   local dir=$tmp/$1
   mkdir -p "$dir"
@@ -91,7 +91,8 @@ harness() {
     source "$1/quickshell.sh"
     echo "$qs_mark" > "$3/mark"
     trap quickshell_exit EXIT; trap "exit 130" INT; trap "exit 143" TERM
-    if [ -n "$EARLY" ]; then set -T; trap "[[ \$BASH_COMMAND == qs_leader=* ]] && kill -TERM \$\$" DEBUG; fi
+    early() { local i; for i in $(seq 50); do [ -s "$STANDIN_DIR/left" ] && break; sleep 0.1; done; kill -TERM $$; }
+    if [ -n "$EARLY" ]; then set -T; trap "[[ \$BASH_COMMAND == qs_leader=* ]] && early" DEBUG; fi
     quickshell_run "$2" "$3/log" -p nowhere
     echo "$qs_code" > "$3/code"' _ "$here" "$3" "$dir" < /dev/null > "$dir/out" 2>&1 &
   h=$!
