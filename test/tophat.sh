@@ -2,7 +2,9 @@
 # Tophat Stonks in a sandboxed nested Hyprland on the laptop screen, while
 # the owner keeps working on the other screen.
 #
-#   start REF                      sandbox the committed REF and start the session
+#   start [--fresh] REF            sandbox the committed REF and start the session;
+#                                  --fresh: as a new user's machine, Stonks not
+#                                  installed, a terminal open with REF's clone at ~/stonks
 #   stop                           end it and report the isolation evidence
 #   key KEY...                     keysym names; shift+j, ctrl+a, or J hold a modifier
 #   type TEXT                      type text
@@ -62,15 +64,8 @@ within() {
   until "$@"; do (( SECONDS < end )) || return 1; sleep 0.2; done
 }
 
-# stat_of PID: the fields of /proc/PID/stat after the command name, so
-# $3 is the process group and $20 the start time.
-stat_of() {
-  local s
-  s=$(cat "/proc/$1/stat" 2>/dev/null) || return 1
-  printf '%s\n' "${s##*) }"
-}
-pgid_of() { stat_of "$1" | awk '{print $3}'; }
-start_of() { stat_of "$1" | awk '{print $20}'; }
+# stat_of, pgid_of, start_of, leader_is, group_ours, signal_group, marked.
+source "$here/procs.sh"
 
 # socket_paths_fit DIR [SIGNATURE]: the Wayland socket and both Hyprland
 # sockets fit a Unix socket path (107 bytes). Without a signature, the
@@ -99,14 +94,16 @@ bus_ok() {
 }
 
 # shell_json_ok FILE: the nested shell's config is valid version 1, turns off
-# exactly the six services, and holds the pill. An invalid one falls back to
-# defaults, which turns every service back on.
+# exactly the six services, and holds the pill, or on a fresh start holds
+# none. An invalid one falls back to defaults, which turns every service
+# back on.
 shell_json_ok() {
   local want
   want=$(printf '%s\n' "${services[@]}" | jq -R . | jq -sc 'sort')
-  jq -e --argjson want "$want" 'type == "object" and .version == 1
+  jq -e --argjson want "$want" --argjson fresh "${fresh:-0}" 'type == "object" and .version == 1
     and ((.disabledPlugins // []) | sort) == $want
-    and any(.bar.layout[][]; .id == "grvc.stonks")' "$1" > /dev/null 2>&1 \
+    and (if $fresh == 1 then all(.bar.layout[][]; .id != "grvc.stonks")
+      else any(.bar.layout[][]; .id == "grvc.stonks") end)' "$1" > /dev/null 2>&1 \
     || { echo "tophat: $1 is not a valid isolation config" >&2; return 1; }
 }
 
@@ -122,20 +119,21 @@ nested_lua_ok() {
 
 # ---- the sandbox ------------------------------------------------------------
 
-# write_shell_json FILE BARSTYLE: a bar with workspaces and the pill only.
+# write_shell_json FILE BARSTYLE: a bar with workspaces and the pill only, or
+# on a fresh start the workspaces alone.
 write_shell_json() {
-  printf '%s\n' "${services[@]}" | jq -R . | jq -s --arg style "$2" '{
+  printf '%s\n' "${services[@]}" | jq -R . | jq -s --arg style "$2" --argjson fresh "${fresh:-0}" '{
     version: 1,
     disabledPlugins: .,
     plugins: [],
-    bar: {
-      position: "top", transparent: false, centerAnchor: "grvc.stonks",
+    bar: ({
+      position: "top", transparent: false,
       layout: {
         left: [{ id: "omarchy.workspaces" }],
-        center: [{ id: "grvc.stonks" } + (if $style == "" then {} else { barStyle: $style } end)],
+        center: (if $fresh == 1 then [] else [{ id: "grvc.stonks" } + (if $style == "" then {} else { barStyle: $style } end)] end),
         right: []
       }
-    }
+    } + (if $fresh == 1 then {} else { centerAnchor: "grvc.stonks" } end))
   }' > "$1"
 }
 
@@ -147,9 +145,11 @@ css_table() {
 
 # write_nested_lua RUN: no Omarchy autostart (it imports the environment
 # into the owner's systemd), no XWayland, scale 1, and the few compositor
-# values the shell reads, taken from the host.
+# values the shell reads, taken from the host. A fresh start opens a
+# terminal (foot, Omarchy's default config, bash) in the sandbox's home.
 write_nested_lua() {
-  local run=$1 gaps_in gaps_out border rounding layout
+  local run=$1 gaps_in gaps_out border rounding layout terminal=""
+  [ "${fresh:-0}" = 1 ] && terminal="hl.exec_cmd(\"foot --working-directory=$run/home bash\")"
   gaps_in=$(css_table general:gaps_in) && gaps_out=$(css_table general:gaps_out) \
     && border=$(hyprctl -j getoption general:border_size | jq -er .int) \
     && rounding=$(hyprctl -j getoption decoration:rounding | jq -er .int) \
@@ -171,6 +171,7 @@ hl.config({
 })
 hl.on("hyprland.start", function()
   hl.exec_cmd("quickshell -n -p /usr/share/omarchy/shell > $run/shell.log 2>&1")
+  $terminal
 end)
 EOF
 }
@@ -220,17 +221,29 @@ EOF
 
 # build_sandbox RUN COMMIT: a minimal home, not a copy of ~/.config/omarchy.
 # Its watchlist is the demo one (tophat/demo.json), never the owner's, so a
-# screenshot names no one's lists.
+# screenshot names no one's lists. A fresh start has no plugin folder, data
+# file, or cache: COMMIT is a clone at ~/stonks, the URL a new user's
+# install is given (a relative path, so the installer's warning shows no
+# home path), with a plain prompt and Omarchy's terminal config.
 build_sandbox() {
   local run=$1 commit=$2 home=$1/home style
-  mkdir -p "$home/.config/omarchy/plugins/grvc.stonks" "$home/.local/state/omarchy/current" \
+  mkdir -p "$home/.config/omarchy" "$home/.local/state/omarchy/current" \
     "$home/.local/share" "$home/.cache" || return 1
-  git -C "$checkout" archive --format=tar "$commit" | tar -x -C "$home/.config/omarchy/plugins/grvc.stonks" \
-    || { echo "tophat: cannot export $commit" >&2; return 1; }
+  if [ "${fresh:-0}" = 1 ]; then
+    { git init -q -b main "$home/stonks" && git -C "$home/stonks" fetch -q "$checkout" "$commit" \
+      && git -C "$home/stonks" reset -q --hard FETCH_HEAD && rm -f "$home/stonks/.git/FETCH_HEAD"; } \
+      || { echo "tophat: cannot clone $commit" >&2; return 1; }
+    printf '%s\n' "PS1='\\w \\\$ '" > "$home/.bashrc"
+    mkdir -p "$home/.config/foot" && cp /usr/share/omarchy/config/foot/foot.ini "$home/.config/foot/" || return 1
+  else
+    mkdir -p "$home/.config/omarchy/plugins/grvc.stonks" || return 1
+    git -C "$checkout" archive --format=tar "$commit" | tar -x -C "$home/.config/omarchy/plugins/grvc.stonks" \
+      || { echo "tophat: cannot export $commit" >&2; return 1; }
+    cp "$here/tophat/demo.json" "$home/.config/omarchy/grvc.stonks.json" || return 1
+  fi
   style=$(jq -r '[.bar.layout[][]? | select(.id == "grvc.stonks") | .barStyle // empty][0] // ""' \
     "$HOME/.config/omarchy/shell.json" 2>/dev/null)
   write_shell_json "$home/.config/omarchy/shell.json" "$style" && shell_json_ok "$home/.config/omarchy/shell.json" || return 1
-  cp "$here/tophat/demo.json" "$home/.config/omarchy/grvc.stonks.json" || return 1
   # The theme as real files where Color.qml reads it.
   cp -rL "$HOME/.local/state/omarchy/current/theme" "$home/.local/state/omarchy/current/theme" || return 1
   cp -L "$HOME/.local/state/omarchy/current/background" "$home/.local/state/omarchy/current/background" 2>/dev/null
@@ -302,9 +315,7 @@ load_run() {
   [ "$CHECKOUT" = "$checkout" ] || die "the nested session belongs to $CHECKOUT"
 }
 
-leader_ok() {
-  [ -n "${LEADER:-}" ] && [ "$(start_of "$LEADER")" = "$LEADER_START" ] && [ "$(pgid_of "$LEADER")" = "$LEADER" ]
-}
+leader_ok() { leader_is "${LEADER:-}" "${LEADER_START:-}"; }
 
 # session_alive: the launcher, the nested compositor in its group, the saved
 # socket, and the instance's lock file naming that compositor.
@@ -394,9 +405,11 @@ cmd_scroll() {
 # ---- start ------------------------------------------------------------------
 
 cmd_start() {
-  local ref=${1:?usage: start REF} commit ws id answer tool
+  fresh=0
+  [ "${1:-}" = --fresh ] && { fresh=1; shift; }
+  local ref=${1:?usage: start [--fresh] REF} commit ws id answer tool
   commit=$(git -C "$checkout" rev-parse --verify --quiet "$ref^{commit}") || die "no such commit: $ref"
-  for tool in Hyprland quickshell dbus-run-session python3 wtype grim gpu-screen-recorder setsid flock jq; do
+  for tool in Hyprland quickshell dbus-run-session python3 wtype grim gpu-screen-recorder setsid flock jq foot; do
     command -v "$tool" > /dev/null || die "$tool is not installed"
   done
   case ${WAYLAND_DISPLAY:-} in
@@ -440,13 +453,18 @@ cmd_start() {
   within 15 parent_window > /dev/null || start_failed "the session's window is not alone, unfocused, and shown on $laptop's workspace $ws"
   within 60 shell_up || start_failed "the nested shell never answered"
   services_off || start_failed "a service that must be off is running"
-  within 30 nested omarchy-shell grvc.stonks close > /dev/null 2>&1 || start_failed "the Stonks pill never loaded"
+  if (( fresh )); then
+    within 30 terminal_up || start_failed "the terminal never opened"
+  else
+    within 30 nested omarchy-shell grvc.stonks close > /dev/null 2>&1 || start_failed "the Stonks pill never loaded"
+  fi
   read -r WIDTH HEIGHT < <(nested hyprctl -j monitors | jq -r '.[0] | "\(.width) \(.height)"')
   printf 'WIDTH=%q\nHEIGHT=%q\n' "$WIDTH" "$HEIGHT" >> "$run/identity"
   note_pids
   trap - INT TERM
   echo "commit: $commit"
   echo "nested output: ${WIDTH}x$HEIGHT on $laptop, workspace $ws"
+  if (( fresh )); then echo "fresh: Stonks not installed; in the terminal, its clone is ~/stonks"; fi
 }
 
 # find_instance: this run's Hyprland instance, from its lock file.
@@ -466,6 +484,7 @@ find_instance() {
 }
 
 shell_up() { note_pids; [ "$(nested omarchy-shell shell ping 2>/dev/null)" = ok ]; }
+terminal_up() { note_pids; nested hyprctl -j clients | jq -e 'any(.[]; .class == "foot")' > /dev/null; }
 
 # note_pids: the group's members so far, for the core-dump check.
 note_pids() { pgrep -g "$LEADER" >> "$run/pids"; }
@@ -477,8 +496,13 @@ services_off() {
     jq -e --arg id "$id" 'any(.[]; .id == $id and .enabled == false)' <<< "$plugins" > /dev/null \
       || { echo "tophat: $id is not off in the nested shell" >&2; ok=1; }
   done
-  jq -e 'any(.[]; .id == "grvc.stonks" and .enabled)' <<< "$plugins" > /dev/null \
-    || { echo "tophat: grvc.stonks is not on in the nested shell" >&2; ok=1; }
+  if (( fresh )); then
+    jq -e 'all(.[]; .id != "grvc.stonks")' <<< "$plugins" > /dev/null \
+      || { echo "tophat: grvc.stonks is known to the nested shell before its install" >&2; ok=1; }
+  else
+    jq -e 'any(.[]; .id == "grvc.stonks" and .enabled)' <<< "$plugins" > /dev/null \
+      || { echo "tophat: grvc.stonks is not on in the nested shell" >&2; ok=1; }
+  fi
   return "$ok"
 }
 
@@ -496,51 +520,26 @@ start_failed() {
 
 # ---- stop -------------------------------------------------------------------
 
-# group_ours: the recorded group still holds this run's processes: its
-# leader is the one recorded, or every member carries the run's mark (the
-# leader goes first, and a group number is never reused while a member
-# lives).
-group_ours() {
-  local pid
-  leader_ok && return 0
-  [ -n "${LEADER:-}" ] && group_alive || return 1
-  for pid in $(pgrep -g "$LEADER"); do
-    grep -qzx -- "TOPHAT_RUN=$RUN_ID" "/proc/$pid/environ" 2> /dev/null || return 1
-  done
-}
+# The run's mark: everything the nested session starts carries it.
+mark() { echo "TOPHAT_RUN=$RUN_ID"; }
+ours() { [ -n "${LEADER:-}" ] && group_ours "$LEADER" "${LEADER_START:-}" "$(mark)"; }
 group_alive() { pgrep -g "$LEADER" > /dev/null; }
 group_gone() { ! group_alive; }
-
-# signal_group SIGNAL: only the group this run made.
-signal_group() {
-  group_ours || return 1
-  kill -s "$1" -- "-$LEADER" 2> /dev/null
-}
 
 # end_session: ask the nested compositor to exit, then signal what is left
 # of the group (the bus's activated services outlive it) until it is empty.
 end_session() {
-  group_ours || return 0
+  ours || return 0
   note_pids
   if session_alive 2> /dev/null; then
     nested hyprctl eval 'hl.dispatch(hl.dsp.exit())' > /dev/null 2>&1
     within 10 bash -c "! kill -0 $HYPR_PID 2>/dev/null"
     within 2 group_gone && return 0
   fi
-  signal_group TERM
+  signal_group TERM "$LEADER" "${LEADER_START:-}" "$(mark)"
   within 5 group_gone && return 0
-  signal_group KILL
+  signal_group KILL "$LEADER" "${LEADER_START:-}" "$(mark)"
   within 5 group_gone
-}
-
-# leftovers: processes that carry this run's mark but left its group.
-# Reported, never signalled.
-leftovers() {
-  local env pid
-  { grep -lzx -- "TOPHAT_RUN=$RUN_ID" /proc/[0-9]*/environ 2> /dev/null || :; } | while read -r env; do
-    pid=${env#/proc/}; pid=${pid%/environ}
-    echo "$pid $(tr '\0' ' ' < "/proc/$pid/cmdline" 2> /dev/null)"
-  done
 }
 
 # stop_run: end everything this run started and report what it saw.
@@ -552,7 +551,9 @@ stop_run() {
   [ -f "$run/recorder" ] && { record_stop || status=1; }
   end_session || { echo "FAILED the session's group did not end" >&2; status=1; }
   sleep 0.5
-  line=$(leftovers)
+  # Processes that carry the run's mark but left its group: reported, never
+  # signalled.
+  line=$(marked "$(mark)")
   [ -n "$line" ] && { echo "FAILED processes left the run's group and are still running (not signalled):" >&2; echo "$line" >&2; status=1; }
   if [ -s "$run/stubs.log" ]; then
     while read -r line; do
@@ -715,6 +716,15 @@ self_check() {
   done
   echo '{ "version": 1,' > "$tmp/bad.json"
   shell_json_ok "$tmp/bad.json" 2> /dev/null && miss "unparseable shell.json should fail"
+  # A fresh start's: no pill until the install puts one there.
+  local pill=$tmp/shell.json
+  fresh=1
+  write_shell_json "$tmp/fresh.json" ""
+  shell_json_ok "$tmp/fresh.json" 2> /dev/null || miss "the generated fresh shell.json should pass"
+  shell_json_ok "$pill" 2> /dev/null && miss "a fresh start's shell.json with the pill should fail"
+  jq '.bar.layout.right = [{ id: "grvc.stonks" }]' "$tmp/fresh.json" > "$tmp/bad.json"
+  shell_json_ok "$tmp/bad.json" 2> /dev/null && miss "a fresh start's shell.json with the pill on the right should fail"
+  fresh=0
   printf 'hl.config({ general = { gaps_in = 5 } })\n' > "$tmp/ok.lua"
   nested_lua_ok "$tmp/ok.lua" 2> /dev/null || miss "a valid nested.lua should pass"
   printf 'hl.config({ general = { gaps_inn = 5 } })\n' > "$tmp/bad.lua"
@@ -758,7 +768,7 @@ self_check() {
   setsid sleep 300 & local bystander=$!
   local members; members=$(pgrep -g "$LEADER" | wc -l)
   (( members >= 3 )) || miss "the stand-in group should hold the launcher and its children, has $members"
-  LEADER_START=1 signal_group TERM && miss "a leader whose start time differs should not be signalled"
+  signal_group TERM "$LEADER" 1 "$(mark)" && miss "a leader whose start time differs should not be signalled"
   kill -0 "$LEADER" 2> /dev/null || miss "the group was signalled despite a changed start time"
   end_session
   pgrep -g "$LEADER" > /dev/null && miss "the run's group outlived teardown"
@@ -767,7 +777,7 @@ self_check() {
   kill "$bystander" 2> /dev/null
   slot_free 2> /dev/null || miss "the slot should be free once the session ends"
   # The stand-in compositor's detached child carries the run's mark.
-  leftovers | grep "^$(cat "$tmp/escapee") " > /dev/null || miss "a marked process outside the group should be reported"
+  marked "$(mark)" | grep "^$(cat "$tmp/escapee") " > /dev/null || miss "a marked process outside the group should be reported"
 
   (( failed )) && echo "tophat self-check FAILED" || echo "tophat self-check ok"
   return "$failed"

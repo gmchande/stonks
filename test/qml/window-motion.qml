@@ -48,6 +48,24 @@ ShellRoot {
   Stonks.App { id: app; service: service }
   // The hero chart's or the body's rendered frames, for frames.js.
   FrameGrab { id: grab }
+  // A busy machine, on purpose: from the draw-in's start, each render first
+  // holds the GUI thread for 0.3 of the time since, until 200 ms in. Renders
+  // and the animation clock share that thread, so the clock ticks later and
+  // later and each render shows a moment older than the render: frames
+  // timed as they render, not by their moment, read the 320 ms draw-in as
+  // about 420. Its handler is connected before the grab's, so it runs first.
+  property real busySince: 0
+  Connections {
+    id: busy
+    target: null
+    function onAfterAnimating() {
+      if (!harness.busySince) return
+      var since = Date.now() - harness.busySince
+      if (since > 200) return
+      var until = Date.now() + since * 0.3
+      while (Date.now() < until) {}
+    }
+  }
   // Hold AAPL's history answer back, and let it go (see the fake curl).
   Process { id: holdAapl; command: ["touch", Quickshell.env("STONKS_FAKE_STATE") + "/AAPL.history.hold"] }
   Process { id: releaseAapl; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/AAPL.history.hold"] }
@@ -324,12 +342,19 @@ ShellRoot {
     // the motion audit: #33's checks proved a property moved, while its
     // 160 ms fade read as no motion at all.
     function drawInFrames(body, keys) {
-      var run = function(name, change) {
+      var run = function(name, change, busyMachine) {
         grab.source = body.chartItem
+        busy.target = busyMachine ? body.chartItem.Window.window : null
+        harness.busySince = 0
         grab.begin(name)
         // The draw-in starts as the chart's reveal leaves whole.
         var started = false
-        var marked = function() { if (!started && body.motion.reveal < 1) { started = true; grab.markStart() } }
+        var marked = function() {
+          if (started || body.motion.reveal >= 1) return
+          started = true
+          grab.markStart()
+          if (busyMachine) harness.busySince = Date.now()
+        }
         body.motion.revealChanged.connect(marked)
         change()
         tryVerify(function() { return !body.chartLoading && body.motion.reveal === 1 }, 5000)
@@ -337,6 +362,8 @@ ShellRoot {
         var settledAt = grab.frames.length
         tryVerify(function() { return grab.frames.length >= settledAt + 4 }, 2000)
         grab.end()
+        busy.target = null
+        harness.busySince = 0
         body.motion.revealChanged.disconnect(marked)
         tryVerify(function() { return grab.waiting === 0 }, 3000)
         grab.judge("drawin:ink")
@@ -357,7 +384,12 @@ ShellRoot {
         results.push(look + " symbol " + (symbol.ok ? "ok" : "FAILED") + ": " + symbol.detail)
         results.push(look + " range " + (range.ok ? "ok" : "FAILED") + ": " + range.detail)
       })
+      // The same on a busy machine: a range change back, in smooth.
       service.persist({ style: "smooth" })
+      tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000)
+      var busyRange = run("range-busy", function() { keyClick(Qt.Key_BracketLeft) }, true)
+      harness.check("on a busy machine, whose animation clock ticks later and later, the chart still reads as drawing in over about 320 ms"
+        + (busyRange.ok ? " — " + busyRange.detail.replace(/^edge [^|]*\| /, "") : ""), busyRange.ok, busyRange.detail)
 
       // Loading holds still: while the chart asked for is on its way, the
       // one on show is the same picture on every frame; when it lands, it

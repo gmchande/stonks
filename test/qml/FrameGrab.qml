@@ -2,17 +2,22 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Grabs `source`'s rendered frames, one on every frame while running, into
-// $STONKS_FRAMES as PPM, and has frames.js judge them. A grab alone keeps
-// the source's transparency, and not always in the same format, so while
-// grabbing the source has its window's colour laid under it: what is on
-// screen stays the same, and every frame is the picture as it shows. Each
-// frame is asked for, and timed, as its window's animations have just
-// advanced (afterAnimating), so its picture is that moment's: a grab asked
-// for from a FrameAnimation shows the next tick, a frame interval later
-// than its time, and load stretches that interval. Times are ms since
-// `start`, which a harness sets as its motion starts (`markStart`). A
-// harness copies this beside its shell.qml (`frame_tools`, lib.sh).
+// Grabs `source`'s rendered frames into $STONKS_FRAMES as PPM, and has
+// frames.js judge them. A grab alone keeps the source's transparency, and
+// not always in the same format, so while grabbing the source has its
+// window's colour laid under it: what is on screen stays the same, and
+// every frame is the picture as it shows. Offscreen, Qt draws with its
+// software render loop, which renders on its own cadence (each grab asks
+// for the next render) while animations advance on QtCore's 16 ms timer,
+// and `afterAnimating` fires on every render, whether the clock ticked or
+// not. So a render with no tick since the last frame repeats that frame's
+// moment and is not kept, and a frame is timed by the latest moment its
+// picture can show: the clock's last tick, or the mark when it came after
+// that tick (a change made at the mark shows at once). Timed by the render
+// instead, a late clock shows each moment later than it was, and a
+// 160 ms ease on a busy machine read as 240. Times are ms since `start`,
+// which a harness sets as its motion starts (`markStart`). A harness copies
+// this beside its shell.qml (`frame_tools`, lib.sh).
 Item {
   id: grabber
 
@@ -22,6 +27,9 @@ Item {
   property var frames: []
   property int waiting: 0
   property var verdict: null
+  // When the animation clock last ticked, and the moment of the last frame.
+  property real tick: 0
+  property real shown: 0
   property Item ground: null
 
   // Starts a run of frames named `runName`, timed from now until marked.
@@ -31,6 +39,8 @@ Item {
     ground.color = source.Window.window.color
     name = runName
     frames = []
+    tick = 0
+    shown = 0
     verdict = null
     start = Date.now()
     ticker.running = true
@@ -41,12 +51,11 @@ Item {
   function end() { ticker.running = false }
   function resume() { ticker.running = true }
 
-  // One frame: this moment's picture, as the window's animations have just
-  // set it.
-  function shot() {
+  // One frame: this render's picture, timed by its moment.
+  function shot(at) {
     var path = Quickshell.env("STONKS_FRAMES") + "/" + name + "-" + String(frames.length).padStart(3, "0") + ".ppm"
-    var frame = { path: path, at: Date.now() }
-    frames.push(frame)
+    frames.push({ path: path, at: at })
+    shown = at
     waiting++
     source.grabToImage(function(result) {
       result.saveToFile(path)
@@ -81,17 +90,23 @@ Item {
     onTriggered: if (grabber.verdict === null) grabber.verdict = { ok: false, detail: "no verdict from frames.js in 9 s" }
   }
 
-  // Asks the window for a frame on every tick while grabbing, still
-  // pictures too, so every tick has its afterAnimating.
+  // Keeps the window rendering on every tick while grabbing, still pictures
+  // too, and notes when the clock ticked.
   FrameAnimation {
     id: ticker
     running: false
-    onTriggered: grabber.source.Window.window.update()
+    onTriggered: {
+      grabber.tick = Date.now()
+      grabber.source.Window.window.update()
+    }
   }
 
   Connections {
     target: ticker.running ? grabber.source.Window.window : null
-    function onAfterAnimating() { grabber.shot() }
+    function onAfterAnimating() {
+      var at = grabber.start > grabber.tick && Date.now() >= grabber.start ? grabber.start : grabber.tick
+      if (at > grabber.shown) grabber.shot(at)
+    }
   }
 
   Process {

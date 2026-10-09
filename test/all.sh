@@ -13,10 +13,11 @@ status=0
 # Before anything runs: every harness script sources lib.sh, ends on finish
 # and its finish line, and is started below. A script that misses one can
 # pass without its checks having run. The daily totals (fetch-day.sh) are
-# a measurement, run by hand.
+# a measurement, run by hand; quickshell.sh is lib.sh's runner, and
+# crash-check.sh proves it without the saved answers.
 for script in test/qml/*.sh; do
   name=${script##*/}
-  case "$name" in lib.sh|render.sh|fetch-day.sh) continue ;; esac
+  case "$name" in lib.sh|quickshell.sh|crash-check.sh|render.sh|fetch-day.sh) continue ;; esac
   grep -q '^source .*/lib\.sh"$' "$script" || echo "FAILED $script does not source lib.sh"
   tail -n 1 "$script" | grep -qE '^finish "[^"]+"$' || echo "FAILED $script does not end with finish \"...\""
   grep -qE "^start .* bash test/qml/${name//./\\.}$" test/all.sh || echo "FAILED $script is not started by test/all.sh"
@@ -27,8 +28,18 @@ labels=()
 pids=()
 # Each harness runs in a process group of its own, which holds everything it
 # starts, so an interrupt stops exactly those groups: never a process by
-# name, since the owner's shell and other runs are Quickshells too.
-trap 'for pid in "${pids[@]}"; do kill -- "-$pid" 2> /dev/null; done; exit 130' INT TERM
+# name, since the owner's shell and other runs are Quickshells too. It waits
+# for them to empty, as each harness stops its own Quickshell's group, so
+# nothing the suite started outlives it.
+stop_all() {
+  local pid i
+  for pid in "${pids[@]}"; do kill -- "-$pid" 2> /dev/null; done
+  for pid in "${pids[@]}"; do
+    for i in $(seq 50); do pgrep -g "$pid" > /dev/null || break; sleep 0.2; done
+  done
+  exit 130
+}
+trap stop_all INT TERM
 trap 'rm -rf "$logs"' EXIT
 
 # centiseconds: time since boot, which a clock change does not move.
@@ -80,6 +91,22 @@ saved_tests() {
   bun test test/saved.test.js
 }
 
+# validate_clone: omarchy plugin validate on what a clone of this checkout
+# holds: the tracked files as they are here, an uncommitted edit included,
+# never an ignored one (out/, docs/, AGENTS.md, test/fixtures/). Links stay
+# links, so a tracked one still fails.
+validate_clone() {
+  local tree code file
+  tree=$(mktemp -d)
+  git ls-files -z | while IFS= read -r -d '' file; do
+    [[ -e $file || -L $file ]] && printf '%s\0' "$file"
+  done | tar -c --null -T - | tar -x -C "$tree"
+  (cd "$tree" && omarchy plugin validate .)
+  code=$?
+  rm -rf "$tree"
+  return "$code"
+}
+
 # Longest first: the suite takes as long as the renders or the range harness.
 start "offscreen renders" bash test/qml/render.sh
 start "shared range harness" bash test/qml/range.sh
@@ -95,6 +122,7 @@ start "popup motion harness" bash test/qml/popup-motion.sh
 start "nothing-jumps layout harness" bash test/qml/layout.sh
 start "quote queue harness" bash test/qml/run.sh
 start "tophat guards (no screen)" bash test/tophat.sh self-check
+start "Quickshell crash handling (stand-in)" bash test/qml/crash-check.sh
 start "history harness" bash test/qml/history.sh
 start "overnight harness" bash test/qml/overnight.sh
 start "service harness" bash test/qml/service.sh
@@ -106,7 +134,7 @@ run "qmllint (only the baseline in test/lint.sh)" bash test/lint.sh
 run "qmllint gate self-check" bash test/lint.sh self-check
 run "frame checker self-check" bun test/qml/frames.js self-check
 run "launcher icon is the mark" bun test/mark-svg.js check
-run "omarchy plugin validate" omarchy plugin validate .
+run "omarchy plugin validate (what a clone holds)" validate_clone
 run "launcher entry validates" desktop-file-validate share/stonks.desktop
 
 for i in "${!pids[@]}"; do

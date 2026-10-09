@@ -102,12 +102,12 @@ ShellRoot {
       keyClick(text)
     }
 
-    // An ease of the edge, from the frames, after `act`. What frames.js read
-    // is logged pass or fail: the edge frame by frame and its curve.
+    // An ease of the edge, from the frames, after `act`. Its line, pass or
+    // fail, says what frames.js read: its curve, and on a failure the edge
+    // frame by frame.
     function eases(label, act) {
       var verdict = frames(label.replace(/[^a-z0-9]+/gi, "-"), act, "edge", band())
-      console.log("  read: " + verdict.detail)
-      harness.check(label, verdict.ok, verdict.detail)
+      harness.check(label + (verdict.ok ? " — " + verdict.detail.replace(/^edge [^|]*\| /, "") : ""), verdict.ok, verdict.detail)
       wait(200)
     }
 
@@ -157,8 +157,9 @@ ShellRoot {
       key(".")
       wait(400)
       var menu = frames("menu", function() { key("w") }, "edge", ["0"])
-      harness.check("the list menu on an empty list eases the edge down to room for it and the footer",
-        menu.ok && service.listName === "Empty", menu.detail)
+      var menuOk = menu.ok && service.listName === "Empty"
+      harness.check("the list menu on an empty list eases the edge down to room for it and the footer"
+        + (menuOk ? " — " + menu.detail.replace(/^edge [^|]*\| /, "") : ""), menuOk, menu.detail)
       panel.testBody.closeListMenu()
       wait(300)
       panel.close()
