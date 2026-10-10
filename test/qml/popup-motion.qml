@@ -162,6 +162,16 @@ ShellRoot {
         + (menuOk ? " — " + menu.detail.replace(/^edge [^|]*\| /, "") : ""), menuOk, menu.detail)
       panel.testBody.closeListMenu()
       wait(300)
+
+      // Search on the empty list: opening eases the edge down to its room,
+      // the field standing at the top with nothing riding the edge; closing
+      // eases it back, the footer riding it.
+      var opening = frames("search-open", function() { key("a") }, "edge", ["0"])
+      var openOk = opening.ok && panel.testBody.adding
+      harness.check("search opening eases the edge down to its room"
+        + (openOk ? " — " + opening.detail.replace(/^edge [^|]*\| /, "") : ""), openOk, opening.detail)
+      wait(200)
+      eases("search closing eases the edge back up, the footer riding it", function() { panel.testBody.cancelAdding() })
       panel.close()
       harness.finish()
     }

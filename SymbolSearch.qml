@@ -8,10 +8,11 @@ import "Fetch.js" as Fetch
 import "Search.js" as Search
 import "Tones.js" as Tones
 // Search field, results, and the Yahoo lookup. The body turns it on and off
-// (`active`) and handles picked / chose / cancelled, and sizes itself by
-// desiredHeight once the first answer arrives. The last answer stays on
-// screen while a new query is out, dimmed and not takeable, so the rows never
-// come back between answers and nothing can add a symbol found for an
+// (`active`) and handles picked / chose / cancelled, and gives it the room
+// of desiredHeight as it opens. The field sits at the top and the results
+// fill down under it, whole rows only, so nothing above them moves as
+// answers come and go. The last answer stays on screen while a new query is
+// out, dimmed and not takeable, so nothing can add a symbol found for an
 // earlier query; only an empty field clears it. An empty answer says there
 // are no matches, and a lookup that failed says so. The keyboard owns the
 // choice: it starts on the top result, the arrows move it and keep it in
@@ -35,8 +36,16 @@ FocusScope {
   // What the search endpoint returns at most, so the room is the shape of a
   // full answer.
   readonly property int maxResults: 8
-  readonly property int rowPitch: rowHeight + Style.space(2)
-  readonly property int desiredHeight: rowPitch * maxResults - Style.space(2) + fieldBar.height
+  readonly property int rowGap: Style.space(2)
+  readonly property int rowPitch: rowHeight + rowGap
+  // From the field's rule to the first result.
+  readonly property int resultsGap: Style.space(6)
+  readonly property int desiredHeight: fieldBar.height + resultsGap + rowPitch * maxResults - rowGap
+  // The results' room under the field, in whole rows: a row is never cut.
+  readonly property int resultsHeight: {
+    var rows = Math.floor((Math.max(0, height - fieldBar.height - resultsGap) + rowGap) / rowPitch)
+    return rows > 0 ? rows * rowPitch - rowGap : 0
+  }
 
   property var results: []
   // The query the answer on screen is for, and what it was: "results",
@@ -49,7 +58,7 @@ FocusScope {
   property string activeQuery: ""
   property string requestedQuery: ""
   property string searchText: ""
-  property string placeholder: "Search symbols…"
+  property string placeholder: ""
   // The list on screen's members, arriving ones too: a result already in
   // it is shown, not added, and its button and the field's hint say so.
   property var members: []
@@ -60,6 +69,23 @@ FocusScope {
   readonly property int buttonWidth: Math.ceil(Math.max(addMetrics.advanceWidth, showMetrics.advanceWidth)) + Style.space(20)
   TextMetrics { id: addMetrics; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true; text: "Add" }
   TextMetrics { id: showMetrics; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true; text: "Show" }
+  // A row's columns: the symbol, the name, the exchange, and the button.
+  readonly property int rowPadding: Style.space(10)
+  readonly property int columnGap: Style.space(10)
+  readonly property int exchangeWidth: Style.space(110)
+  // The symbol is what you match on, so the name gives way to it: one
+  // column for every row, as wide as the answer's widest symbol, until the
+  // name is down to half the room the two share; past that a symbol ends
+  // in an ellipsis. The exchange and the button keep theirs.
+  readonly property int sharedWidth: width - rowPadding * 2 - columnGap * 3 - exchangeWidth - buttonWidth
+  readonly property int symbolWidth: {
+    var font = symbolMetrics.font // read, so a look's new font measures again
+    var widest = Style.space(80)
+    for (var i = 0; i < results.length; i++)
+      widest = Math.max(widest, Math.ceil(symbolMetrics.advanceWidth(results[i].symbol)))
+    return Math.min(widest, Math.floor(sharedWidth / 2))
+  }
+  FontMetrics { id: symbolMetrics; font.family: root.fontFamily; font.pixelSize: Style.font.body; font.bold: true }
 
   signal picked(string symbol)
   // The choice is now this result, or none ("").
@@ -237,8 +263,9 @@ FocusScope {
     objectName: "searchResults"
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: parent.top
-    anchors.bottom: fieldBar.top
+    anchors.top: fieldBar.bottom
+    anchors.topMargin: root.resultsGap
+    height: root.resultsHeight
     visible: root.results.length > 0
     opacity: root.stale ? 0.4 : 1
     contentWidth: width
@@ -250,7 +277,7 @@ FocusScope {
     Column {
       id: resultsColumn
       width: resultsScroll.width
-      spacing: Style.space(2)
+      spacing: root.rowGap
 
       Repeater {
         model: root.results
@@ -279,11 +306,11 @@ FocusScope {
 
           Row {
             anchors.fill: parent
-            anchors.leftMargin: Style.space(10)
-            anchors.rightMargin: Style.space(10)
-            spacing: Style.space(10)
+            anchors.leftMargin: root.rowPadding
+            anchors.rightMargin: root.rowPadding
+            spacing: root.columnGap
             Text {
-              width: Style.space(80)
+              width: root.symbolWidth
               anchors.verticalCenter: parent.verticalCenter
               textFormat: Text.PlainText
               text: resultRow.modelData.symbol
@@ -296,7 +323,7 @@ FocusScope {
             // Every row keeps the Add's slot, so the exchange codes stay in
             // one column as the choice moves.
             Text {
-              width: parent.width - Style.space(80) - Style.space(110) - parent.spacing * 3 - addButton.width
+              width: root.sharedWidth - root.symbolWidth
               anchors.verticalCenter: parent.verticalCenter
               textFormat: Text.PlainText
               text: resultRow.modelData.name
@@ -307,7 +334,7 @@ FocusScope {
             }
             Text {
               objectName: "searchExchange"
-              width: Style.space(110)
+              width: root.exchangeWidth
               anchors.verticalCenter: parent.verticalCenter
               horizontalAlignment: Text.AlignRight
               textFormat: Text.PlainText
@@ -362,9 +389,10 @@ FocusScope {
     opacity: root.stale ? 0.4 : 1
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: parent.top
+    anchors.top: fieldBar.bottom
+    anchors.topMargin: root.resultsGap
     height: root.rowHeight
-    leftPadding: Style.space(10)
+    leftPadding: root.rowPadding
     verticalAlignment: Text.AlignVCenter
     textFormat: Text.PlainText
     text: root.answer === "none" ? "No matches for “" + root.resultsQuery + "”" : "Search didn’t answer · try again"
@@ -374,18 +402,14 @@ FocusScope {
     elide: Text.ElideRight
   }
 
+  // The field, at the top, where the list's rows were. Its own border is
+  // its edge: a rule under it would draw a second one.
   Item {
     id: fieldBar
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.bottom: parent.bottom
+    anchors.top: parent.top
     height: root.rowHeight + Style.space(6)
-
-    PanelSeparator {
-      anchors.top: parent.top
-      foreground: root.foreground
-      strength: 0.08
-    }
 
     TextField {
       id: searchField
@@ -394,7 +418,6 @@ FocusScope {
       anchors.right: searchHint.left
       anchors.rightMargin: Style.space(10)
       anchors.verticalCenter: parent.verticalCenter
-      anchors.topMargin: Style.space(6)
       foreground: root.foreground
       placeholderText: root.placeholder
       onTextChanged: root.setQuery(text)
@@ -403,7 +426,8 @@ FocusScope {
     }
 
     // The hint names what Enter does, in the wider hint's room, so the field
-    // never moves as the choice goes from a new symbol to a member.
+    // never moves as the choice goes from a new symbol to a member; with no
+    // results there is nothing for Enter to take, and it names Escape alone.
     Text {
       id: searchHint
       objectName: "keyHints"
@@ -412,7 +436,7 @@ FocusScope {
       width: Math.ceil(Math.max(addHint.advanceWidth, showHint.advanceWidth))
       horizontalAlignment: Text.AlignRight
       textFormat: Text.PlainText
-      text: "⏎  " + root.chosenAction.toLowerCase() + "  ·  esc  cancel"
+      text: (root.results.length > 0 ? "⏎  " + root.chosenAction.toLowerCase() + "  ·  " : "") + "esc  cancel"
       color: root.dimmer
       font.family: root.fontFamily
       font.pixelSize: Style.font.caption

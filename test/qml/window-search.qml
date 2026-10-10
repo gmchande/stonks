@@ -81,7 +81,7 @@ ShellRoot {
       wait(50)
       keyClick(Qt.Key_S)
       keyClick(Qt.Key_H)
-      tryVerify(function() { return body.searching && body.search.results.length > 1 }, 3000)
+      tryVerify(function() { return body.adding && body.search.results.length > 1 }, 3000)
       wait(50)
     }
 
@@ -321,6 +321,117 @@ ShellRoot {
       wait(400)
     }
 
+    // The result rows of the answer on screen, each once: findAll reaches
+    // a Flickable's rows through its children and its contentItem both.
+    function resultRows(body) {
+      return findAll(body.search, "searchResult").filter(function(row, i, all) { return all.indexOf(row) === i })
+    }
+
+    // Types `query` over what the field holds and waits for its answer.
+    function answer(body, query) {
+      keyClick(Qt.Key_A, Qt.ControlModifier)
+      for (var c = 0; c < query.length; c++) keyClick(query[c])
+      tryVerify(function() { return body.search.resultsQuery === query }, 3000)
+      wait(50)
+    }
+
+    // Search's field opens where the list's first row was, under its
+    // header, and stays there from its open through one answer, five, none,
+    // and a lookup with no answer; each answer starts the same gap under
+    // it, and the hint offers Enter only while there is a result to take.
+    // Found in the first-run review: the field opened at the bottom, and
+    // "No matches" sat about 260 px above it, the hint still offering add.
+    function fieldInRowsPlace(body, watchlist, keys) {
+      var bar = harness.find(body.search, "searchField").parent
+      var hint = harness.find(body.search, "keyHints")
+      var message = harness.find(body.search, "searchMessage")
+      var rowsAt = Math.round(watchlist.mapToItem(body, 0, 0).y)
+      var seen = []
+      // Where the field's bar stands, how far under it the answer starts,
+      // and whether the hint offers Enter.
+      var look = function(label) {
+        var first = body.search.results.length ? resultRows(body)[0] : message.visible ? message : null
+        var under = first ? Math.round(first.mapToItem(body, 0, 0).y - bar.mapToItem(body, 0, bar.height).y) : "-"
+        seen.push([label, Math.round(bar.mapToItem(body, 0, 0).y), under, hint.text.indexOf("⏎") >= 0].join(" "))
+      }
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_A)
+      wait(50)
+      look("open")
+      ;["ONE", "SH", "ZZZ", "OOPS"].forEach(function(query) {
+        answer(body, query)
+        look(query + "/" + body.search.results.length)
+      })
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      var gap = body.search.resultsGap
+      var want = ["open " + rowsAt + " - false", "ONE/1 " + rowsAt + " " + gap + " true", "SH/5 " + rowsAt + " " + gap + " true",
+        "ZZZ/0 " + rowsAt + " " + gap + " false", "OOPS/0 " + rowsAt + " " + gap + " false"]
+      harness.check("search's field opens where the first row was and stays there, each answer starting under it, Enter offered only with results",
+        harness.same(seen, want), seen.join(" | ") + " — want " + want.join(" | "))
+    }
+
+    // A long symbol shows whole, the name giving way to it, and the
+    // exchange codes keep one column. Found in the first-run review:
+    // "XBTC39577-…" was cut while its name kept its room.
+    function longSymbols(body, keys) {
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_A)
+      wait(50)
+      answer(body, "BTC")
+      var rows = resultRows(body)
+      // The row's symbol: the Text that says it.
+      var symbolText = function(item, symbol) {
+        if (item.text === symbol && item.implicitWidth !== undefined) return item
+        for (var i = 0; i < item.children.length; i++) {
+          var found = symbolText(item.children[i], symbol)
+          if (found) return found
+        }
+        return null
+      }
+      var symbols = rows.map(function(row) { return symbolText(row, row.modelData.symbol) }).filter(function(s) { return !!s })
+      var cut = symbols.filter(function(s) { return s.implicitWidth > s.width }).map(function(s) { return s.text })
+      var edges = rows.map(function(row) {
+        var code = harness.find(row, "searchExchange")
+        return Math.round(code.mapToItem(body, code.width, 0).x)
+      })
+      keyClick(Qt.Key_Escape)
+      wait(50)
+      harness.check("long symbols show whole in search, the exchange codes in one column",
+        symbols.length === 5 && cut.length === 0 && edges.length === 5 && edges.every(function(x) { return x === edges[0] }),
+        symbols.length + " symbols, cut: " + cut.join(",") + " | codes " + edges.join(","))
+    }
+
+    // The window at its smallest shows search's field and only whole
+    // results, one at least. Found in the first-run review: the field cut
+    // the second result in half.
+    function smallestWindow(body, keys) {
+      var height = app.testWindow.implicitHeight
+      app.close()
+      app.testWindow.implicitHeight = app.testWindow.minimumSize.height
+      app.open("{}")
+      wait(200)
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_A)
+      wait(50)
+      answer(body, "SH")
+      var view = harness.find(body.search, "searchResults")
+      var tops = resultRows(body).map(function(row) { return Math.round(row.y - view.contentY) })
+      var rowHeight = body.search.rowHeight
+      var whole = tops.filter(function(top) { return top >= 0 && top + rowHeight <= view.height }).length
+      var cut = tops.filter(function(top) { return top + rowHeight > 0 && top < view.height && (top < 0 || top + rowHeight > view.height) }).length
+      var atMinimum = Math.round(body.height) === app.testWindow.minimumSize.height
+      var at = [Math.round(body.height), Math.round(view.height), whole, cut].join(",")
+      keyClick(Qt.Key_Escape)
+      app.close()
+      app.testWindow.implicitHeight = height
+      app.open("{}")
+      wait(200)
+      harness.check("the smallest window shows search's results whole, one at least, none cut",
+        atMinimum && whole >= 1 && cut === 0,
+        "body, results' room, whole, cut: " + at + " (minimum " + app.testWindow.minimumSize.height + ")")
+    }
+
     function test_flows() {
       tryVerify(function() {
         return service.quotes.AAPL && service.quotes.MSFT && service.quotes.NVDA
@@ -384,36 +495,36 @@ ShellRoot {
       body.resetInteraction()
 
       // While a new query is out, the last results stay on screen, dimmed
-      // and not takeable, so the rows never come back between answers; an
-      // empty answer says so in place, a failed lookup says so differently,
-      // and only an empty field clears them. Found in the code-quality
+      // and not takeable; an empty answer says so in place, a failed lookup
+      // says so differently, and only an empty field clears them, the rows
+      // staying away while search is open. Found in the code-quality
       // review: every edit brought the watchlist back for up to a second.
       searchFor("SH", "SHO")
       var resultsView = harness.find(body.search, "searchResults")
       var whileOut = [body.search.results.length > 0, body.search.stale, resultsView.opacity < 1,
-        body.searching, !watchlist.visible].join(",")
+        !watchlist.visible].join(",")
       tryVerify(function() { return body.search.resultsQuery === "SHO" }, 3000)
       var freshAgain = !body.search.stale && resultsView.opacity === 1
       keyClick(Qt.Key_A, Qt.ControlModifier)
       ;["Z", "Z", "Z"].forEach(function(k) { keyClick(k) })
       tryVerify(function() { return body.search.resultsQuery === "ZZZ" }, 3000)
       var message = harness.find(body.search, "searchMessage")
-      var noMatches = [body.search.results.length === 0, body.searching, message.visible, message.text].join(",")
+      var noMatches = [body.search.results.length === 0, message.visible, message.text].join(",")
       keyClick(Qt.Key_A, Qt.ControlModifier)
       ;["O", "O", "P", "S"].forEach(function(k) { keyClick(k) })
       tryVerify(function() { return body.search.resultsQuery === "OOPS" }, 3000)
-      var failed = [body.searching, message.visible, message.text].join(",")
+      var failed = [message.visible, message.text].join(",")
       keyClick(Qt.Key_A, Qt.ControlModifier)
       keyClick(Qt.Key_Backspace)
-      var cleared = [body.search.results.length === 0, body.searching, watchlist.visible].join(",")
+      var cleared = [body.search.results.length === 0, body.adding, watchlist.visible].join(",")
       harness.check("a query out keeps the last results dimmed and the rows away",
-        whileOut === "true,true,true,true,true" && freshAgain, whileOut + "|" + freshAgain)
+        whileOut === "true,true,true,true" && freshAgain, whileOut + "|" + freshAgain)
       harness.check("an empty answer and a failed lookup each say so in place, differently",
-        noMatches === "true,true,true,No matches for “ZZZ”"
-          && failed === "true,true,Search didn’t answer · try again",
+        noMatches === "true,true,No matches for “ZZZ”"
+          && failed === "true,Search didn’t answer · try again",
         noMatches + " / " + failed)
-      harness.check("an empty field clears the results and brings the rows back",
-        cleared === "true,false,true", cleared)
+      harness.check("an empty field clears the results, the rows still away while search is open",
+        cleared === "true,true,false", cleared)
       // Emptied while a query is out, the field drops it: no answer comes
       // for it. Found in cubic's review of #25.
       ;["S", "H"].forEach(function(k) { keyClick(k) })
@@ -426,6 +537,10 @@ ShellRoot {
         harness.calls("SEARCH.answered") === answeredBeforeClear && body.search.activeQuery === "",
         (harness.calls("SEARCH.answered") - answeredBeforeClear) + "|" + body.search.activeQuery)
       body.resetInteraction()
+
+      fieldInRowsPlace(body, watchlist, keys)
+      longSymbols(body, keys)
+      smallestWindow(body, keys)
 
       // A search still out when the window closes brings nothing back, and is
       // stopped, not waited out: type SH, let it go out (the fake curl

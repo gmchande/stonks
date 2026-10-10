@@ -194,8 +194,8 @@ run time.
   everything under the header for the key sheet, and the popup takes the
   sheet's height. While the card is open, its edge eases to a new height
   in the house 160 ms OutCubic; the body lays out at that height at once,
-  and what sits at its bottom (the footer, the search field) rides the
-  edge (`StonksBody.edge`). An open from closed settles it before the first
+  and the footer at its bottom rides the edge (`StonksBody.edge`). An open
+  from closed settles it before the first
   frame; one during the close fade eases from where it is. The
   shell's card is an item in a full-screen surface, so no window resizes.
   An open while open changes nothing. Closing only fades: everything that
@@ -295,7 +295,7 @@ run time.
   same list's breadth changes (a refresh, an add, a removal, a membership
   change) while the surface is open and the rows show; a list switch, an
   open, or the rows showing again sets them at once, and the rule's length
-  never eases them. While search's results or a list view cover the rows,
+  never eases them. While search or a list view covers the rows,
   the header names the list only: TODAY, the rule, and the order hide, the
   line keeping its height, and the rule rests.
 - `ListMenu.qml` — the list menu: lists with counts, a check on the
@@ -310,12 +310,17 @@ run time.
   lookup; the body handles `picked` / `chose` / `cancelled`. The
   keyboard owns the choice Enter adds, and tells every change of it
   (`chose`); the pointer tints, a click chooses, and only the chosen
-  row's Add takes a result. Every row keeps the button's slot, sized to the
-  wider of Add and Show, so the exchange codes hold one column. The last
+  row's Add takes a result. The field's placeholder says what to type and
+  names the list it adds to. Results fill down under the field in whole
+  rows only. Every row keeps the button's slot, sized to the wider of Add
+  and Show, so the exchange codes hold one column, and one symbol column,
+  the answer's widest symbol, which the name gives way to until it is down
+  to half their shared room. The last
   answer stays on screen while a new query is out, dimmed and not
-  takeable, so the rows never come back between answers; only an empty
-  field clears it. An empty answer says "No matches", a lookup with no
-  answer says so differently. Every way of taking a result goes through
+  takeable; only an empty field clears it. An empty answer says "No
+  matches", a lookup with no answer says so differently, both under the
+  field, and the hint offers Enter only while there are results. Every way
+  of taking a result goes through
   `accept`, which takes none for an earlier query.
 - `StonksMark.qml` — Stonks' mark in cells (`Cells.markLevels`): each
   column's cap lit and its stem faint, climbing, or mirrored to fall on a
@@ -566,18 +571,20 @@ run time.
   one, with the footer one gap under them; otherwise the key sheet's own
   height, a list view's own height, or, as search opens and before any
   typing, the search field and a full set of results, or the rows' height
-  when that is taller, the spare room above the field, so the field never
-  moves while you type. Whatever changes the height (a list switch, a
-  removal, an add that lands, an undo, a membership change from the other
-  surface, a view opening or closing), the card's edge eases there with the
-  footer or the field riding it; the footer carries the card's ground
+  when that is taller, the spare room under the results, so the card's
+  edge holds still while you type. Whatever changes the height (a list
+  switch, a removal, an add that lands, an undo, a membership change from
+  the other surface, a view opening or closing), the card's edge eases
+  there with the footer riding it; the footer carries the card's ground
   (`StonksBody.ground`), so a growing edge carries it over the rows instead
-  of drawing its words through them. Search's field opens at the bottom,
-  where the footer is. An open list menu taller than the rows makes room
-  for itself and for the footer one gap under it. On a bottom or side bar,
-  where the shell anchors the card's far edge, each of these moves the
-  card itself, as search and the key sheet do. The
-  window's minimum height is its fixed content plus one whole row, and past
+  of drawing its words through them. Search's field opens under the list's
+  header, where the rows were, and stays there from its open through every
+  answer, its results filling down under it. An open list menu taller than
+  the rows makes room for itself and for the footer one gap under it. On a
+  bottom or side bar, where the shell anchors the card's far edge, each of
+  these moves the card itself, as search and the key sheet do. The
+  window's minimum height is its fixed content plus one whole row, where
+  search shows its field and one whole result, and past
   720 its body keeps that width and centres.
 - All is the library: every symbol, fetched once each. Named lists are
   subsets of All, may be empty, and a symbol can be in several. Adding on a

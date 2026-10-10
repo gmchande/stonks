@@ -45,7 +45,7 @@ Item {
   property var breadth: ({ list: "", up: 0, flat: 0, down: 0, none: 0 })
   property bool listMenuOpen: false
   property bool replayRunning: false
-  // Search's results or a list view cover the rows: the header names the
+  // Search or a list view covers the rows: the header names the
   // list they act on and says nothing about rows out of sight.
   property bool rowsCovered: false
   property var rangeOptions: []

@@ -409,18 +409,39 @@ ShellRoot {
   property bool bodyAtOnce: false
 
   function recordHeight() { test.heights.push(panel.testContentHeight) }
-  // Where the footer and the search field end against the card's visible
-  // bottom, as the card's edge eases: the difference, frame by frame.
+  // As the card's edge eases, frame by frame: while search is open, where
+  // its field's bar stands; otherwise how far the footer ends from the
+  // card's visible bottom.
   property var edgeGaps: []
+  property var fieldFrames: []
   property var edgeFrames: null
   function recordEdge() {
     var body = panel.testBody
     var holder = panel.testKeyCatcher
+    if (body.adding) {
+      test.fieldFrames.push(Math.round(test.find(body.search, "searchField").parent.mapToItem(holder, 0, 0).y))
+      return
+    }
     var footer = test.find(body, "footer")
-    var bar = test.find(body.search, "searchField").parent
-    var item = body.adding ? bar : footer
-    var bottom = item.mapToItem(holder, 0, item.height).y
-    test.edgeGaps.push(Math.round(holder.height - bottom))
+    test.edgeGaps.push(Math.round(holder.height - footer.mapToItem(holder, 0, footer.height).y))
+  }
+  // Where the list's first row stands in the card, shown or not.
+  function rowsAt() { return Math.round(panel.testWatchlist.mapToItem(panel.testKeyCatcher, 0, 0).y) }
+  // Search with the answer `results` (or "none") for `query` in its field:
+  // where its field's bar stands, how far under it the answer starts, and
+  // whether the hint offers Enter.
+  function answerSearch(query, results) {
+    var search = panel.testBody.search
+    var bar = test.find(search, "searchField").parent
+    var message = test.find(search, "searchMessage")
+    test.find(search, "searchField").text = query
+    search.results = results
+    search.resultsQuery = query
+    search.answer = results.length ? "results" : "none"
+    var first = results.length ? test.find(search, "searchResult") : message.visible ? message : null
+    var under = first ? Math.round(first.mapToItem(bar, 0, 0).y - bar.height) : "-"
+    return [query, Math.round(bar.mapToItem(panel.testKeyCatcher, 0, 0).y), under,
+      test.find(search, "keyHints").text.indexOf("⏎") >= 0].join(" ")
   }
 
   // Eased to `target`: several heights on the way, every one closer.
@@ -433,15 +454,16 @@ ShellRoot {
   }
 
   // Types a query into search, opening it if it is shut, through an answer
-  // and an edit that dims it, and closes it: whether the field stayed where
-  // it was throughout, and the card's height with the answer in.
+  // and an edit that dims it, and closes it: whether the field stood where
+  // the list's first row was throughout, and the card's height with the
+  // answer in.
   function typeSearch() {
     var body = panel.testBody
     var field = test.find(body.search, "searchField")
-    var fieldY = function() { return field.mapToItem(panel.testKeyCatcher, 0, 0).y }
+    var barY = function() { return Math.round(field.parent.mapToItem(panel.testKeyCatcher, 0, 0).y) }
     if (!body.adding) body.startAdding()
     field.text = "TO"
-    var fieldYs = [fieldY()]
+    var barYs = [barY()]
     body.search.results = [
       { symbol: "TOPR", name: "Top Result Inc.", exchange: "NASDAQ" },
       { symbol: "SECR", name: "Second Result Inc.", exchange: "NYSE" }
@@ -449,15 +471,15 @@ ShellRoot {
     body.search.resultsQuery = "TO"
     body.search.answer = "results"
     var searchHeight = panel.testContentHeight
-    var searched = body.searching
-    fieldYs.push(fieldY())
+    barYs.push(barY())
     field.text = "TOP"
-    fieldYs.push(fieldY())
+    barYs.push(barY())
     // A new query keeps the answer on screen, dimmed, until its own.
-    var cleared = body.searching && body.search.stale
+    var dimmed = body.search.stale && !panel.testWatchlist.visible
+    var rows = test.rowsAt()
     body.cancelAdding()
-    return { ok: searched && cleared && fieldYs[1] === fieldYs[0] && fieldYs[2] === fieldYs[0],
-      searchHeight: searchHeight, detail: "searched " + searched + " dimmed " + cleared + " field " + fieldYs.join(",") }
+    return { ok: dimmed && barYs.every(function(y) { return y === rows }),
+      searchHeight: searchHeight, detail: "dimmed " + dimmed + " field " + barYs.join(",") + " first row at " + rows }
   }
   property int step: 0
   property string flow: ""
@@ -832,37 +854,39 @@ ShellRoot {
           service.entries = { AAPL: { status: "ok", receivedAt: service.now }, MSFT: { status: "ok", receivedAt: service.now } }
           service.featuredSymbol = "AAPL"
         } else if (test.step === 25) {
-          // Search takes its height as it opens, and the field at the bottom
-          // rides the card's easing edge there; typing then moves nothing.
-          // Closing it, the footer rides the edge back. Found in the
-          // transition audit (search 1, lists 14): the field sat at the new
-          // bottom before the edge got there, cut off, then jumped back.
+          // Search takes its height as it opens, the card's edge easing
+          // there, while its field stands where the list's first row was on
+          // every frame; it stays there through one answer, five, and none,
+          // each starting the same gap under it, and the hint offers Enter
+          // only with a result to take. Closing it, the footer rides the edge
+          // back. Found in the transition audit (search 1, lists 14): the
+          // field sat at the new bottom before the edge got there; and in the
+          // first-run review: "No matches" sat about 260 px above the field,
+          // the hint still offering add.
           test.heights = [panel.testContentHeight]
           test.edgeGaps = []
+          test.fieldFrames = []
           panel.testContentHeightChanged.connect(test.recordHeight)
           test.edgeFrames = Qt.createQmlObject('import QtQuick; FrameAnimation { running: true }', test)
           test.edgeFrames.triggered.connect(test.recordEdge)
           panel.testBody.startAdding()
         } else if (test.step === 26) {
           var opened = test.heights.slice()
-          var openGaps = test.edgeGaps.slice()
-          var field = test.find(panel.testBody.search, "searchField")
-          var bar = field.parent
-          var fieldAt = bar.mapToItem(panel.testKeyCatcher, 0, 0).y
-          field.text = "TO"
-          panel.testBody.search.results = [{ symbol: "TOPR", name: "Top Result Inc.", exchange: "NASDAQ" }]
-          panel.testBody.search.resultsQuery = "TO"
-          panel.testBody.search.answer = "results"
-          var typedAt = bar.mapToItem(panel.testKeyCatcher, 0, 0).y
-          test.check("search takes its height as it opens, its field riding the card's edge, and typing moves nothing",
-            test.eased(panel.fittedCardHeight) && opened.length >= 5
-              && openGaps.every(function(g) { return g === openGaps[0] }) && typedAt === fieldAt,
-            opened.join(",") + " gaps " + openGaps.join(",") + " field " + fieldAt + "->" + typedAt)
+          var openFields = test.fieldFrames.slice()
+          var rowsAt = test.rowsAt()
+          var five = ["TOPR", "SECR", "THRD", "FRTH", "FIFT"].map(function(s) { return { symbol: s, name: s + " Inc.", exchange: "NYSE" } })
+          var gap = panel.testBody.search.resultsGap
+          var seen = [test.answerSearch("ONE", five.slice(0, 1)), test.answerSearch("FIVE", five), test.answerSearch("ZZZ", [])]
+          var want = ["ONE " + rowsAt + " " + gap + " true", "FIVE " + rowsAt + " " + gap + " true", "ZZZ " + rowsAt + " " + gap + " false"]
+          test.check("search takes its height as it opens, its field where the first row was on every frame and through one answer, five, and none",
+            test.eased(panel.fittedCardHeight) && opened.length >= 5 && openFields.length >= 5
+              && openFields.every(function(y) { return y === rowsAt }) && seen.join("|") === want.join("|"),
+            opened.join(",") + " field " + openFields.join(",") + " first row at " + rowsAt + " | " + seen.join(" | ") + " — want " + want.join(" | "))
           test.heights = [panel.testContentHeight]
           test.edgeGaps = []
           panel.testBody.search.results = []
           panel.testBody.search.answer = ""
-          field.text = ""
+          test.find(panel.testBody.search, "searchField").text = ""
           panel.testBody.cancelAdding()
         } else if (test.step === 27) {
           var closedGaps = test.edgeGaps.slice()

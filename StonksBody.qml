@@ -29,8 +29,8 @@ Item {
   property int margins: 0
   // Where the surface's visible bottom is, in the body: the popup's card
   // eases its edge to a new height while the body lays out at it at once.
-  // What sits at the bottom, the footer or the search field, rides it, and a
-  // row below it is out of sight. The window's is its height.
+  // The footer rides it, and a row below it is out of sight. The window's
+  // is its height.
   property real edge: height
   property int bandGap: Style.space(10)
   // From the list's header to its rows, closer than the bands above it, so
@@ -248,10 +248,8 @@ Item {
   readonly property int chromeHeight: margins * 2 + header.height + heroBand.implicitHeight + footer.height + bandGap * 2 + listGap
   readonly property int helpHeight: margins * 2 + header.height + bandGap + helpSheet.contentHeight
   // Search needs room for the field and a full set of results, never less
-  // because the list it replaces is short. Until its first answer arrives
-  // the rows stay where they are, above the field; from then until the field
-  // is empty, search's answer shows in their place.
-  readonly property bool searching: adding && search.answer !== ""
+  // because the list it replaces is short. Its field takes the rows' place
+  // as it opens, and its answers fill down under the field.
   readonly property int searchHeight: margins * 2 + header.height + heroBand.implicitHeight
     + bandGap + listGap + search.desiredHeight
   readonly property int wholeListHeight: wholeRowsHeight(height - chromeHeight)
@@ -264,8 +262,8 @@ Item {
   readonly property int listViewHeight: margins * 2 + header.height + heroBand.implicitHeight + bandGap + listGap
     + (managingLists ? manageLists.contentHeight : symbolLists.contentHeight)
   // The rows are what the body shows under the band, not the key sheet,
-  // search's results, or a list view.
-  readonly property bool rowsShown: !showingHelp && !searching && !listViewOpen
+  // search, or a list view.
+  readonly property bool rowsShown: !showingHelp && !adding && !listViewOpen
   // While any of these is open it has the keys, not the surface.
   readonly property bool ownsKeys: adding || listMenuOpen || listViewOpen
   readonly property var keySheet: KeySheet.sheet(order)
@@ -301,9 +299,9 @@ Item {
   // shows, a list view's own, otherwise whole rows for the list shown, the
   // footer one gap under them. Search takes its height as it opens, before
   // any typing: the field and a full set of results, or the rows' height
-  // when that is taller, the spare room above the field, so the field never
-  // moves while you type. An open list menu taller than the rows makes room
-  // for itself and for the footer under it.
+  // when that is taller, the spare room under the results, so the card's
+  // edge holds still while you type. An open list menu taller than the rows
+  // makes room for itself and for the footer under it.
   function fittedHeight(maxHeight) {
     if (showingHelp) return Math.min(maxHeight, helpHeight)
     if (listViewOpen) return Math.min(maxHeight, listViewHeight)
@@ -769,7 +767,7 @@ Item {
     listLabel: root.listLabel
     breadth: root.breadth
     listMenuOpen: root.listMenuOpen
-    rowsCovered: root.searching || root.listViewOpen
+    rowsCovered: root.adding || root.listViewOpen
     replayRunning: motion.replayRunning
     rangeOptions: root.rangeOptions
     range: root.range
@@ -832,16 +830,20 @@ Item {
     onListsRequested: function(symbol) { root.openSymbolLists(symbol) }
   }
 
-  // Its field sits on the edge, where the footer is, and rides it.
+  // In the rows' place as it opens: its field where the first row was, its
+  // answers under it, laid out at the body's height while the card's edge
+  // eases there.
   SymbolSearch {
     id: search
+    objectName: "symbolSearch"
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: heroBand.bottom
+    anchors.bottom: parent.bottom
     anchors.leftMargin: root.margins
     anchors.rightMargin: root.margins
     anchors.topMargin: root.listGap
-    height: Math.max(0, root.edge - root.margins - y)
+    anchors.bottomMargin: root.margins
     visible: root.adding
     gate: root.service ? root.service.yahooGate : null
     active: root.adding && root.surfaceOpen
@@ -850,7 +852,9 @@ Item {
     dim: root.dim
     dimmer: root.dimmer
     fontFamily: root.fontFamily
-    placeholder: root.listName !== "" ? "Add symbols to " + root.listName + "…" : "Search symbols…"
+    // What to type, and the list it adds to; short, so a list's name fits
+    // the popup's field.
+    placeholder: root.listName !== "" ? "Symbol or company for " + root.listName + "…" : "Search a symbol or company…"
     members: root.members
     onPicked: function(symbol) { root.acceptSymbol(symbol) }
     onChose: function(symbol) { root.previewTo(symbol) }
@@ -912,7 +916,7 @@ Item {
   Text {
     objectName: "emptyList"
     visible: root.members.length === 0 && watchlist.displayedSymbols.length === 0
-      && !root.showingHelp && !root.searching && !root.listViewOpen
+      && !root.showingHelp && !root.adding && !root.listViewOpen
     x: root.margins
     y: watchlist.y
     width: root.width - root.margins * 2
@@ -927,11 +931,10 @@ Item {
     elide: Text.ElideRight
   }
 
-  // At the body's visible bottom, the edge, where the search field opens,
-  // one gap under the list's rows; it rides the popup's easing edge. It
-  // carries the surface's ground and stacks over the rows and the empty
-  // list's line, so a growing edge carries it across them without drawing
-  // its words through a row.
+  // At the body's visible bottom, the edge, one gap under the list's rows;
+  // it rides the popup's easing edge. It carries the surface's ground and
+  // stacks over the rows and the empty list's line, so a growing edge
+  // carries it across them without drawing its words through a row.
   AddFooter {
     id: footer
     objectName: "footer"
