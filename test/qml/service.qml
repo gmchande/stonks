@@ -142,6 +142,16 @@ ShellRoot {
   }
   // A shell started while the data file can't be read.
   Component { id: secondService; Service {} }
+  // A Service whose data file the harness steps through (service.sh's
+  // SteppedService.qml, on DataFileStandIn.qml).
+  Component { id: steppedService; SteppedService {} }
+  // Every read in flight ends, the ones a change held during a read starts.
+  function settle(file) {
+    for (var i = 0; i < 5 && file.reading; i++) file.endRead()
+  }
+  function withRange(owner, range) {
+    return JSON.stringify(Object.assign({}, owner.dataSettings, { range: range }), null, 2) + "\n"
+  }
 
   Component.onCompleted: service.fetchFundamentals("AAPL")
 
@@ -532,8 +542,34 @@ ShellRoot {
           harness.check(c.label, updates.newVersion === c.want, updates.newVersion)
           harness.versionAt++
           if (harness.versionAt < harness.versionCases.length) harness.go(25)
-          else harness.finish()
+          else harness.go(26)
         })
+      } else if (harness.step === 26) {
+        // A save from elsewhere while the service reads its own write back,
+        // its notice coming before that read ends, as a loaded machine can
+        // order them. Quickshell ignores a reload asked for while a read is
+        // in flight, so the read must follow once that one ends.
+        var stepped = steppedService.createObject(harness)
+        var file = stepped.testDataFile
+        file.endRead()
+        stepped.setRange("1D")
+        file.fileChanged()
+        file.saveElsewhere(harness.withRange(stepped, "1Y"))
+        harness.settle(file)
+        harness.check("a save from elsewhere during a read of the file lands once that read ends",
+          stepped.range === "1Y", stepped.range)
+        // A write of the service's own drops a read in flight unheard; a
+        // save from elsewhere during the next read still lands.
+        stepped.setRange("1M")
+        file.fileChanged()
+        stepped.setRange("3M")
+        file.fileChanged()
+        file.saveElsewhere(harness.withRange(stepped, "1W"))
+        harness.settle(file)
+        harness.check("so does one after a write of the service's own cut a read short",
+          stepped.range === "1W", stepped.range)
+        stepped.destroy()
+        harness.finish()
       }
     }
   }
