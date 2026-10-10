@@ -50,9 +50,10 @@ Item {
   property bool rowsCovered: false
   property var rangeOptions: []
   property string range: "1D"
-  property string periodText: ""
+  // The info block's two lines: the day's or the range's, over the 52 weeks.
+  property var periodLine: null
+  property var yearLine: null
   property string baselineText: ""
-  property string keyStatsText: ""
   // The clock, by which the hero's overnight print is old.
   property int now: 0
   // Whether the hero's change is the day's, which a click cycles.
@@ -188,41 +189,20 @@ Item {
         onSelected: function(value) { root.rangeRequested(value) }
       }
 
-      // The period and the key stats: two lines that are always there, so
+      // The period and the 52 weeks: two lines that are always there, so
       // the list keeps its place for every symbol and range.
-      Column {
+      InfoTable {
         objectName: "infoBlock"
         width: parent.width
-        spacing: Style.space(4)
-
-        // A day that reaches its 52-week high or low says so in that
-        // direction's colour; the rest of the line stays dim.
-        Text {
-          objectName: "periodLine"
-          width: parent.width
-          textFormat: Text.StyledText
-          text: root.periodText.replace("52W HIGH", "<font color=\"" + root.upColor + "\">52W HIGH</font>")
-            .replace("52W LOW", "<font color=\"" + root.downColor + "\">52W LOW</font>")
-          color: root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.caption
-          font.bold: true
-          elide: Text.ElideRight
-          wrapMode: Text.NoWrap
-        }
-
-        Text {
-          objectName: "keyStatsLine"
-          width: parent.width
-          textFormat: Text.PlainText
-          text: root.keyStatsText
-          color: root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.caption
-          font.bold: true
-          elide: Text.ElideRight
-          wrapMode: Text.NoWrap
-        }
+        height: implicitHeight
+        lines: [root.periodLine, root.yearLine]
+        retro: root.retro
+        foreground: root.foreground
+        dim: root.dim
+        upColor: root.upColor
+        downColor: root.downColor
+        fontFamily: root.fontFamily
+        rowGap: Style.space(4)
       }
     }
 

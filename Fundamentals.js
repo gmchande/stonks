@@ -1,7 +1,7 @@
 .import "Format.js" as Format
 .import "Quote.js" as Quote
 
-// Cap and P/E: Yahoo's dated snapshots, their closes, and the key stats
+// Cap and P/E: Yahoo's dated snapshots, their closes, and the 52-week
 // line. Knows nothing of sessions or charts.
 
 var FUNDAMENTALS_URL = "https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"
@@ -107,23 +107,42 @@ function peText(value) {
   return value < 100 ? value.toFixed(1) : Format.grouped(String(Math.round(value)))
 }
 
-// The info block's second line, on every range: the cap, the P/E, and the
-// 52-week range, each only when known. The cap and the P/E move with the
-// headline price from their own date's close; a cap more than
-// CAP_MAX_AGE_DAYS whole days older than the price is left out. The cap's
-// currency is named only when it is not the price's (London prices in GBp,
-// its caps in GBP).
-function keyStatsText(quote, figures) {
-  var q = quote || {}
-  var head = quote ? Quote.headlineQuote(quote) : null
-  var cap = figures ? figures.cap : null
-  var pe = figures ? figures.pe : null
-  var parts = []
-  if (head && cap && Math.floor((head.t - dateEpoch(cap.date)) / (24 * 60 * 60)) <= CAP_MAX_AGE_DAYS)
-    parts.push("MKT CAP " + (cap.currency && cap.currency !== q.currency ? cap.currency + " " : "")
-      + Format.compactNumber(cap.value * head.price / cap.close))
-  if (head && pe) parts.push("P/E " + peText(pe.value * head.price / pe.close))
-  if (Format.isFiniteNumber(q.fiftyTwoWeekLow) && Format.isFiniteNumber(q.fiftyTwoWeekHigh))
-    parts.push("52W " + Format.money(q.fiftyTwoWeekLow, q.priceDigits) + "–" + Format.money(q.fiftyTwoWeekHigh, q.priceDigits))
-  return parts.join(" · ")
+// The info block's second line, on every range: the 52-week range with the
+// price's place in it, then the cap and the P/E, each only when known. A
+// day past Yahoo's 52-week mark widens the range to it, so the day's high
+// and the year's read the same, both in the up tone (the low in the down
+// tone). The cap and the P/E move with the headline price from their own
+// date's close; a cap more than CAP_MAX_AGE_DAYS whole days older than the
+// price is left out. The cap's currency is named only when it is not the
+// price's (London prices in GBp, its caps in GBP).
+// Only an equity has cap and P/E slots, kept whether known or not, so the
+// line keeps its shape: the cap's as wide as 999.9B, with room for its
+// currency on a listing priced in a minor unit (GBp) before the cap comes;
+// the P/E's as wide as 99.9.
+function yearLine(quote, figures) {
+  if (!quote) return null
+  var q = quote
+  var head = Quote.headlineQuote(q)
+  var both = Format.isFiniteNumber(q.fiftyTwoWeekLow) && Format.isFiniteNumber(q.fiftyTwoWeekHigh)
+  var atHigh = both && Format.isFiniteNumber(q.dayHigh) && q.dayHigh >= q.fiftyTwoWeekHigh
+  var atLow = both && Format.isFiniteNumber(q.dayLow) && q.dayLow <= q.fiftyTwoWeekLow
+  var range = Format.infoRange(both ? (atLow ? q.dayLow : q.fiftyTwoWeekLow) : null,
+    both ? (atHigh ? q.dayHigh : q.fiftyTwoWeekHigh) : null, head ? head.price : null, q.priceDigits)
+  if (atHigh) range.highTone = "up"
+  if (atLow) range.lowTone = "down"
+  var facts = []
+  if (hasFundamentals(q)) {
+    var cap = figures ? figures.cap : null
+    var pe = figures ? figures.pe : null
+    var named = function(currency) { return currency && currency !== q.currency ? currency + " " : "" }
+    var minor = /[a-z]/.test(q.currency || "") ? q.currency.toUpperCase() : ""
+    facts.push({
+      label: "MKT CAP",
+      value: head && cap && Math.floor((head.t - dateEpoch(cap.date)) / (24 * 60 * 60)) <= CAP_MAX_AGE_DAYS
+        ? named(cap.currency) + Format.compactNumber(cap.value * head.price / cap.close) : "",
+      widest: named(cap ? cap.currency : minor) + Format.widest("999.9B")
+    })
+    facts.push({ label: "P/E", value: head && pe ? peText(pe.value * head.price / pe.close) : "", widest: Format.widest("99.9") })
+  }
+  return { title: "52W", range: range, facts: facts }
 }

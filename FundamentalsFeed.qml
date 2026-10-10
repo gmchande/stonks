@@ -4,7 +4,7 @@ import "Fetch.js" as Fetch
 import "Fundamentals.js" as Fundamentals
 // Yahoo's dated cap and P/E, one symbol at a time, kept for the day. Two
 // curls in turn: the snapshots, then the closes on their dates, which move
-// them with the price (`Fundamentals.keyStatsText`). An entry is "ok" with its
+// them with the price (`Fundamentals.yearLine`). An entry is "ok" with its
 // figures, either of which may be null when Yahoo has none, or "failed",
 // keeping the last good figures; a failed one is asked again the next time
 // it is wanted. While Yahoo's gate pauses the host, a fetch fails at once.

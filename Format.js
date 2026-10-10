@@ -178,6 +178,34 @@ function compactNumber(n) {
   return String(n)
 }
 
+// The widest a figure of this shape draws: every digit an 8. A column sized
+// by it holds any value with the same digits, so a refresh that changes the
+// value never moves what stands beside it.
+function widest(text) {
+  return String(text).replace(/\d/g, "8")
+}
+
+// An info line's range: its low and high, each null and "" when not known,
+// the price whose place it marks, and the widest a price of the listing's
+// takes at its decimals, from the largest price the line knows.
+function infoRange(low, high, price, digits) {
+  var known = function(v) { return isFiniteNumber(v) ? v : null }
+  low = known(low)
+  high = known(high)
+  price = known(price)
+  var largest = [low, high, price].reduce(function(m, v) { return v === null ? m : Math.max(m, Math.abs(v)) }, -1)
+  return {
+    low: low,
+    high: high,
+    price: price,
+    lowText: low === null ? "" : money(low, digits),
+    highText: high === null ? "" : money(high, digits),
+    lowTone: "",
+    highTone: "",
+    widest: largest < 0 ? "" : widest(money(largest, digits))
+  }
+}
+
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v))
 }

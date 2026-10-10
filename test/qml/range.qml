@@ -92,14 +92,14 @@ ShellRoot {
     return first > last ? "climbs" : first < last ? "falls" : "flat"
   }
 
-  // A window's info line: the range's high once its history is in, dashes
-  // while it loads, the day's figures otherwise. The line no longer names
-  // its range; the chart on show does.
+  // A window's info line: titled by its range, with the range's high once
+  // its history is in; the day's otherwise.
   function infoLine(window) {
-    return find(window.testBody, "periodLine").text
+    return JSON.stringify(window.testBody.periodLine)
   }
   function showsRange(window, range) {
-    return window.testBody.chartRange === range && / BELOW HIGH$/.test(infoLine(window))
+    var line = window.testBody.periodLine
+    return window.testBody.chartRange === range && !!line && line.title === range.toUpperCase() && line.range.highText !== ""
   }
 
   function finish() {
@@ -296,7 +296,7 @@ ShellRoot {
       var settle = function(key) {
         tryVerify(function() { return harness.answered(key) && !body.chartLoading && body.motion.drawn === 1 }, 5000)
       }
-      var hero = function() { return body.chartSymbol + " " + (body.featured ? body.featured.priceText : "") + " " + body.periodText }
+      var hero = function() { return body.chartSymbol + " " + (body.featured ? body.featured.priceText : "") + " " + JSON.stringify(body.periodLine) }
       app.open("{}")
       service.summon("AAPL", "1W")
       settle("AAPL|1W")
@@ -615,15 +615,15 @@ ShellRoot {
         var entry = service.histories["AAPL|1M"]
         if (service.range !== "1M" || (entry && entry.history)) return
         if (!body.featuredGeometry || body.motion.drawn < 1) blanked.push("chart")
-        if (!/(^| )H \d/.test(body.periodText)) blanked.push("info")
+        if (!body.periodLine || body.periodLine.range.highText === "") blanked.push("info")
       }
       body.featuredGeometryChanged.connect(watchLoad)
-      body.periodTextChanged.connect(watchLoad)
+      body.periodLineChanged.connect(watchLoad)
       keyClick(Qt.Key_BracketRight)
       watchLoad()
       tryVerify(function() { return harness.answered("AAPL|1M") }, 5000)
       body.featuredGeometryChanged.disconnect(watchLoad)
-      body.periodTextChanged.disconnect(watchLoad)
+      body.periodLineChanged.disconnect(watchLoad)
       tryVerify(function() { return body.motion.drawn === 1 }, 2000)
       harness.check("a range's first fetch keeps the day's chart and info lines until it lands",
         blanked.length === 0 && !!body.featuredGeometry && body.motion.drawn === 1, blanked.join(","))
@@ -863,9 +863,9 @@ ShellRoot {
       // transition audit (lifecycle 6, data 7, featured 9).
       var cold = summoned.testBody
       harness.check("a cold start shows an empty hero under Loading, naming what is coming",
-        cold.chart === null && cold.headerText === "Loading MSFT 1Y" && cold.periodText === "" && cold.keyStatsText === ""
+        cold.chart === null && cold.headerText === "Loading MSFT 1Y" && cold.periodLine === null && cold.yearLine === null
           && cold.featured === null,
-        cold.headerText + "|" + cold.periodText + "|" + cold.keyStatsText + "|" + JSON.stringify(cold.featured))
+        cold.headerText + "|" + JSON.stringify(cold.periodLine) + "|" + JSON.stringify(cold.yearLine) + "|" + JSON.stringify(cold.featured))
       wait(50)
       harness.check("payload features its symbol",
         again.featuredSymbol === "MSFT" && summoned.featuredSymbol === "MSFT", again.featuredSymbol)
@@ -935,7 +935,7 @@ ShellRoot {
       tryVerify(function() { return harness.answered("SLOW|1W") && body.motion.drawn === 1 }, 5000)
       var sig = function() {
         return JSON.stringify([body.featuredGeometry, body.featured ? body.featured.priceText + " " + body.featured.changeLine : "",
-          body.periodText, body.chartSymbol])
+          JSON.stringify(body.periodLine), body.chartSymbol])
       }
       var dropEntry = function(key) {
         var next = Object.assign({}, service.testHistoryFeed.entries)
@@ -973,7 +973,7 @@ ShellRoot {
         var later = function() { Qt.callLater(record) }
         body.featuredGeometryChanged.connect(later)
         body.featuredChanged.connect(later)
-        body.periodTextChanged.connect(later)
+        body.periodLineChanged.connect(later)
         body.motion.drawnChanged.connect(watchDraw)
         change()
         changed = true
@@ -984,7 +984,7 @@ ShellRoot {
         record()
         body.featuredGeometryChanged.disconnect(later)
         body.featuredChanged.disconnect(later)
-        body.periodTextChanged.disconnect(later)
+        body.periodLineChanged.disconnect(later)
         body.motion.drawnChanged.disconnect(watchDraw)
         var b = sig()
         return { states: seen.map(function(s) { return s === a ? "A" : s === b ? "B" : "?" }).join(""),

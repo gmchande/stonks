@@ -372,9 +372,9 @@ ShellRoot {
         geometry.start + " to " + geometry.end + ", " + geometry.ticks.length + " ticks, " + lastSpan())
       harness.check("the overnight print is its own line under the price, with its time, measured from the close",
         harness.strip() === "OVERNIGHT 22:50 234.27 +0.86%", harness.strip())
-      var info = harness.find(body, "periodLine").text
+      var info = body.periodLine
       harness.check("it is never the headline, nor in the day's high: the night's 243.20 leaves Thursday's 239.63",
-        body.featured.priceText === "232.28" && info.indexOf("H 239.63") >= 0, body.featured.priceText + " | " + info)
+        body.featured.priceText === "232.28" && !!info && info.range.highText === "239.63", body.featured.priceText + " | " + JSON.stringify(info))
 
       // A scrub of the night moves the hero and the header, never the rows
       // or the breadth, which show the day.

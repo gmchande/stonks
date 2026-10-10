@@ -398,34 +398,50 @@ test("a change that rounds to nothing has no sign and no direction", () => {
   expect(view.dayUp).toBe(true)
 })
 
-test("the day line names its session's date and gives its open, high, low, and volume", () => {
+// An info line as one string to read: its title, its range (an end's tone
+// after it, "+" up and "-" down; an unknown end as "?"; "@" the price the
+// tick marks), and its facts, an empty slot as "_".
+const said = line => line && [
+  line.title,
+  (line.range.lowText || "?") + (line.range.lowTone === "down" ? "-" : "") + "–"
+    + (line.range.highText || "?") + (line.range.highTone === "up" ? "+" : "")
+    + (line.range.price === null ? "" : " @" + M.money(line.range.price)),
+  ...line.facts.map(f => [f.label, f.value || "_", f.after].filter(Boolean).join(" "))
+].join(" · ")
+
+test("the day line names its session's date, its low and high, and its open and volume", () => {
   // SHOP.TO's saved day is Wednesday 2 September in Toronto; NBIS's is
   // Friday 11 September, which is what a Saturday shows. The open is the
   // first regular bar's.
-  expect(M.dayStatsText(shop)).toBe("WED 2 SEP · O 194.74 · H 196.46 · L 192.88 · VOL 353K")
-  expect(M.dayStatsText(M.parseChart(fixture("nbis-2026-09-11-day-prepost.json")))).toBe("FRI 11 SEP · O 234.80 · H 234.80 · L 223.64 · VOL 11.2M")
-  expect(M.dayStatsText(null)).toBe("")
-  // Before the session's first bar there is no open to give, and the line
-  // leaves it out.
+  expect(said(M.dayLine(shop))).toBe("WED 2 SEP · 192.88–196.46 @194.60 · OPEN 194.74 · VOL 353K")
+  expect(said(M.dayLine(M.parseChart(fixture("nbis-2026-09-11-day-prepost.json")))))
+    .toBe("FRI 11 SEP · 223.64–234.80 @224.55 · OPEN 234.80 · VOL 11.2M")
+  expect(M.dayLine(null)).toBeNull()
+  // Before the session's first bar there is no open to give: its slot is
+  // kept, empty, so the line keeps its shape.
   const early = fixture("aapl.json")
   const result = early.chart.result[0]
   const pre = result.timestamp.filter(t => t < result.meta.currentTradingPeriod.regular.start).length
   result.timestamp = result.timestamp.slice(0, pre)
   for (const key of Object.keys(result.indicators.quote[0])) result.indicators.quote[0][key] = result.indicators.quote[0][key].slice(0, pre)
-  expect(M.dayStatsText(M.parseChart(early))).toBe("TUE 1 SEP · H 327.30 · L 314.74 · VOL 52.4M")
-  // Yahoo's 52-week marks come with every quote; a day that reaches one
-  // says so in place of the plain H or L, and an ordinary day does not.
-  expect(M.dayStatsText(quote)).toBe("TUE 1 SEP · O 316.98 · H 327.30 · L 314.74 · VOL 52.4M")
+  expect(said(M.dayLine(M.parseChart(early)))).toBe("TUE 1 SEP · 314.74–327.30 @325.13 · OPEN _ · VOL 52.4M")
+  // A day that reaches a 52-week mark says so by that end's tone, and an
+  // ordinary day does not.
+  expect(said(M.dayLine(quote))).toBe("TUE 1 SEP · 314.74–327.30 @325.13 · OPEN 316.98 · VOL 52.4M")
   const reaching = (field, from) => {
     const json = fixture("aapl.json")
     const meta = json.chart.result[0].meta
     meta[field] = meta[from]
     return M.parseChart(json)
   }
-  expect(M.dayStatsText(reaching("fiftyTwoWeekHigh", "regularMarketDayHigh")))
-    .toBe("TUE 1 SEP · O 316.98 · 52W HIGH 327.30 · L 314.74 · VOL 52.4M")
-  expect(M.dayStatsText(reaching("fiftyTwoWeekLow", "regularMarketDayLow")))
-    .toBe("TUE 1 SEP · O 316.98 · H 327.30 · 52W LOW 314.74 · VOL 52.4M")
+  expect(said(M.dayLine(reaching("fiftyTwoWeekHigh", "regularMarketDayHigh"))))
+    .toBe("TUE 1 SEP · 314.74–327.30+ @325.13 · OPEN 316.98 · VOL 52.4M")
+  expect(said(M.dayLine(reaching("fiftyTwoWeekLow", "regularMarketDayLow"))))
+    .toBe("TUE 1 SEP · 314.74-–327.30 @325.13 · OPEN 316.98 · VOL 52.4M")
+  // Every price slot is as wide as the listing's largest price at its
+  // decimals, and VOL's as 999.9M, so a refresh never widens either.
+  expect([M.dayLine(quote).range.widest, ...M.dayLine(quote).facts.map(f => f.widest)]).toEqual(["888.88", "888.88", "888.8M"])
+  expect(M.dayLine(M.parseChart(fixture("overnight/sweep-2026-10-08-1054/brk-a.json"))).range.widest).toBe("888,888")
 })
 
 // Saved answers from 1 October 2026 (2 October in Tokyo and London): the
@@ -467,19 +483,20 @@ test("Yahoo's latest cap and P/E each come with their own date's close", () => {
   expect(M.hasFundamentals({ ...quote, symbol: "^GSPC", instrumentType: "INDEX" })).toBe(false)
 })
 
-test("the key stats line moves Yahoo's cap and P/E with the price, and leaves out what is not known", () => {
+test("the 52-week line moves Yahoo's cap and P/E with the price, and leaves out what is not known", () => {
   // A quote at `price`, stamped `days` after `date`'s 20:00 UTC.
   const at = (q, price, date, days = 0) => ({ ...q, price, marketTime: M.dateEpoch(date) + days * DAY + 20 * 3600 })
   const aapl = figures("aapl")
+  const year = (q, f) => said(M.yearLine(q, f))
   // At the snapshot's own close the figures are Yahoo's; 10% up moves both 10%.
-  expect(M.keyStatsText(at(quote, 337.02, "2026-09-23"), aapl)).toBe("MKT CAP 4.92T · P/E 38.6 · 52W 225.95–344.57")
-  expect(M.keyStatsText(at(quote, 370.72, "2026-10-01"), aapl)).toBe("MKT CAP 5.41T · P/E 42.5 · 52W 225.95–344.57")
+  expect(year(at(quote, 337.02, "2026-09-23"), aapl)).toBe("52W · 225.95–344.57 @337.02 · MKT CAP 4.92T · P/E 38.6")
+  expect(year(at(quote, 370.72, "2026-10-01"), aapl)).toBe("52W · 225.95–344.57 @370.72 · MKT CAP 5.41T · P/E 42.5")
   const nbis = M.parseChart(fixture("nbis-2026-09-11-day-prepost.json"))
-  expect(M.keyStatsText(at(nbis, 226.61, "2026-09-23"), figures("nbis"))).toBe("MKT CAP 61.6B · 52W 73.52–299.86")
+  expect(year(at(nbis, 226.61, "2026-09-23"), figures("nbis"))).toBe("52W · 73.52–299.86 @226.61 · MKT CAP 61.6B · P/E _")
   // A cap in the price's own currency names none.
-  expect(M.keyStatsText(at(shop, 200.46, "2026-09-23"), figures("shop-to"))).toBe("MKT CAP 257.6B · P/E 96.5 · 52W 129.01–253.10")
+  expect(year(at(shop, 200.46, "2026-09-23"), figures("shop-to"))).toBe("52W · 129.01–253.10 @200.46 · MKT CAP 257.6B · P/E 96.5")
   // Tokyo's day, a week and more after its snapshots.
-  expect(M.keyStatsText(M.parseChart(fixture("7203-t-day.json")), figures("7203-t"))).toBe("MKT CAP 33.82T · P/E 8.1 · 52W 2,686.00–4,000.00")
+  expect(year(M.parseChart(fixture("7203-t-day.json")), figures("7203-t"))).toBe("52W · 2,686.00–4,000.00 @2,856.00 · MKT CAP 33.82T · P/E 8.1")
   // London before its session: the cap names its pounds against the
   // price's pence, and the zeros Yahoo sends then for the day's high and
   // low and the 52-week low are prices not known yet, left out of both lines.
@@ -488,19 +505,32 @@ test("the key stats line moves Yahoo's cap and P/E with the price, and leaves ou
   expect([meta.regularMarketDayHigh, meta.regularMarketDayLow, meta.fiftyTwoWeekLow]).toEqual([0, 0, 0])
   const shell = M.parseChart(london)
   expect(shell.currency).toBe("GBp")
-  expect(M.dayStatsText(shell)).toBe("FRI 2 OCT · VOL 4K")
-  expect(M.keyStatsText(shell, figures("shel-l"))).toBe("MKT CAP GBP 204.8B · P/E 10.6")
+  expect(said(M.dayLine(shell))).toBe("FRI 2 OCT · ?–? @3,589.00 · OPEN _ · VOL 4K")
+  expect(year(shell, figures("shel-l"))).toBe("52W · ?–? @3,589.00 · MKT CAP GBP 204.8B · P/E 10.6")
+  // Before its figures come, its cap's slot already holds the pounds.
+  expect(M.yearLine(shell, null).facts.map(f => f.widest)).toEqual(["GBP 888.8B", "88.8"])
   // A cap 120 days old still moves with the price; at 121 it is left out.
-  expect(M.keyStatsText(at(quote, 337.02, "2026-09-23", 120), aapl)).toBe("MKT CAP 4.92T · P/E 38.6 · 52W 225.95–344.57")
-  expect(M.keyStatsText(at(quote, 337.02, "2026-09-23", 121), aapl)).toBe("P/E 38.6 · 52W 225.95–344.57")
+  expect(year(at(quote, 337.02, "2026-09-23", 120), aapl)).toBe("52W · 225.95–344.57 @337.02 · MKT CAP 4.92T · P/E 38.6")
+  expect(year(at(quote, 337.02, "2026-09-23", 121), aapl)).toBe("52W · 225.95–344.57 @337.02 · MKT CAP _ · P/E 38.6")
   // From 100 a P/E has no decimals.
-  expect(M.keyStatsText(at(quote, 337, "2026-09-17"), { cap: null, pe: { value: 891.6, date: "2026-09-17", close: 337 } }))
-    .toBe("P/E 892 · 52W 225.95–344.57")
-  // An ETF and a cryptocurrency have their 52-week range only; never a word
-  // about what is missing.
-  expect(M.keyStatsText(M.parseChart(fixture("spy-2026-09-11-day-prepost.json")), null)).toBe("52W 629.28–779.37")
-  expect(M.keyStatsText(btc, null)).toBe("52W 57,748–126,198")
-  expect(M.keyStatsText(null, aapl)).toBe("")
+  expect(year(at(quote, 337, "2026-09-17"), { cap: null, pe: { value: 891.6, date: "2026-09-17", close: 337 } }))
+    .toBe("52W · 225.95–344.57 @337.00 · MKT CAP _ · P/E 892")
+  // An ETF and a cryptocurrency have their 52-week range only, and no slot
+  // for a cap or a P/E they never have.
+  expect(year(M.parseChart(fixture("spy-2026-09-11-day-prepost.json")), null)).toBe("52W · 629.28–779.37 @764.29")
+  expect(year(btc, null)).toBe("52W · 57,748–126,198 @77,152")
+  expect(M.yearLine(null, aapl)).toBeNull()
+})
+
+// Yahoo's 52-week marks can trail the day: a day past one shows the same
+// high (or low) on both lines, in that direction's tone.
+test("a day past its 52-week mark widens the 52-week range to it", () => {
+  const past = { ...quote, fiftyTwoWeekHigh: quote.dayHigh - 1 }
+  expect(said(M.dayLine(past)).split(" · ")[1]).toBe("314.74–327.30+ @325.13")
+  expect(said(M.yearLine(past, null)).split(" · ")[1]).toBe("225.95–327.30+ @325.13")
+  const under = { ...quote, fiftyTwoWeekLow: quote.dayLow + 1 }
+  expect(said(M.dayLine(under)).split(" · ")[1]).toBe("314.74-–327.30 @325.13")
+  expect(said(M.yearLine(under, null)).split(" · ")[1]).toBe("314.74-–344.57 @325.13")
 })
 
 test("each symbol is asked for on its own market's clock", () => {
@@ -827,20 +857,27 @@ test("history scrub lookup snaps to a bar and maps its timestamp back", () => {
   expect(M.historyFraction(history, history.bars[history.bars.length - 1].t + 1)).toBe(-1)
 })
 
-// The range is said by its token and the change's caption above the line,
-// so the line never says it again (design pass 3).
-test("history labels state coverage and the bar granularity, never the range", () => {
+// A range's line is titled by the range, so it keeps the day line's shape,
+// and says the dates of its low and high, with the bars' granularity.
+test("a range's line gives its low and high, their dates, and its coverage", () => {
   const aapl = M.parseHistory(fixture("history/aapl-1y.json"), "1Y")
   const week = M.parseHistory(fixture("history/nbis-5d.json"), "1W")
   const month = M.parseHistory(fixture("history/nbis-1mo.json"), "1M")
   const fig = M.parseHistory(fixture("history/fig-max.json"), "All")
   const weekly = M.parseHistory(fixture("history/aapl-5y.json"), "5Y")
-  expect(M.historyStatsText(aapl)).toBe("H 344.57 29 JUL 26 · L 229.02 12 SEP 25 · 3.6% BELOW HIGH")
-  expect(M.historyStatsText(week)).toBe("H 254.74 8 SEP · L 209.40 4 SEP · 11.9% BELOW HIGH")
-  expect(M.historyStatsText(month)).toBe("H 280.83 17 AUG · L 194.80 1 SEP · 20.0% BELOW HIGH")
-  expect(M.historyStatsText(fig)).toBe("SINCE 31 JUL 25 · H 142.92 1 AUG 25 · L 16.60 30 APR 26 · 83.8% BELOW HIGH")
-  expect(M.historyStatsText(weekly)).toBe("H 344.57 JUL 26 · L 124.17 JAN 23 · 3.6% BELOW HIGH")
-  expect(M.historyStatsText({ ...week, bars: [] })).toBe("0 BARS")
+  const line = (h, price) => said(M.rangeLine(h, null, undefined, price))
+  expect(line(aapl, M.regularClose(quote))).toBe("1Y · 229.02–344.57 @325.13 · LOW 12 SEP 25 · HIGH 29 JUL 26")
+  expect(line(week)).toBe("1W · 209.40–254.74 @224.55 · LOW 4 SEP · HIGH 8 SEP")
+  expect(line(month)).toBe("1M · 194.80–280.83 @224.55 · LOW 1 SEP · HIGH 17 AUG")
+  expect(line(fig)).toBe("ALL · 16.60–142.92 @23.20 · SINCE 31 JUL 25 · LOW 30 APR 26 · HIGH 1 AUG 25")
+  expect(line(weekly)).toBe("5Y · 124.17–344.57 @332.27 · LOW JAN 23 · HIGH JUL 26")
+  // No bars: an empty rule and empty dates, and no word about it.
+  expect(line({ ...week, bars: [] })).toBe("1W · ?–? · LOW _ · HIGH _")
+  // Each date's slot holds the widest date of its kind, so a new high's
+  // date never widens it.
+  expect(M.rangeLine(aapl).facts.map(f => f.widest)).toEqual(["88 MMM 88", "88 MMM 88"])
+  expect(M.rangeLine(week).facts.map(f => f.widest)).toEqual(["88 MMM", "88 MMM"])
+  expect(M.rangeLine(weekly).facts.map(f => f.widest)).toEqual(["MMM 88", "MMM 88"])
   // A weekly bar names no day, so it carries its year even when the whole
   // period sits inside one.
   const oneYear = {
@@ -848,7 +885,7 @@ test("history labels state coverage and the bar granularity, never the range", (
     bars: weekly.bars.filter(bar => bar.t >= 1767225600 && bar.t < 1798761600)
   }
   expect(M.historySpansYears(oneYear)).toBe(false)
-  expect(M.historyStatsText(oneYear)).toMatch(/H [\d.,]+ [A-Z]{3} 26 · L [\d.,]+ [A-Z]{3} 26/)
+  expect(line(oneYear)).toMatch(/ · LOW [A-Z]{3} 26 · HIGH [A-Z]{3} 26$/)
   expect(M.historyScrubText(aapl, aapl.bars[0])).toBe("12 SEP 2025 · 234.07")
   expect(M.historyScrubText(week, week.bars[0])).toBe("4 SEP 09:30 · 213.58")
   expect(M.historyScrubText({ ...week, interval: "30m" }, week.bars[0])).toBe("4 SEP 09:30 · 213.58")
@@ -861,7 +898,7 @@ test("history labels state coverage and the bar granularity, never the range", (
     symbol: "NEW", range: "All", interval: "1d", gmtoffset: 0, baseline: 10, firstTradeDate: 100,
     bars: [{ t: 100, h: 11, l: 9, c: 10 }, { t: 100 + DAY, h: 12, l: 10, c: 11 }]
   }
-  expect(M.historyStatsText(sparse)).toContain("SINCE 1 JAN 70 · 2 BARS")
+  expect(line(sparse)).toBe("ALL · 9.00–12.00 @11.00 · SINCE 1 JAN 70 · 2 BARS · LOW 1 JAN · HIGH 2 JAN")
 })
 
 test("historyRowModel uses the quote until a historical bar is scrubbed", () => {
@@ -1077,7 +1114,7 @@ test("after midnight the answer is still Friday's: its date, its open, its print
   const now = at("2026-10-05", "00:36")
   const live = name => M.parseChart(fixture(`overnight/live-2026-10-05/${name}.json`))
   const nbis = live("nbis")
-  expect(M.dayStatsText(nbis)).toBe("FRI 2 OCT · O 235.81 · H 248.34 · L 235.34 · VOL 12.3M")
+  expect(said(M.dayLine(nbis))).toBe("FRI 2 OCT · 235.34–248.34 @242.81 · OPEN 235.81 · VOL 12.3M")
   for (const name of ["nbis", "et", "tln"]) {
     const quote = live(name)
     // Friday's 19:59 print is after hours, never Monday's pre-market.
@@ -1090,7 +1127,7 @@ test("after midnight the answer is still Friday's: its date, its open, its print
   }
   // A daytime answer reads as it did: Friday 2 October at 13:40.
   const day = savedDay("day", "nbis")
-  expect(M.dayStatsText(day)).toBe("FRI 2 OCT · O 235.81 · H 248.34 · L 235.34 · VOL 9.5M")
+  expect(said(M.dayLine(day))).toBe("FRI 2 OCT · 235.34–248.34 @241.72 · OPEN 235.81 · VOL 9.5M")
   expect(M.marketStatus(day, at("2026-10-02", "13:40"), 0, calendars)).toBe("Market closes in 2h 20m")
 })
 
@@ -1103,7 +1140,7 @@ test("a quote held past its bars' session takes the phase and the bell from Yaho
   expect(M.marketStatus(nbis, dawn, 0, calendars)).toBe("Pre-market · opens in 5h")
   expect([M.quoteCadence(nbis, dawn, 60, true, calendars), M.quoteCadence(nbis, dawn, 60, false, calendars)]).toEqual([60, 300])
   // The chart, the open, and the info line stay the bars' Friday.
-  expect(M.dayStatsText(nbis)).toBe("FRI 2 OCT · O 235.81 · H 248.34 · L 235.34 · VOL 12.3M")
+  expect(said(M.dayLine(nbis))).toBe("FRI 2 OCT · 235.34–248.34 @242.81 · OPEN 235.81 · VOL 12.3M")
   expect(M.extendedStack(nbis, null, dawn).label).toBe("AFTER HOURS")
   // London's answer, saved before Friday's session with Thursday's bars,
   // still held at 08:30 London: Friday's session is open.
