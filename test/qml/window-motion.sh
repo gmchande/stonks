@@ -9,10 +9,12 @@ plugin_tree window-motion.qml
 patch_copy plugin/App.qml '/readonly property bool ready:/a\  readonly property alias testBody: body\n  readonly property alias testKeyCatcher: keyCatcher\n  readonly property alias testWindow: window'
 # The flows wait for the quote feed to go quiet: nothing in flight or queued.
 patch_copy plugin/Service.qml '/readonly property var entries: feed.entries/a\  readonly property alias testFeed: feed\n  readonly property alias testHistoryFeed: historyFeed'
-# One service, and no one else writes its settings: it reads none back. A
-# read back of one write that lands after the next adopts the one before,
-# and the flows change the range faster than that now that a range in hand
-# shows at once.
+# One service, and no one else writes its settings: it reads none back.
+# Here, with the window open, the read back of a range write once landed
+# after the next write and the service adopted the range before (1M after
+# 1W was set), a race in Service.qml's settings file, not in the motion;
+# the flows here change the range faster than it settles now that a range
+# in hand shows at once. The other harnesses keep the watch on.
 patch_copy plugin/Service.qml 's/watchChanges: true/watchChanges: false/'
 scratch_home v1-data.json grvc.stonks.json
 # The draw-in check runs on wrong draw-ins too: the real animation made

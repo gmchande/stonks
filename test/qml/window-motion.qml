@@ -343,6 +343,28 @@ ShellRoot {
       harness.check("a row featured mid draw-in or mid-replay ends it and shows its chart whole at once: after an open, and in a replay",
         /^true /.test(afterOpen) && /^true /.test(midReplay), afterOpen + " | " + midReplay)
       rest()
+
+      // An open whose chart is on its way, left for the chart already on
+      // show before it lands, owes nothing more: the next change shows
+      // whole. Found in review: the open stayed owed, and the next symbol
+      // drew in.
+      service.feature("AAPL")
+      service.setRange("1D")
+      rest()
+      dropEntry("AAPL|1M")
+      holdAapl.running = true
+      tryVerify(function() { return !holdAapl.running }, 2000)
+      app.close()
+      app.open(JSON.stringify({ symbol: "AAPL", range: "1M" }))
+      var heldOpen = body.chartLoading && body.motion.reveal === 1
+      service.setRange("1D")
+      var backOnShow = !body.chartLoading && body.chartRange === "1D"
+      releaseAapl.running = true
+      tryVerify(function() { return !releaseAapl.running && !service.testHistoryFeed.busy }, 5000)
+      body.featureSymbol(watchlist.displayedSymbols.filter(function(s) { return s !== "AAPL" })[0])
+      var lowestAfter = lowestUntilRest()
+      harness.check("an open left for the chart on show before its own lands draws nothing in on the next change",
+        heldOpen && backOnShow && lowestAfter === 1, heldOpen + "|" + backOnShow + "|" + lowestAfter.toFixed(2))
     }
 
     // The chart as it is rendered, the hero grabbed on every frame and

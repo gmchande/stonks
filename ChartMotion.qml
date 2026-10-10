@@ -100,13 +100,14 @@ Item {
     // A replay and a scrub belong to the chart they started on, and to data
     // that still covers their moment.
     if (moved || asked || (refreshed && scrubT && !covers(next, scrubT))) clearScrub()
-    if (moved && opening && surfaceOpen) {
-      opening = false
-      drawIn()
-    } else if (moved || asked) {
+    if (moved && opening && surfaceOpen) drawIn()
+    else if (moved || asked) {
       drawInAnim.stop()
       reveal = 1
     }
+    // The open's chart is on screen, drawn in or the one already shown: the
+    // open owes no more motion.
+    if (!loading) opening = false
   }
 
   // A chart's identity: its symbol and range, and whether the day stands in
