@@ -49,9 +49,11 @@ Item {
     objectName: "footerHint"
     visible: root.hint !== ""
     anchors.top: parent.top
-    anchors.horizontalCenter: parent.horizontalCenter
-    width: Math.min(implicitWidth, parent.width)
-    elide: Text.ElideRight
+    anchors.left: parent.left
+    anchors.right: parent.right
+    // A line wider than the card, at a theme's own spacing, wraps; the hint
+    // takes the height it needs.
+    wrapMode: Text.WordWrap
     horizontalAlignment: Text.AlignHCenter
     textFormat: Text.PlainText
     text: root.hint
