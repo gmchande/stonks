@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Proves quickshell.sh's handling with a stand-in Quickshell, no screen and
 # no saved answers: a crash fails the run with a FAIL line naming its
-# signal and core dump, a timeout and an interrupt too, an ordinary pass and
-# failure read as before, and however a run ends nothing it started is
-# still running, in its group or out of it, while a process the run did not
-# start, and another run side by side, are left alone. The stand-in dies on
-# a real signal with its core dump turned off (prctl PR_SET_DUMPABLE, 0:
-# prctl(2)), so no core is written and no one is notified. Prints FAILED per
-# miss.
+# signal and core dump, a timeout and an interrupt too, an exit of 255 (a
+# file that fails to load) reads as an exit, not a crash, an ordinary pass
+# reads as before and a failure gains only its exit's line, and however a
+# run ends nothing it started is still running, in its group or out of it,
+# while a process the run did not start, and another run side by side, are
+# left alone. The stand-in dies on a real signal with its core dump turned
+# off (prctl PR_SET_DUMPABLE, 0: prctl(2)), so no core is written and no one
+# is notified. Prints FAILED per miss.
 set -uo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source "$here/../procs.sh"
@@ -57,6 +58,8 @@ if mode.startswith(("abort", "segv")):
     os.kill(os.getpid(), signal.SIGABRT if mode.startswith("abort") else signal.SIGSEGV)
 if mode == "hang":
     time.sleep(600)
+if mode == "exit255":
+    sys.exit(255)
 print("PASS the flow" if mode.startswith("pass") else "FAIL the flow", flush=True)
 sys.exit(0 if mode.startswith("pass") else 1)
 EOF
@@ -126,17 +129,26 @@ ran "$h" hang
 grep -qx 'FAIL Quickshell timed out after 1 s' "$tmp/hang/log" || miss "hang: no timeout line: $(cat "$tmp/hang/log")"
 gone hang
 
-# An ordinary pass and an ordinary failure read as before: their own code,
-# their own lines, nothing added. A pass whose child stays in its group is
-# still a pass, and the child is stopped.
+# An exit of 255, as Quickshell gives for a file that fails to load: an exit
+# pointing at its log, never a crash pointing at a core dump.
+harness exit255 exit255 20
+ran "$h" exit255
+[ "$code" = 255 ] || miss "exit255: code $code, not 255"
+[ "$(cat "$tmp/exit255/log")" = "FAIL Quickshell exited with code 255; its log says why" ] \
+  || miss "exit255: not read as an exit: $(cat "$tmp/exit255/log")"
+gone exit255
+
+# An ordinary pass and an ordinary failure: their own code and their own
+# lines, a failure's exit line after them. A pass whose child stays in its
+# group is still a pass, and the child is stopped.
 for case in pass fail pass-in; do
   leave=""; [ "$case" = pass-in ] && leave=in
   harness "$case" "$case" 20 "$leave"
   ran "$h" "$case"
-  want=0; [ "$case" = fail ] && want=1
+  want=0 lines="PASS the flow"
+  [ "$case" = fail ] && want=1 lines=$(printf 'FAIL the flow\nFAIL Quickshell exited with code 1; its log says why')
   [ "$code" = "$want" ] || miss "$case: code $code, not $want"
-  [ "$(cat "$tmp/$case/log")" = "$([ "$case" = fail ] && echo 'FAIL the flow' || echo 'PASS the flow')" ] \
-    || miss "$case: its log changed: $(cat "$tmp/$case/log")"
+  [ "$(cat "$tmp/$case/log")" = "$lines" ] || miss "$case: its log reads: $(cat "$tmp/$case/log")"
   gone "$case"
 done
 
