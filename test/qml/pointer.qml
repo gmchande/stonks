@@ -893,6 +893,35 @@ ShellRoot {
         root.check("a double-click that begins on a view, Manage lists' DONE or off the list menu, features no row under its second press",
           views.every(function(v) { return /^true /.test(v) }), views.join(" | "))
 
+        // The key sheet closing over a resting pointer leaves the cursor
+        // where the keys put it, on the body the popup and the window share,
+        // though the pointer is reported again, a pixel off, as the rows come
+        // back; a hand that then moves to another row still takes it. Found
+        // in the live check of #9: the cursor came back on the row under the
+        // still pointer.
+        body.watchlist.contentY = 0
+        wait(50)
+        var sheetFirst = body.watchlist.rowItem(body.watchlist.displayedSymbols[0])
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2 + pitch)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2)
+        wait(50)
+        body.moveCursor(1)
+        wait(50)
+        var sheetKeyed = body.watchlist.cursorRow
+        body.toggleHelp()
+        wait(100)
+        body.toggleHelp()
+        wait(200)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2 + 1)
+        wait(50)
+        var sheetKept = body.watchlist.cursorRow
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2 + 2 * pitch)
+        wait(50)
+        root.check("the key sheet closing over a resting pointer leaves the cursor the keys put, and a hand's move takes it after",
+          sheetKeyed === body.watchlist.displayedSymbols[1] && sheetKept === sheetKeyed
+            && body.watchlist.cursorRow === body.watchlist.displayedSymbols[2],
+          sheetKeyed + " -> " + sheetKept + " -> " + body.watchlist.cursorRow)
+
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,
         // not as a fill.

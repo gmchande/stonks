@@ -340,7 +340,12 @@ Flickable {
     rowClickAt = 0
     clickEndedAt = 0
   }
-  onVisibleChanged: forgetClicks()
+  // The rows shown again, behind a view or the key sheet before: the pointer
+  // resting over them is no move (RowPointer.rest).
+  onVisibleChanged: {
+    forgetClicks()
+    if (visible) listHover.rest()
+  }
 
   // Whether row `index` is whole in the list's view with it scrolled to
   // `top`. The card's edge easing past the foot is left out: the cursor
@@ -593,6 +598,7 @@ Flickable {
     wheelMoving = ""
     cursorSymbol = ""
     forgetClicks()
+    listHover.rest()
     layOut()
   }
   Component.onCompleted: {

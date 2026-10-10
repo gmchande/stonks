@@ -718,6 +718,38 @@ ShellRoot {
         leftOn !== service.featuredSymbol && watchlist.cursorRow === service.featuredSymbol,
         leftOn + " -> " + watchlist.cursorRow + " for " + service.featuredSymbol)
 
+      // The key sheet showing and going again under a resting pointer moves
+      // no cursor: the rows come back with the cursor the keys left, closed
+      // by ? and by Escape. Found in the live check of #9: the cursor came
+      // back on the row under the still pointer.
+      var sheetRound = function(closeKey) {
+        var first = watchlist.rowItem(watchlist.displayedSymbols[0])
+        // The pointer comes onto the first row from the second, as a hand's
+        // does, which puts the cursor there.
+        mouseMove(first, first.width / 2, first.height / 2 + watchlist.rowPitch)
+        mouseMove(first, first.width / 2, first.height / 2)
+        wait(50)
+        keys.forceActiveFocus()
+        keyClick(Qt.Key_Down)
+        wait(50)
+        var keyed = watchlist.cursorRow
+        keyClick(Qt.Key_Question, Qt.ShiftModifier)
+        wait(100)
+        var opened = body.showingHelp
+        keyClick(closeKey === "?" ? Qt.Key_Question : Qt.Key_Escape, closeKey === "?" ? Qt.ShiftModifier : Qt.NoModifier)
+        wait(200)
+        // The compositor reports the resting pointer again as the rows come
+        // back, a pixel off its last report: a resting hand, no move.
+        mouseMove(first, first.width / 2, first.height / 2 + 1)
+        wait(50)
+        return (opened && !body.showingHelp && keyed === watchlist.displayedSymbols[1] && watchlist.cursorRow === keyed)
+          + " " + keyed + " -> " + watchlist.cursorRow
+      }
+      var byQuestion = sheetRound("?")
+      var byEscape = sheetRound("Escape")
+      harness.check("the key sheet closing under a resting pointer leaves the cursor where the keys put it, by ? and by Escape",
+        /^true /.test(byQuestion) && /^true /.test(byEscape), byQuestion + " | " + byEscape)
+
       var removedRow = watchlist.rowItem("MSFT")
       mouseClick(removedRow, removedRow.width / 2, removedRow.height / 2, Qt.MiddleButton)
       wait(100)
