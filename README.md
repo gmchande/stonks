@@ -56,8 +56,9 @@ right-click for the window, and drag it to move it along the bar.
 
 Middle-click changes its form: a sparkline, an arrow, the price as text, or
 Stonks' mark, a little chart that climbs on an up day and falls on a down
-one. In the bar's right section it starts as the mark and keeps a form of
-its own.
+one. On a vertical bar it switches between the symbol over its change and
+the mark. In the bar's right section it starts as the mark and keeps a form
+of its own.
 
 ## Reading the day
 
