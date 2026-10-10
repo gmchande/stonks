@@ -127,6 +127,7 @@ start "Quickshell crash handling (stand-in)" bash test/qml/crash-check.sh
 start "history harness" bash test/qml/history.sh
 start "overnight harness" bash test/qml/overnight.sh
 start "service harness" bash test/qml/service.sh
+start "README pictures, into a scratch folder" env STONKS_README_OUT="$logs/readme" bash test/qml/readme.sh
 
 run "bun test (pure rules)" bun test test/model.test.js
 run "bun test (saved answers)" saved_tests
