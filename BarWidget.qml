@@ -48,6 +48,14 @@ BarWidget {
   readonly property bool warns: Figures.freshnessWarns(freshness)
   // What the "!" means, in the popup's words, for the hover on every form.
   readonly property string warningText: warns ? Figures.freshnessText(freshness, featuredQuote, service.calendars) : ""
+  // The shell copies a hover's words only as the pointer enters. While it
+  // stays, a warning that starts, ends, or changes its words goes to the bar
+  // again, once every binding has the new words: no bubble names a warning
+  // that has ended, and the text form's empties out. A new figure alone
+  // never re-shows it, so a resting pointer sees no blink.
+  onWarningTextChanged: Qt.callLater(function() {
+    if (button.tooltipHovered && button.bar) button.bar.showTooltip(button, button.tooltipText)
+  })
   readonly property color trendColor: featured && featured.tone === "up" ? (plugin && plugin.trendColors ? plugin.trendColors.up : button.foreground)
     : featured && featured.tone === "down" ? Color.urgent : dimColor
   // Quieter than the bar's ink by the same rule as the popup's secondary
@@ -157,10 +165,6 @@ BarWidget {
       : (root.iconOnly ? (root.featuredSymbol || "STONKS") + " " + root.changeText + " · " : "")
         + (root.featured ? root.featured.name + " · " + Market.phaseLabel(Market.sessionPhase(root.featuredQuote, root.service.now)) : "Stonks")
         + (root.warningText !== "" ? " · " + root.warningText : "")
-    // The shell copies the words only as the pointer enters. While it stays,
-    // a change goes through the bar again, so a warning that ends leaves no
-    // bubble naming it, and words that empty out take the bubble away.
-    onTooltipTextChanged: if (button.tooltipHovered && button.bar) button.bar.showTooltip(button, button.tooltipText)
 
     onPressed: function(b) {
       if (b === Qt.RightButton) { if (root.plugin) root.plugin.windowHost.toggle() }

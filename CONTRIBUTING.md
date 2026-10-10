@@ -179,8 +179,10 @@ run time.
   already, says nothing. While a warning's "!" shows, every form's hover
   says what it means, in the popup's words (`Figures.freshnessText`). The
   shell copies a hover's words only as the pointer enters, so while it
-  stays a change of them goes to the bar again: an answer that lands takes
-  the warning out of the bubble, and the text form's bubble with it. It
+  stays a warning that starts, ends, or changes its words goes to the bar
+  again: an answer that lands takes the warning out of the bubble, and the
+  text form's bubble with it. A new figure alone leaves an open bubble as
+  it opened, so a resting pointer sees no blink. It
   reads its section from the bar's layout
   (`bar.layoutConfig`): in the right section its form is `barStyleRight`,
   the icon until a middle-click there writes one, and elsewhere `barStyle`.
