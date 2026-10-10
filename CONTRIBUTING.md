@@ -640,8 +640,17 @@ run time.
 - The bar pill shows the featured symbol's day as it stands now, what its
   row shows unscrubbed (`rowModel`), on every range, in every bar style and look, the vertical
   bar too: the bar is always on screen, and a glance at it asks how it is
-  now. Its icon form is that day as the mark's colour and shape alone: it
+  now. Its icon form is that day as the mark's shape alone: it
   climbs, or falls on a down day, the same cells in both looks.
+  It draws in the bar's own ink, as the shell's widgets do: in Omarchy's
+  bar, colour means something wants you (`WidgetButton`'s `active`, the
+  bar's urgent). The direction is in the arrow's tilt, the mark's climb or
+  fall, the sign, and the line's shape; a flat day is dim ink. A failed or
+  overdue refresh draws the day in the bar's urgent (`bar.urgent`) on every
+  form, with its "!": before the change; on a vertical bar in the "%"'s
+  place, so the change stays five characters across the bar; and on the
+  icon form in the slot's margin right of the mark (a corner badge, as
+  Tailscale's icon wears one, blurs into the columns at this size).
   It names no range and fetches nothing for itself. Where the pill sits is
   the bar's (drag it to another section) and its form is its own setting
   for that section: in the right section, among the bar's bare icons,
@@ -894,7 +903,7 @@ run time.
   baseline at the price the change is measured from (the previous close, or
   the period's starting price), and the line or columns and the area to it
   in the up colour above and the down colour below. The rows' day lines
-  follow it too; only the pill's 40 px line keeps its figure's one colour.
+  follow it too; only the pill's 40 px line is one colour, the bar's ink.
   The area (smooth's 16% wash, retro's 35% stems) weighs the same on both
   sides in any theme: the up colour sets its alpha, and the down side takes
   the alpha that adds the same OKLab lightness over the surface's ground
@@ -907,8 +916,9 @@ run time.
   never the accent, which in Omarchy means selected. Where the green is
   under 0.10 from the red in OKLab (Hackerman, Lumon, Vantablack, White),
   up is the foreground, as the shell shows a good state beside a bad one.
-  The same pair everywhere: the hero, rows, charts and washes, the breadth
-  rule, the header's animal, the mark, and every pill form. The theme's
+  The same pair everywhere in the popup and the window: the hero, rows,
+  charts and washes, the breadth rule, the header's animal, and the mark.
+  The pill is the bar's ink instead (the bar pill, above). The theme's
   colours are never adjusted: the sign and the baseline carry direction
   too.
   5Y, 10Y, and All use a log scale; scrub works by bar position, so the

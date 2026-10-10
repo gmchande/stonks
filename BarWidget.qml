@@ -56,9 +56,13 @@ BarWidget {
   onWarningTextChanged: Qt.callLater(function() {
     if (button.tooltipHovered && button.bar) button.bar.showTooltip(button, button.tooltipText)
   })
-  readonly property color upColor: plugin && plugin.trendColors ? plugin.trendColors.up : button.foreground
-  readonly property color trendColor: featured && featured.tone === "up" ? upColor
-    : featured && featured.tone === "down" ? Color.urgent : dimColor
+  // The pill draws in the bar's own ink, as the shell's widgets do: in
+  // Omarchy's bar, colour means something wants you (`WidgetButton`'s
+  // `active`). The day's direction is in the arrow's tilt, the mark's climb
+  // or fall, the sign, and the line's shape. Colour comes back only for a
+  // failed or overdue refresh: the bar's urgent, with the "!".
+  readonly property color dayColor: warns ? button.activeColor
+    : featured && (featured.tone === "up" || featured.tone === "down") ? button.foreground : dimColor
   // Quieter than the bar's ink by the same rule as the popup's secondary
   // text, against the bar's own ground.
   readonly property color barGround: Qt.rgba(Color.bar.background.r, Color.bar.background.g, Color.bar.background.b, 1)
@@ -192,7 +196,7 @@ BarWidget {
         width: Style.space(40)
         height: Style.space(12)
         geometry: root.lineGeometry
-        lineColor: root.trendColor
+        lineColor: root.dayColor
         baselineColor: Qt.rgba(button.foreground.r, button.foreground.g, button.foreground.b, 0.25)
         lineWidth: 1.5
       }
@@ -205,8 +209,8 @@ BarWidget {
         width: Style.space(40)
         height: Style.space(12)
         geometry: root.lineGeometry
-        upColor: root.trendColor
-        downColor: root.trendColor
+        upColor: root.dayColor
+        downColor: root.dayColor
         baselineColor: Qt.rgba(button.foreground.r, button.foreground.g, button.foreground.b, 0.25)
         pixel: 2
         gap: 1
@@ -219,7 +223,7 @@ BarWidget {
         visible: root.barStyle === "arrow"
         anchors.verticalCenter: parent.verticalCenter
         text: "➜"
-        color: root.trendColor
+        color: root.dayColor
         font.family: button.fontFamily
         font.pixelSize: Style.font.icon
         rotation: root.featured ? -Figures.arrowAngle(root.featured.pct) : 0
@@ -227,17 +231,34 @@ BarWidget {
       }
 
       // The icon form, on either bar: Stonks' mark, the same in both looks,
-      // climbing or falling with the day, in its colour, at the size of the
-      // bar's icons, its columns solid so it reads beside their glyphs.
+      // climbing or falling with the day, in the bar's ink, at the size of
+      // the bar's icons, its columns solid so it reads beside their glyphs.
       StonksMark {
         objectName: "pillMark"
         visible: root.iconOnly
         anchors.verticalCenter: parent.verticalCenter
         falling: !!root.featured && root.featured.tone === "down"
-        color: root.trendColor
+        color: root.dayColor
         solid: true
         pixel: Math.max(2, Math.round(Style.bar.iconCanvas / 8))
         gap: 1
+
+        // A warning's "!" hangs in the slot's margin right of the mark, so
+        // the mark stays where it was. A badge on its corner, as the shell's
+        // Tailscale icon wears one, blurred into the columns at this size.
+        Text {
+          objectName: "pillMarkWarning"
+          visible: root.warns
+          anchors.left: parent.right
+          anchors.leftMargin: 1
+          anchors.verticalCenter: parent.verticalCenter
+          textFormat: Text.PlainText
+          text: "!"
+          color: root.dayColor
+          font.family: button.fontFamily
+          font.pixelSize: button.fontSize
+          font.bold: true
+        }
       }
 
       Text {
@@ -271,7 +292,7 @@ BarWidget {
         anchors.verticalCenter: parent.verticalCenter
         textFormat: Text.PlainText
         text: root.changeText
-        color: root.featured ? root.trendColor : root.dimColor
+        color: root.dayColor
         font.family: button.fontFamily
         font.pixelSize: button.fontSize
       }
@@ -290,17 +311,20 @@ BarWidget {
         fontSize: button.fontSize * 0.85
         color: button.foreground
       }
-      // Coloured by the figure it shows, a percentage whatever change the
-      // rows say: by its sign, and no colour once it shows 0.0%.
+      // Ink by the figure it shows, a percentage whatever change the rows
+      // say: dim once it shows 0.0%, the bar's urgent for a warning.
       OpticalGlyph {
         objectName: "pillDayChange"
         width: button.width
         height: Style.bar.iconSlot
-        text: root.featured ? Format.lookSigns(Format.narrowPct(root.featured.pct), root.retro) : "…"
+        // A warning's "!" takes the "%"'s place, so the figure stays five
+        // characters across the bar.
+        readonly property string figure: root.featured ? Format.lookSigns(Format.narrowPct(root.featured.pct), root.retro) : ""
+        text: !root.featured ? (root.warns ? "!" : "…") : root.warns ? "!" + figure.replace("%", "") : figure
         fontFamily: button.fontFamily
         fontSize: button.fontSize * 0.85
-        color: !root.featured || Format.narrowPctShown(root.featured.pct).shown === 0 ? root.dimColor
-          : root.featured.pct > 0 ? root.upColor : Color.urgent
+        color: root.warns ? button.activeColor
+          : !root.featured || Format.narrowPctShown(root.featured.pct).shown === 0 ? root.dimColor : button.foreground
       }
     }
   }

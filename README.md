@@ -56,15 +56,18 @@ Scroll walks the current list, and the symbol you land on stays featured
 until you scroll again. Middle click changes its form, in turn: a
 sparkline, an arrow tilted by the size of the move, text with the price
 ("NBIS 235.62 −5.70%"), and
-Stonks' mark alone: a little chart in cells, in the day's up or down colour, that
-climbs on an up day and falls on a down one, and names the symbol and its
-change when you hover it. The sparkline and the arrow name the company and
-the market's phase on hover; the text says it all already, so its hover is
-quiet. A "!" before the change means a refresh failed or is overdue, and
-hovering any form says which. A vertical bar has room for the symbol over
-its change ("−5.7%") in place of the first three, so there middle click
-switches between that and the mark. In the bar's right section, among
-Omarchy's own icons, the pill is that icon until you middle-click it there,
+Stonks' mark alone: a little chart in cells that climbs on an up day and
+falls on a down one, and names the symbol and its change when you hover it.
+The sparkline and the arrow name the company and the market's phase on
+hover; the text says it all already, so its hover is quiet. The pill draws
+in the bar's own colour, like Omarchy's icons beside it; the arrow, the
+mark, and the sign say which way the day went. It turns the bar's alert
+colour only when a refresh has failed or is overdue, with a "!" before the
+change (beside the mark on the icon), and hovering any form says which. A
+vertical bar has room for the symbol over its change ("−5.7%") in place of
+the first three, so there middle click switches between that and the mark.
+In the bar's right section, among Omarchy's own icons, the pill is that
+icon until you middle-click it there,
 and it keeps the form you pick there for the right; the centre and left keep
 theirs, and moving the pill brings back each section's own. Right click
 opens the window, closing the popup if it is open, or brings it forward

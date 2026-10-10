@@ -121,11 +121,15 @@ ShellRoot {
     function updateEntryInline(id, settings) { return true }
   }
 
+  // The bar mirrors its ink and urgent onto the facade, as Bar.qml does.
   PluginBarApi {
     id: barApi
     pluginId: "grvc.stonks"
     moduleName: "grvc.stonks"
     shell: shellApi
+    foreground: Color.bar.text
+    barForeground: Color.bar.text
+    urgent: Color.bar.active
   }
 
   // A pill per screen, sharing the one service.
@@ -275,9 +279,10 @@ ShellRoot {
       tick(85, 1, function() { if (marks().some(function(m) { return /!/.test(m) })) warned.push(service.now - start) })
       harness.check("no warning for the first 90 s with no answer", warned.length === 0, warned.join(","))
       tick(6, 1)
-      var lateNotes = [pill.warns, nbisRow.detail, body.watchlist.rowItem("SHOP.TO").detail].join(" | ")
-      harness.check("90 s asked and unanswered: the pill warns, a saved row says its update is overdue, as of Tuesday, and a row with nothing saved says No data",
-        /^true \| ! Update overdue · as of Tue \d\d:\d\d \| ! No data$/.test(lateNotes), lateNotes)
+      var lateNotes = [pill.warns, pill.changeText.indexOf("! ") === 0, Qt.colorEqual(find(pill, "pillChange").color, barApi.urgent),
+        nbisRow.detail, body.watchlist.rowItem("SHOP.TO").detail].join(" | ")
+      harness.check("90 s asked and unanswered: the pill warns with its \"!\" in the bar's urgent, a saved row says its update is overdue, as of Tuesday, and a row with nothing saved says No data",
+        /^true \| true \| true \| ! Update overdue · as of Tue \d\d:\d\d \| ! No data$/.test(lateNotes), lateNotes)
       tick(9, 1)
       var tries = harness.requests().filter(function(l) { return / 000$/.test(l) })
       harness.check("with no network, a run, then one request alone at 2, 6, 14, 30, and 62 s: no more",
