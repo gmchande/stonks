@@ -17,6 +17,9 @@ states=${*:-window-help-smooth window-help-retro popup-help-smooth popup-help-re
 # The listing sweep (CONTRIBUTING.md, Verify it): every kind of listing on 1D at
 # each of its moments, in both looks.
 if [ $# -eq 0 ]; then
+  # The list menu over the cursor's row in both looks on both surfaces: its
+  # edge shows nothing of the row under it.
+  states="$states popup-lists-menu-smooth window-lists-menu-smooth window-lists-menu-retro"
   for moment in 2026-10-07-1455 2026-10-07-0100 2026-10-07-0600 2026-10-03-1200; do
     for symbol in nbis psix spy bldp gspc btc-usd shel.l 7203.t; do
       states="$states popup-sweep-$moment-$symbol-smooth popup-sweep-$moment-$symbol-retro"

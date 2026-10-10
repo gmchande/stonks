@@ -151,10 +151,12 @@ and the rows always show the day's change.
 Click a row to feature it; right-click (or middle-click) removes it, and
 the footer says what went: `u`, or a click on that note, puts it back where
 it was, in every list that held it, until you next change a list. The
-featured row is filled, the keyboard cursor is a bar down the left edge and
-rests on the featured row (or the first row, when the featured symbol is not
-in this list) until you move it, and the row under the pointer is faintly
-tinted.
+featured row is filled. One cursor, as in Omarchy's own panels, is a bar
+down the left edge on a lightly filled row: the pointer puts it on the row
+under it, the arrow keys move it on from wherever it is, and it stays when
+the pointer leaves the list. Before you point or press a key, it rests on
+the featured row (or the first row, when the featured symbol is not in this
+list).
 
 **Lists.** All holds every symbol you follow; named lists, such as My
 Portfolio or Energy, hold some of them, and a symbol can be in several.

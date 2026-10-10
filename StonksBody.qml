@@ -406,7 +406,7 @@ Item {
     var at = rows.indexOf(symbol)
     var successor = symbol === watchlist.cursorRow && at >= 0 ? (rows[at + 1] || rows[at - 1] || "") : ""
     service.removeSymbol(symbol, rows)
-    if (successor !== "") watchlist.select(successor)
+    if (successor !== "") watchlist.handTo(successor)
     offerUndo(symbol, listName)
   }
 
@@ -598,9 +598,12 @@ Item {
     previewSymbol = s
   }
 
+  // The menu lies over rows that stay visible: the rows forget their last
+  // click, so a press that dismisses it never pairs with one before.
   function openListMenu() {
     closeViews()
     showingHelp = false
+    watchlist.forgetClicks()
     listMenuOpen = true
   }
 

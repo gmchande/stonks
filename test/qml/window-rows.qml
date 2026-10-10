@@ -714,6 +714,9 @@ ShellRoot {
       service.persist({ order: "pct" })
       wait(100)
       var before = service.symbols.join(",")
+      // Past the double-click interval of the middle-click at this place:
+      // another click there within it would be the same click.
+      wait(Application.styleHints.mouseDoubleClickInterval)
       var rightRow = watchlist.rowItem("NVDA")
       mouseClick(rightRow, rightRow.width / 2, rightRow.height / 2, Qt.RightButton)
       wait(100)

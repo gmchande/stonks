@@ -5,10 +5,10 @@ import "Figures.js" as Figures
 import "Format.js" as Format
 import "Tones.js" as Tones
 // One watchlist row: symbol over name, the day line, price over change.
-// Three states, each with its own mark so they read apart at a glance: the
-// featured row sits in the shell's selected fill, the keyboard cursor is a
-// bar down the left edge, and the pointer is a faint tint. A row held in a
-// drag takes the pressed fill and a border.
+// The featured row sits in the shell's selected fill; the cursor, which the
+// keys and the pointer both move, takes the shell's hover-cursor fill and a
+// bar down the left edge, and on the featured row only the bar. A row held
+// in a drag takes the pressed fill and a border.
 Rectangle {
   id: row
 
@@ -36,10 +36,13 @@ Rectangle {
   property color downColor: Color.urgent
   property string fontFamily: Style.font.family
 
-  signal featureRequested()
-  signal removeRequested()
+  // Each click says where it was, in the scene, and whether Qt took it for
+  // a double-click's second press, so the list decides whether it acts,
+  // whichever row it lands on (Watchlist.clickRow).
+  signal featureRequested(real x, real y, bool second)
+  signal removeRequested(real x, real y, bool second)
   // Ctrl-click, Apple's Control-click: this row's lists.
-  signal listsRequested()
+  signal listsRequested(real x, real y, bool second)
   // Shift and the wheel over this row, by its angle.
   signal moveWheeled(real angle)
   // Drag positions are in the parent's coordinates, since the row itself
@@ -53,7 +56,6 @@ Rectangle {
   // never with the clock, the change mode, or another symbol's quote.
   readonly property var geometry: quote ? Chart.chartGeometry(quote, calendars) : null
 
-  readonly property bool hovered: mouse.containsMouse
   readonly property color trend: !view || view.tone === "flat" ? dim : view.tone === "up" ? upColor : downColor
   // What the feed has done for this symbol, from Figures.freshness. A failed
   // or overdue refresh is said in words on the name line, so it reads
@@ -87,15 +89,17 @@ Rectangle {
   radius: retro ? 0 : Style.cornerRadius
   // The fill the row's state asks for; the row eases to it, and the
   // retro stems are weighed against it over the ground, so a featured or
-  // hovered row's two colours still read alike.
+  // cursor row's two colours still read alike.
   readonly property color fill: lifted ? Style.pressedFillFor(foreground, Color.accent)
     : featuredRow ? Style.selectedFillFor(foreground, Color.accent)
-    : hovered ? Style.normalFillFor(foreground, Color.accent) : "transparent"
+    : cursor ? Style.hoverFillFor(foreground, Color.accent) : "transparent"
   color: fill
   border.width: lifted ? 1 : 0
   border.color: Style.normalBorderFor(foreground, Color.accent)
 
-  Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+  // The shell's own speed (CursorSurface), so the fill keeps up with the
+  // pointer.
+  Behavior on color { ColorAnimation { duration: 60 } }
 
   // Under the fill, and there at once: the fill fades, the ground must not.
   Rectangle {
@@ -107,15 +111,10 @@ Rectangle {
     color: row.ground
   }
 
-  Rectangle {
-    objectName: "cursorBar"
+  CursorBar {
     visible: row.cursor
-    x: 0
-    y: Style.space(6)
-    width: Style.space(2)
-    height: row.height - Style.space(12)
-    radius: row.retro ? 0 : width / 2
-    color: Style.selectedStateColor(row.foreground, Color.accent)
+    retro: row.retro
+    foreground: row.foreground
   }
 
   Text {
@@ -245,15 +244,18 @@ Rectangle {
     onCanceled: {
       if (dragged) row.dragCanceled()
     }
-    onClicked: function(event) {
+    function act(event, second) {
       if (dragged) return
-      if (event.button === Qt.RightButton || event.button === Qt.MiddleButton) row.removeRequested()
-      else if (event.modifiers & Qt.ControlModifier) row.listsRequested()
-      else if (event.button === Qt.LeftButton) row.featureRequested()
+      var at = mapToItem(null, event.x, event.y)
+      if (event.button === Qt.RightButton || event.button === Qt.MiddleButton) row.removeRequested(at.x, at.y, second)
+      else if (event.modifiers & Qt.ControlModifier) row.listsRequested(at.x, at.y, second)
+      else if (event.button === Qt.LeftButton) row.featureRequested(at.x, at.y, second)
     }
+    onClicked: function(event) { act(event, false) }
     // A double-click is one click: its second would land on whatever took
     // the first one's place, a row sliding up or the rows back from search.
-    onDoubleClicked: {}
+    // The list says whether it acts: only after the wheel or a key between.
+    onDoubleClicked: function(event) { act(event, true) }
     // The wheel scrolls the list; with Shift held it moves this row.
     onWheel: function(wheel) {
       if (wheel.modifiers & Qt.ShiftModifier) {

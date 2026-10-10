@@ -535,6 +535,9 @@ ShellRoot {
         wait(100)
 
         body.watchlist.contentY = 0
+        // The pointer comes in as a hand's does, over more than one place:
+        // the first place it is seen at in a list is where it starts.
+        mouseMove(body.watchlist, 12, body.watchlist.rowPitch + 10)
         mouseMove(body.watchlist, 12, body.watchlist.rowPitch + 12)
         wait(50)
         var removed = body.watchlist.displayedSymbols[1]
@@ -603,8 +606,9 @@ ShellRoot {
             && Math.abs(body.watchlist.contentY - userScroll) < 0.5)
         mouseMove(body.watchlist, 24, body.watchlist.rowPitch + 12)
         wait(50)
-        root.check("real pointer movement clears the added-symbol cursor",
-          body.watchlist.cursorSymbol === "")
+        var pointedRow = body.watchlist.displayedSymbols[Math.floor((body.watchlist.rowPitch + 12 + body.watchlist.contentY) / body.watchlist.rowPitch)]
+        root.check("real pointer movement takes the cursor from the added row to the row under the pointer",
+          pointedRow !== "NEW" && body.watchlist.cursorSymbol === pointedRow, pointedRow + "|" + body.watchlist.cursorSymbol)
         mouseMove(body, body.width / 2, 20)
         wait(200)
         addedRow.shiftChanged.disconnect(watchAdded)
@@ -671,6 +675,224 @@ ShellRoot {
         body.watchlist.cancelDrag()
         body.watchlist.snapToRow()
 
+        // A held row keeps the cursor while the wheel scrolls the list under
+        // it, and once it drops: it rides the pointer wherever its old place
+        // went. From the rows review: the cursor left it as soon as its old
+        // place scrolled out of sight, and the next key acted on another row.
+        body.watchlist.contentY = 0
+        wait(50)
+        var held = body.watchlist.displayedSymbols[1]
+        body.watchlist.beginDrag(held, pitch + 10)
+        mouseWheel(body.watchlist, 12, pitch + 10, 0, -600, Qt.NoModifier)
+        wait(700)
+        var heldScrolled = [body.watchlist.cursorRow === held, body.watchlist.contentY >= 4 * pitch].join(",")
+        body.watchlist.endDrag()
+        wait(400)
+        root.check("a held row keeps the cursor while the wheel scrolls the list under it, and once it drops",
+          heldScrolled === "true,true" && body.watchlist.dragSymbol === "" && body.watchlist.cursorRow === held,
+          heldScrolled + " | " + body.watchlist.cursorRow + " for " + held)
+        root.setFixtureWatchlist()
+        wait(100)
+
+        // A right-click that removes a row mid-glide hands the cursor to the
+        // row that takes its place, as x does. From the rows review: the
+        // cursor read the glide's destination, skipped that row, and the
+        // next removal key acted on the one after it.
+        body.watchlist.contentY = 0
+        wait(50)
+        var clicked = body.watchlist.displayedSymbols[0]
+        var takesPlace = body.watchlist.displayedSymbols[1]
+        mouseMove(body.watchlist, 12, 10)
+        mouseMove(body.watchlist, 12, 12)
+        mouseWheel(body.watchlist, 12, 12, 0, -120, Qt.NoModifier)
+        mouseClick(body.watchlist, 12, 12, Qt.RightButton)
+        wait(600)
+        root.check("a right-click removing a row mid-glide hands the cursor to the row that takes its place",
+          body.watchlist.displayedSymbols.indexOf(clicked) < 0 && body.watchlist.cursorRow === takesPlace,
+          clicked + " -> " + body.watchlist.cursorRow + " for " + takesPlace)
+        root.setFixtureWatchlist()
+        wait(100)
+
+        // A click or a Ctrl-click mid-glide puts the cursor on the row it
+        // acts on, so x then removes that row. From Grok's review of #9: the
+        // click featured the row, or showed its lists, but the bar stayed on
+        // the row the glide was heading for, and x removed that one.
+        var clickedThenX = function(modifiers) {
+          body.watchlist.contentY = 0
+          wait(50)
+          var target = body.watchlist.displayedSymbols[0]
+          mouseMove(body.watchlist, 12, 10)
+          mouseMove(body.watchlist, 12, 12)
+          mouseWheel(body.watchlist, 12, 12, 0, -120, Qt.NoModifier)
+          mouseClick(body.watchlist, 12, 12, Qt.LeftButton, modifiers)
+          var acted = modifiers ? body.listsSymbol === target : stub.featuredSymbol === target
+          body.closeListViews()
+          wait(600)
+          var cursor = body.watchlist.cursorRow
+          body.removeRow(cursor)
+          wait(100)
+          var removedIt = body.watchlist.displayedSymbols.indexOf(target) < 0
+          root.setFixtureWatchlist()
+          wait(100)
+          return (acted && cursor === target && removedIt) + " " + target + " cursor " + cursor
+        }
+        var byClick = clickedThenX(Qt.NoModifier)
+        var byCtrlClick = clickedThenX(Qt.ControlModifier)
+        root.check("a click or a Ctrl-click mid-glide puts the cursor on its row, and x then removes that row",
+          /^true /.test(byClick) && /^true /.test(byCtrlClick), byClick + " | " + byCtrlClick)
+
+        // A double-click is one click for the list, not only for a row: its
+        // second press, at the first one's place, does nothing, whichever
+        // row is under it by then. And a click stops the list where it is,
+        // so its row stays under the pointer. From Grok's review of #9: a
+        // click glided its row away (onto a row boundary after a touchpad
+        // scroll), and the second press featured the next row; after a
+        // right-click's removal, the row that slid up was removed too.
+        root.setFixtureWatchlist()
+        wait(100)
+        body.watchlist.contentY = 0
+        wait(50)
+        var featuredSeen = []
+        var noteFeatured = function() { featuredSeen.push(stub.featuredSymbol) }
+        stub.featuredSymbolChanged.connect(noteFeatured)
+        body.watchlist.followBy(17)
+        var partRow = body.watchlist.displayedSymbols[1]
+        var partY = pitch + 2 - 17
+        mouseMove(body.watchlist, 12, partY - 2)
+        mouseMove(body.watchlist, 12, partY)
+        mouseClick(body.watchlist, 12, partY)
+        wait(200)
+        mouseClick(body.watchlist, 12, partY)
+        wait(400)
+        stub.featuredSymbolChanged.disconnect(noteFeatured)
+        var featuredOnce = featuredSeen.length > 0 && featuredSeen.every(function(s) { return s === partRow })
+          && stub.featuredSymbol === partRow && body.watchlist.cursorRow === partRow
+        var stayedFeatured = body.watchlist.contentY === 17
+        root.setFixtureWatchlist()
+        wait(100)
+        body.watchlist.contentY = 0
+        wait(50)
+        // Off a row boundary too: the removal hands the cursor on and the
+        // list stays where the click stopped it.
+        body.watchlist.followBy(17)
+        var shownBefore = body.watchlist.displayedSymbols.slice()
+        var thirdY = 2 * pitch + 20 - 17
+        mouseMove(body.watchlist, 12, thirdY - 2)
+        mouseMove(body.watchlist, 12, thirdY)
+        mouseClick(body.watchlist, 12, thirdY, Qt.RightButton)
+        wait(200)
+        mouseClick(body.watchlist, 12, thirdY, Qt.RightButton)
+        wait(400)
+        var shownAfter = body.watchlist.displayedSymbols
+        var removedOnce = shownAfter.length === shownBefore.length - 1
+          && shownAfter.indexOf(shownBefore[2]) < 0 && shownAfter.indexOf(shownBefore[3]) >= 0
+          && body.watchlist.cursorRow === shownBefore[3]
+        var stayedRemoved = body.watchlist.contentY === 17
+        root.check("a double-click on a part-scrolled row features only that row, and a right double-click removes one row, the list staying where the click stopped it",
+          featuredOnce && removedOnce && stayedFeatured && stayedRemoved,
+          featuredSeen.join(",") + " for " + partRow + " | " + shownBefore.length + " -> " + shownAfter.length
+            + " cursor " + body.watchlist.cursorRow + " | stayed " + stayedFeatured + "," + stayedRemoved)
+        root.setFixtureWatchlist()
+        wait(100)
+
+        // The wheel or a key between two clicks at one place makes them two
+        // clicks, even when Qt takes the second for a double-click's: the
+        // second stops the list and acts, and x then removes its row. So does
+        // a row's move by Shift+J. From rows-review: the second was dropped,
+        // and x removed the row the glide was heading for, or the moved one.
+        var between = function(interrupt) {
+          body.watchlist.contentY = 0
+          wait(50)
+          stub.featuredSymbol = body.watchlist.displayedSymbols[5]
+          var target = body.watchlist.displayedSymbols[2]
+          var y = 2 * pitch + 20
+          mouseMove(body.watchlist, 12, y - 2)
+          mouseMove(body.watchlist, 12, y)
+          var once = function() {
+            stub.featuredSymbolChanged.disconnect(once)
+            interrupt(y)
+          }
+          stub.featuredSymbolChanged.connect(once)
+          mouseDoubleClickSequence(body.watchlist, 12, y)
+          wait(400)
+          var cursor = body.watchlist.cursorRow
+          body.removeRow(cursor)
+          wait(100)
+          var removedIt = body.watchlist.displayedSymbols.indexOf(target) < 0
+          root.setFixtureWatchlist()
+          wait(100)
+          return (cursor === target && removedIt) + " " + cursor + " for " + target
+        }
+        var afterWheel = between(function(y) { mouseWheel(body.watchlist, 12, y, 0, -120, Qt.NoModifier) })
+        var afterKey = between(function() { body.moveCursor(1) })
+        body.watchlist.contentY = 0
+        wait(50)
+        stub.featuredSymbol = body.watchlist.displayedSymbols[5]
+        var takenPlace = body.watchlist.displayedSymbols[3]
+        var moveY = 2 * pitch + 20
+        mouseMove(body.watchlist, 12, moveY - 2)
+        mouseMove(body.watchlist, 12, moveY)
+        mouseClick(body.watchlist, 12, moveY)
+        body.moveSelected(1)
+        wait(180)
+        mouseClick(body.watchlist, 12, moveY)
+        wait(100)
+        var afterMove = (body.watchlist.displayedSymbols[2] === takenPlace && stub.featuredSymbol === takenPlace
+          && body.watchlist.cursorRow === takenPlace) + " " + stub.featuredSymbol + "/" + body.watchlist.cursorRow + " for " + takenPlace
+        root.setFixtureWatchlist()
+        wait(100)
+        root.check("the wheel, a key, or Shift+J between two clicks at one place makes the second act, a double-click's too",
+          [afterWheel, afterKey, afterMove].every(function(r) { return /^true /.test(r) }),
+          [afterWheel, afterKey, afterMove].join(" | "))
+
+        // A double-click whose first press is a view's, its second landing on
+        // a row, does nothing there, even soon after a row click and the
+        // wheel, or with the wheel between its presses: on Manage lists' DONE
+        // as the rows come back, and outside the list menu, which dismisses
+        // it over rows that stay. From rows-review: the second press featured
+        // the row under it.
+        var throughView = function(open, pressAt, closedSignal, wheelBetween) {
+          body.watchlist.contentY = 0
+          wait(50)
+          stub.featuredSymbol = body.watchlist.displayedSymbols[5]
+          var row = body.watchlist.displayedSymbols[4]
+          var rowY = 4 * pitch + 20
+          mouseMove(body.watchlist, 12, rowY - 2)
+          mouseMove(body.watchlist, 12, rowY)
+          mouseClick(body.watchlist, 12, rowY)
+          if (!wheelBetween) mouseWheel(body.watchlist, 12, rowY, 0, -120, Qt.NoModifier)
+          open()
+          wait(100)
+          var at = pressAt()
+          var once = function() {
+            closedSignal.disconnect(once)
+            mouseWheel(body, at.x, at.y, 0, -120, Qt.NoModifier)
+          }
+          if (wheelBetween) closedSignal.connect(once)
+          mouseDoubleClickSequence(body, at.x, at.y)
+          wait(300)
+          var result = (stub.featuredSymbol === row && !body.managingLists && !body.listMenuOpen) + " " + stub.featuredSymbol + " for " + row
+          root.setFixtureWatchlist()
+          wait(100)
+          return result
+        }
+        var onDone = function() {
+          var done = root.find(body, "manageDone")
+          return done.mapToItem(body, done.width / 2, done.height / 2)
+        }
+        var offMenu = function() {
+          var first = body.watchlist.rowItem(body.watchlist.displayedSymbols[0])
+          return first.mapToItem(body, first.width - 30, first.height / 2)
+        }
+        var views = [
+          throughView(function() { body.openManageLists() }, onDone, body.managingListsChanged, false),
+          throughView(function() { body.openManageLists() }, onDone, body.managingListsChanged, true),
+          throughView(function() { body.openListMenu() }, offMenu, body.listMenuOpenChanged, false),
+          throughView(function() { body.openListMenu() }, offMenu, body.listMenuOpenChanged, true)
+        ]
+        root.check("a double-click that begins on a view, Manage lists' DONE or off the list menu, features no row under its second press",
+          views.every(function(v) { return /^true /.test(v) }), views.join(" | "))
+
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,
         // not as a fill.
@@ -691,6 +913,117 @@ ShellRoot {
         root.check("the first Down moves the cursor off the featured row",
           body.watchlist.cursorRow === body.watchlist.displayedSymbols[1]
             && root.find(otherRow, "cursorBar").visible && !cursorBar.visible)
+
+        // One cursor, as the shell's own panels have it: the pointer puts it
+        // on the row under it; a wheel notch with the pointer still leaves
+        // it, once the glide rests, on the row then under the pointer, never
+        // the first row in sight; ↓ moves it on from there; the pointer
+        // leaving the list leaves it. Only the cursor's row takes the hover
+        // fill and the bar, and the featured row keeps its selected fill.
+        // From the owner's trial: the pointer cleared the cursor, so the bar
+        // went to the featured row, and after the wheel to the first row in
+        // sight, wherever the pointer was; a hovered row only tinted, at 4%.
+        var wl = body.watchlist
+        var hoverFill = Style.hoverFillFor(stub.foreground, Color.accent)
+        var selectedFill = Style.selectedFillFor(stub.foreground, Color.accent)
+        // The rows whose fill or bar says something other than their state.
+        var misdrawn = function() {
+          var wrong = []
+          wl.displayedSymbols.forEach(function(symbol) {
+            var item = wl.rowItem(symbol)
+            var want = symbol === stub.featuredSymbol ? selectedFill : symbol === wl.cursorRow ? hoverFill : "transparent"
+            if (!Qt.colorEqual(item.color, want)) wrong.push(symbol + " fill " + item.color)
+            if (root.find(item, "cursorBar").visible !== (symbol === wl.cursorRow)) wrong.push(symbol + " bar")
+          })
+          return wrong
+        }
+        wl.contentY = 0
+        wait(50)
+        var third = wl.rowItem(wl.displayedSymbols[2])
+        mouseMove(third, third.width / 2, third.height / 2 - 2)
+        mouseMove(third, third.width / 2, third.height / 2)
+        wait(100)
+        var onThird = [wl.cursorRow === wl.displayedSymbols[2]].concat(misdrawn())
+        mouseWheel(third, third.width / 2, third.height / 2, 0, -120, Qt.NoModifier)
+        // At once, before the glide: the row that will rest under the pointer.
+        var atOnce = wl.cursorRow === wl.displayedSymbols[3] && wl.contentY < pitch
+        wait(700)
+        var afterWheel = [atOnce, wl.contentY === pitch, wl.cursorRow === wl.displayedSymbols[3], wl.cursorRow !== wl.displayedSymbols[1]].concat(misdrawn())
+        body.moveCursor(1)
+        wait(100)
+        var afterDown = [wl.cursorRow === wl.displayedSymbols[4]].concat(misdrawn())
+        mouseMove(body, body.width / 2, 20)
+        wait(100)
+        var afterLeaving = [wl.cursorRow === wl.displayedSymbols[4]].concat(misdrawn())
+        var steps = [onThird, afterWheel, afterDown, afterLeaving]
+        root.check("one cursor: the pointer puts it on row 3, the wheel on the row under the still pointer once it rests, ↓ one row on, and leaving keeps it; no other row is tinted",
+          steps.every(function(step) { return step.every(function(part) { return part === true }) }),
+          steps.map(function(step) { return step.join(",") }).join(" | "))
+
+        // The cursor's fill keeps up with the pointer at the shell's own
+        // 60 ms: on rendered frames, the rows change as the pointer moves a
+        // row down and are still from 80 ms on. It eased in 160 ms.
+        var listBand = function() {
+          var corner = wl.mapToItem(body, 0, 0)
+          return [Math.round(corner.x), Math.round(corner.y), Math.round(wl.width), Math.round(wl.height)].join(",")
+        }
+        var fillFrom = wl.rowItem(wl.displayedSymbols[2])
+        mouseMove(fillFrom, fillFrom.width / 2, fillFrom.height / 2)
+        wait(200)
+        grab.source = body
+        grab.begin("cursor-fill")
+        wait(50)
+        grab.markStart()
+        mouseMove(fillFrom, fillFrom.width / 2, fillFrom.height / 2 + pitch)
+        wait(250)
+        grab.end()
+        var fillRow = wl.cursorRow
+        grab.judge("same:" + listBand(), grab.frames.filter(function(frame) { return frame.at >= grab.start }))
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        var fillMoved = grab.verdict
+        grab.judge("same:" + listBand(), grab.frames.filter(function(frame) { return frame.at >= grab.start + 80 }))
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        var fillStill = grab.verdict
+        root.check("the cursor's fill follows the pointer to the next row, and is still 80 ms on",
+          fillRow === wl.displayedSymbols[3] && !fillMoved.ok && fillStill.ok,
+          fillRow + " | " + fillMoved.detail + " | " + fillStill.detail)
+
+        // The list menu's edge is drawn over its ground, so the rows' cursor
+        // never shows through it. Found in the first-run design review: the
+        // bar of the cursor's row under the open menu showed as a bright
+        // stroke on its left edge. Judged on rendered frames, inside the
+        // menu between its rounded corners: the cursor moving from a row
+        // under the menu to one below it changes nothing there.
+        mouseMove(body, body.width / 2, 20)
+        wl.contentY = 0
+        body.openListMenu()
+        wait(100)
+        var listMenu = root.find(body, "listMenu")
+        var corner = Math.ceil(Style.cornerRadius)
+        var menuTop = Math.round(listMenu.y) + corner
+        var menuBottom = Math.round(listMenu.y + listMenu.height) - corner
+        var underMenu = ""
+        var belowMenu = ""
+        wl.displayedSymbols.forEach(function(symbol, index) {
+          var top = wl.rowItem(symbol).mapToItem(body, 0, 0).y
+          if (underMenu === "" && top + Style.space(6) >= menuTop && top + wl.rowHeight - Style.space(6) <= menuBottom) underMenu = symbol
+          if (belowMenu === "" && top >= listMenu.y + listMenu.height && wl.wholeInSight(index, wl.contentY)) belowMenu = symbol
+        })
+        wl.cursorSymbol = underMenu
+        wait(100)
+        grab.begin("menu-edge")
+        wait(100)
+        wl.cursorSymbol = belowMenu
+        wait(150)
+        grab.end()
+        var movedBelow = wl.cursorRow === belowMenu
+        grab.judge("same:" + [Math.round(listMenu.x), menuTop, Math.round(listMenu.width), menuBottom - menuTop].join(","))
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        root.check("the rows' cursor never shows through the list menu's edge",
+          underMenu !== "" && belowMenu !== "" && movedBelow && grab.verdict.ok,
+          underMenu + " -> " + belowMenu + " | " + movedBelow + " | " + grab.verdict.detail)
+        body.closeListMenu()
+        wait(100)
 
         // A touchpad's pixels move the list exactly and settle through the
         // same glide as the wheel.
@@ -1030,6 +1363,94 @@ ShellRoot {
         stub.retro = false
         root.check("the range tokens, the list name, the order word, the look icon, the ?, the footer, and a list view's action take the pressed fill on mouse-down, in both looks",
           pressFaults.length === 0, pressFaults.join(" | "))
+
+        // The list views follow the wheel as the rows do: scrolled under a
+        // still pointer, the cursor goes to the row then under it, so Enter
+        // never acts on a row scrolled out of sight. From the rows review:
+        // the cursor stayed on the row the pointer had left.
+        var many = [{ name: "", label: "All", count: 1, symbols: ["FIT1"] }]
+        for (var n = 1; n < 15; n++) many.push({ name: "L" + n, label: "List " + n, count: 0, symbols: [] })
+        stub.lists = many
+        wait(50)
+        // Opens a view at its top with the pointer on its second row and
+        // wheels two notches under it; `interrupt`, if any, acts 30 ms in,
+        // while the wheel's motion runs. Says the cursor then and at rest.
+        var wheeled = function(open, close, viewName, rowName, interrupt) {
+          open()
+          wait(100)
+          var view = root.find(body, viewName)
+          var rows = root.findAll(view, rowName)
+          var at = rows[1].mapToItem(body, rows[1].width / 2, rows[1].height / 2)
+          mouseMove(body, at.x, at.y - 2)
+          mouseMove(body, at.x, at.y)
+          wait(50)
+          var pointed = view.cursor
+          mouseWheel(body, at.x, at.y, 0, -240, Qt.NoModifier)
+          var stopped = -1
+          if (interrupt) {
+            wait(30)
+            interrupt()
+            stopped = view.cursor
+          }
+          wait(400)
+          var under = -1
+          rows.forEach(function(row, i) { if (row.contains(row.mapFromItem(body, at.x, at.y))) under = i })
+          var rested = view.cursor
+          close()
+          wait(100)
+          return { pointed: pointed, under: under, stopped: stopped, rested: rested }
+        }
+        // A key, or the surface closing with the view showing through its
+        // fade, while the wheel's motion runs stops it: the cursor moves no
+        // further. From the rows re-review: the motion carried it on past the
+        // key's row, and on through the close.
+        var wheels = [
+          [function() { body.openListMenu() }, function() { body.closeListMenu() }, "listMenu", "listChoice"],
+          [function() { body.openSymbolLists("FIT1") }, function() { body.closeListViews() }, "symbolLists", "symbolListRow"],
+          [function() { body.openManageLists() }, function() { body.closeListViews() }, "manageLists", "manageRow"]
+        ].map(function(v) {
+          var free = wheeled(v[0], v[1], v[2], v[3], null)
+          var keyed = wheeled(v[0], v[1], v[2], v[3], function() { keyClick(Qt.Key_Down) })
+          var closed = wheeled(v[0], v[1], v[2], v[3], function() { body.surfaceOpen = false })
+          body.surfaceOpen = true
+          wait(50)
+          return [free.pointed === 1 && free.under > 1 && free.rested === free.under,
+            keyed.rested === keyed.stopped, closed.rested === closed.stopped].join(",")
+            + " " + v[2] + " " + JSON.stringify([free, keyed, closed])
+        })
+        root.check("in the list menu, a symbol's lists, and Manage lists, the wheel under a still pointer moves the cursor to the row then under it, until a key or a close stops it",
+          wheels.every(function(w) { return w.indexOf("true,true,true ") === 0 }), wheels.join(" | "))
+
+        // A view showing through its surface's close moves no cursor as the
+        // pointer moves over it. From the rows review of the stale pointer
+        // fix: the pointer onto All moved all three views' cursors.
+        var closing = [
+          [function() { body.openListMenu() }, function() { body.closeListMenu() }, "listMenu", "listChoice"],
+          [function() { body.openSymbolLists("FIT1") }, function() { body.closeListViews() }, "symbolLists", "symbolListRow"],
+          [function() { body.openManageLists() }, function() { body.closeListViews() }, "manageLists", "manageRow"]
+        ].map(function(v) {
+          v[0]()
+          wait(100)
+          var view = root.find(body, v[2])
+          var rows = root.findAll(view, v[3])
+          var onTwo = rows[2].mapToItem(body, rows[2].width / 2, rows[2].height / 2)
+          var onAll = rows[0].mapToItem(body, rows[0].width / 2, rows[0].height / 2)
+          mouseMove(body, onTwo.x, onTwo.y - 2)
+          mouseMove(body, onTwo.x, onTwo.y)
+          wait(50)
+          var before = view.cursor
+          body.surfaceOpen = false
+          mouseMove(body, onAll.x, onAll.y - 2)
+          mouseMove(body, onAll.x, onAll.y)
+          wait(50)
+          var after = view.cursor
+          body.surfaceOpen = true
+          v[1]()
+          wait(50)
+          return (before === 2 && after === 2) + " " + v[2] + " " + before + "->" + after
+        })
+        root.check("a list view showing through its surface's close moves no cursor as the pointer passes",
+          closing.every(function(c) { return c.indexOf("true ") === 0 }), closing.join(" | "))
 
         console.log("POINTER DONE")
         done.exitCode = root.failures ? 1 : 0

@@ -625,8 +625,9 @@ ShellRoot {
         field(body.search).text = query
       }
     } else if (root.stateName.indexOf("popup-rowstates-") === 0) {
-      // Featured, cursor, and a row that has not moved, side by side.
-      body.watchlist.cursorSymbol = stub.shown[2]
+      // Featured, cursor, and a row that has not moved, side by side. The
+      // cursor a turn later, once the rows show: set on no rows, it is let go.
+      Qt.callLater(function() { body.watchlist.cursorSymbol = stub.shown[2] })
       var still = stub.quotes["SHOP.TO"]
       var quotes = Object.assign({}, stub.quotes)
       quotes["SHOP.TO"] = Object.assign({}, still, { prevClose: Quote.regularClose(still) })
@@ -677,6 +678,9 @@ ShellRoot {
         return null
       }
       if (root.stateName.indexOf("-menu-") > 0) {
+        // The cursor's row under the menu's left edge, which must not show
+        // its bar through: a turn later, once the rows show.
+        Qt.callLater(function() { body.watchlist.cursorSymbol = stub.shown[2] })
         body.openListMenu()
       } else if (root.stateName.indexOf("-symbol-") > 0) {
         body.openSymbolLists(body.watchlist.cursorRow)

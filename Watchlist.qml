@@ -48,7 +48,6 @@ Flickable {
 
   property string cursorSymbol: ""
   property var displayedSymbols: []
-  property point pointerScenePosition: Qt.point(-1, -1)
   property string dragSymbol: ""
   property real dragY: 0
   property int dragTarget: -1
@@ -59,12 +58,15 @@ Flickable {
   readonly property int rowPitch: rowHeight + rowGap
   // Where the list is headed: a glide's destination, or where it rests.
   readonly property real headedY: glide.running ? glide.to : contentY
-  // The row the keys act on, always one in sight, so a key never acts on a
-  // row you cannot see. A cursor of your own stays while it is in sight;
-  // without one (on open, after a drag, once the pointer moves) the cursor
-  // sits on the featured row when that is in sight, else on the first whole
-  // row in sight. Read where the list is headed, so a key gliding the list
-  // to its row keeps it.
+  // The one cursor the keys and the pointer both move, as in the shell's own
+  // panels. Moving the pointer puts it on the row under it, the wheel on the
+  // row it brings under a still pointer, and a key one row on from wherever
+  // it is; the pointer leaving the list leaves it there. Always a row in
+  // sight, so a key never acts on a row you cannot see: a cursor of your own
+  // stays while any of its row is in sight; without one (on open, after
+  // another list) it sits on the featured row when that is in sight, else on
+  // the first whole row in sight. Read where the list is headed, so a key
+  // gliding the list to its row keeps it.
   readonly property string cursorRow: {
     var top = headedY
     if (ownInSight(top)) return cursorSymbol
@@ -73,16 +75,20 @@ Flickable {
     var first = Math.max(0, Math.ceil((top - 0.5) / rowPitch))
     return displayedSymbols[Math.min(first, displayedSymbols.length - 1)] || ""
   }
-  // A cursor of your own that leaves sight, as the wheel scrolls, the list
-  // shortens, or the rows change under it, is let go: the cursor moves by
-  // the rule above and stays there when the row comes back. Let go as the
-  // sight changes, not as cursorRow does: it reads the cursor it would clear.
+  // A cursor of your own that leaves sight, as the scrollbar moves the
+  // list, the list shortens, or the rows change under it, is let go: the
+  // cursor moves by the rule above and stays there when the row comes back.
+  // Let go as the sight changes, not as cursorRow does: it reads the cursor
+  // it would clear.
   onHeadedYChanged: letGoUnseen()
   onHeightChanged: letGoUnseen()
   onDisplayedSymbolsChanged: letGoUnseen()
+  // A lifted row rides the pointer wherever its place has scrolled to, so
+  // it keeps the cursor through the drag.
   function ownInSight(top) {
+    if (cursorSymbol !== "" && cursorSymbol === dragSymbol) return true
     var own = displayedSymbols.indexOf(cursorSymbol)
-    return cursorSymbol !== "" && own >= 0 && wholeInSight(own, top)
+    return cursorSymbol !== "" && own >= 0 && partInSight(own, top)
   }
   function letGoUnseen() {
     if (cursorSymbol !== "" && !ownInSight(headedY)) cursorSymbol = ""
@@ -124,13 +130,16 @@ Flickable {
     acceptedModifiers: Qt.NoModifier
     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
     onWheel: function(event) {
+      // The wheel starts another gesture: the next click is a click of its own.
+      root.endClick()
       // A touchpad reports the pixels the finger moved: the list follows
       // them exactly, and settles on a row once the finger stops.
       if (event.pixelDelta.y !== 0) root.followBy(-event.pixelDelta.y)
       // A notch is 120 units and one row; a high-resolution mouse sends many
       // smaller ticks, and each moves its fraction of a row.
       else if (event.angleDelta.y !== 0) root.wheelBy(-event.angleDelta.y / 120)
-      else event.accepted = false
+      else { event.accepted = false; return }
+      root.pointAtPointer()
     }
   }
 
@@ -149,21 +158,38 @@ Flickable {
   Timer {
     id: wheelQuiet
     interval: 260
-    onTriggered: root.glideTo(root.snappedY(root.wheelTarget()))
+    onTriggered: {
+      root.glideTo(root.snappedY(root.wheelTarget()))
+      root.pointAtPointer()
+    }
   }
 
-  HoverHandler {
+  RowPointer {
     id: listHover
     parent: root
-    onPointChanged: {
-      var next = point.scenePosition
-      var moved = next.x !== root.pointerScenePosition.x || next.y !== root.pointerScenePosition.y
-      root.pointerScenePosition = next
-      if (hovered && moved && root.surfaceOpen) {
-        root.cursorSymbol = ""
-        root.wheelMoving = ""
-      }
+    onMoved: function(x, y) {
+      if (!root.surfaceOpen) return
+      root.wheelMoving = ""
+      root.pointAt(x, y)
     }
+  }
+
+  // The cursor to the row at (x, y) in the scene, read where the list is
+  // headed, as the cursor always is: mid-glide, that is the row that will
+  // rest under the pointer. Past the rows' ends, or on the scrollbar's
+  // gutter, it stays. A lifted row is the drag's, so the pointer moves no
+  // cursor then.
+  function pointAt(x, y) {
+    var seen = mapFromItem(null, x, y)
+    if (dragSymbol !== "" || seen.x >= rowsBox.width) return
+    var at = Math.floor((seen.y + headedY) / rowPitch)
+    if (at >= 0 && at < displayedSymbols.length) cursorSymbol = displayedSymbols[at]
+  }
+
+  // The cursor to the row the wheel brings under a still pointer: the row
+  // that will rest there, so the bar never stops on a row on the way.
+  function pointAtPointer() {
+    if (listHover.hovered && surfaceOpen) pointAt(listHover.scenePosition.x, listHover.scenePosition.y)
   }
 
   function entryOf(symbol) {
@@ -175,6 +201,7 @@ Flickable {
   }
 
   function moveCursor(delta) {
+    endClick()
     if (displayedSymbols.length === 0) return
     var current = displayedSymbols.indexOf(cursorRow)
     var next = Math.max(0, Math.min(displayedSymbols.length - 1, current < 0 ? 0 : current + delta))
@@ -257,12 +284,77 @@ Flickable {
     cursorSymbol = symbol
   }
 
+  // The cursor handed to `symbol`, as a removal hands it on: where its row
+  // is in sight already, the list stays where it is, stopped by the click,
+  // perhaps between rows; else the row is carried into view.
+  function handTo(symbol) {
+    var index = displayedSymbols.indexOf(symbol)
+    if (index >= 0 && partInSight(index, headedY)) cursorSymbol = symbol
+    else select(symbol)
+  }
+
+  // A click on a row, at (x, y) in the scene. It stops the list where it
+  // is, a glide or a touchpad's settle, as a flicking list stops under a
+  // finger, and puts the cursor on the row, now in sight where the list
+  // rests: the row stays under the pointer, and x or Enter act on it.
+  // Gliding it whole into view or onto a row boundary instead moved it out
+  // from under the pointer. And a double-click is one click, for the list
+  // as for a row: a click within the double-click interval of the last,
+  // at its place, does nothing, whatever button and whichever row is under
+  // it by then, as the one sliding up into a removed row's place.
+  // Says whether the click acts. The wheel, a key, or a move of a row
+  // starts another gesture, so the next click acts (endClick), even one Qt
+  // takes for a double-click's `second` press, as long as that pair's first
+  // press was this list's last click. Any other second press does nothing,
+  // wherever its first landed: on this row, on the one a removal took
+  // away, or on a view or a search result the rows came back from under.
+  // Another list, a new open, or the rows hidden behind a view forget the
+  // last click (forgetClicks), so the next single click acts.
+  property real lastClickTime: 0
+  property point lastClickPlace: Qt.point(-1, -1)
+  // This list's last click, and the last gesture that ended its window.
+  property real rowClickAt: 0
+  property real clickEndedAt: 0
+  function clickRow(symbol, x, y, second) {
+    var now = Date.now()
+    var interval = Application.styleHints.mouseDoubleClickInterval
+    var near = Application.styleHints.startDragDistance
+    var again = second ? !(clickEndedAt >= rowClickAt && clickEndedAt > 0 && now - rowClickAt < interval)
+      : now - lastClickTime < interval
+        && Math.abs(x - lastClickPlace.x) <= near && Math.abs(y - lastClickPlace.y) <= near
+    lastClickTime = now
+    lastClickPlace = Qt.point(x, y)
+    rowClickAt = now
+    if (again || displayedSymbols.indexOf(symbol) < 0) return false
+    takeOver()
+    cancelFlick()
+    cursorSymbol = symbol
+    return true
+  }
+  function endClick() {
+    lastClickTime = 0
+    clickEndedAt = Date.now()
+  }
+  function forgetClicks() {
+    lastClickTime = 0
+    rowClickAt = 0
+    clickEndedAt = 0
+  }
+  onVisibleChanged: forgetClicks()
+
   // Whether row `index` is whole in the list's view with it scrolled to
   // `top`. The card's edge easing past the foot is left out: the cursor
   // follows the scroll, not a moment of the card's motion.
   function wholeInSight(index, top) {
     var y = index * rowPitch
     return y >= top - 0.5 && y + rowHeight <= top + height + 0.5
+  }
+
+  // Whether any of row `index` shows, with the list scrolled to `top`: the
+  // pointer may rest on a row the list's foot cuts.
+  function partInSight(index, top) {
+    var y = index * rowPitch
+    return y + rowHeight > top + 0.5 && y < top + height - 0.5
   }
 
   // Shift and the wheel move a row a place a notch; a high-resolution wheel's
@@ -351,6 +443,7 @@ Flickable {
   }
 
   function moveSymbol(symbol, delta) {
+    endClick()
     if (!manualOrder) return
     var from = displayedSymbols.indexOf(symbol)
     var to = from + delta
@@ -399,7 +492,7 @@ Flickable {
     if (from < 0) return
     takeOver()
     dropAnim.stop()
-    cursorSymbol = ""
+    cursorSymbol = symbol
     dragOffset = y - from * rowPitch
     dragPointer = y - contentY
     dragY = from * rowPitch
@@ -476,6 +569,7 @@ Flickable {
       places[before.listKey] = snappedY(wheelTarget())
       cancelDrag()
       cursorSymbol = ""
+      forgetClicks()
       takeOver()
       layOut()
       contentY = clampY(places[view.listKey] || 0)
@@ -496,6 +590,7 @@ Flickable {
   // Shift+wheel move left half made.
   function reopen() {
     wheelMoving = ""
+    forgetClicks()
     layOut()
   }
   Component.onCompleted: {
@@ -623,9 +718,11 @@ Flickable {
         upColor: root.upColor
         downColor: root.downColor
         fontFamily: root.fontFamily
-        onFeatureRequested: root.featureRequested(symbol)
-        onRemoveRequested: root.removeRequested(symbol)
-        onListsRequested: root.listsRequested(symbol)
+        // A double-click's second press does nothing (clickRow), and a
+        // click stops the list where it is and puts the cursor on its row.
+        onFeatureRequested: function(x, y, second) { if (root.clickRow(symbol, x, y, second)) root.featureRequested(symbol) }
+        onRemoveRequested: function(x, y, second) { if (root.clickRow(symbol, x, y, second)) root.removeRequested(symbol) }
+        onListsRequested: function(x, y, second) { if (root.clickRow(symbol, x, y, second)) root.listsRequested(symbol) }
         onMoveWheeled: function(angle) { root.wheelMove(symbol, angle) }
         onDragStarted: function(y) { root.beginDrag(symbol, y) }
         onDragMoved: function(y) { root.dragTo(y) }
