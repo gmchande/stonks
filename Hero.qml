@@ -59,7 +59,7 @@ Item {
     return freshness && freshness.state === "failed" ? "! REFRESH FAILED · NO DATA"
       : freshness && freshness.state === "overdue" ? "! NO DATA" : ""
   }
-  readonly property string listingFullMeta: view && quote ? " · " + quote.exchange + " · " + quote.currency : ""
+  readonly property string listingFullMeta: view && quote ? " · " + Figures.listingMeta(quote) : ""
   readonly property string listingFull: listingLead + listingFullMeta
   readonly property string changeCaption: view && view.periodLabel ? view.periodLabel
     : (extended !== null ? "AT CLOSE" : "")

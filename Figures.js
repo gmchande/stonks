@@ -17,6 +17,14 @@ function arrowAngle(pctChange) {
   return Format.clamp(pctChange / 5, -1, 1) * 45
 }
 
+// The listing line's exchange and currency, the code said once: left out
+// where the name already ends with it, as Yahoo names a pair ("Bitcoin USD").
+function listingMeta(quote) {
+  var tail = " " + quote.currency
+  var name = String(quote.name || "")
+  return quote.exchange + (name.slice(-tail.length) === tail ? "" : " · " + quote.currency)
+}
+
 // Freshness is three separate facts, kept separate: the time the headline
 // quote stands for, whether a refresh was asked for and has had no answer,
 // and whether the last one failed. The policy is presentation, not a claim
