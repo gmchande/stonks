@@ -157,6 +157,10 @@ BarWidget {
       : (root.iconOnly ? (root.featuredSymbol || "STONKS") + " " + root.changeText + " · " : "")
         + (root.featured ? root.featured.name + " · " + Market.phaseLabel(Market.sessionPhase(root.featuredQuote, root.service.now)) : "Stonks")
         + (root.warningText !== "" ? " · " + root.warningText : "")
+    // The shell copies the words only as the pointer enters. While it stays,
+    // a change goes through the bar again, so a warning that ends leaves no
+    // bubble naming it, and words that empty out take the bubble away.
+    onTooltipTextChanged: if (button.tooltipHovered && root.bar) root.bar.showTooltip(button, button.tooltipText)
 
     onPressed: function(b) {
       if (b === Qt.RightButton) { if (root.plugin) root.plugin.windowHost.toggle() }

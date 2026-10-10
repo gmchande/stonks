@@ -177,7 +177,10 @@ run time.
   hover names the symbol and its change. The sparkline's and the arrow's
   hover names the company and the phase; the text's, which shows its words
   already, says nothing. While a warning's "!" shows, every form's hover
-  says what it means, in the popup's words (`Figures.freshnessText`). It
+  says what it means, in the popup's words (`Figures.freshnessText`). The
+  shell copies a hover's words only as the pointer enters, so while it
+  stays a change of them goes to the bar again: an answer that lands takes
+  the warning out of the bubble, and the text form's bubble with it. It
   reads its section from the bar's layout
   (`bar.layoutConfig`): in the right section its form is `barStyleRight`,
   the icon until a middle-click there writes one, and elsewhere `barStyle`.
