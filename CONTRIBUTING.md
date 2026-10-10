@@ -259,12 +259,18 @@ run time.
   (`revealChart`). It decides once per change of the body's view and first
   ends the last motion (a draw-in, a replay). The painters draw what it
   presents, as far as it has revealed, and decide nothing.
-- `Watchlist.qml` — rows, drag, cursor, wheel, and scroll-to-row. The
-  cursor is always on a row in sight (`cursorRow`): a cursor of your own
-  while it is in sight; without one, the featured row when that is in
-  sight, else the first whole row in sight. The wheel scrolling your cursor
-  out of sight, or the rows changing under it, lets it go; removing the
-  cursor's row (`x`, Delete, Backspace) hands the cursor to the row that
+- `Watchlist.qml` — rows, drag, cursor, wheel, and scroll-to-row. One
+  cursor, as in the shell's own panels (`Ui/CursorSurface.qml`): moving the
+  pointer puts it on the row under it, the wheel on the row it brings under
+  a still pointer, a key one row on from wherever it is, and a click on the
+  row clicked; the pointer leaving the list leaves it there. Only a real
+  move counts (`RowPointer.qml`): rows gliding under a still pointer, as a
+  key scrolls them, never hand it the cursor. It is always on a row in
+  sight (`cursorRow`): a cursor of your own while any of its row is in
+  sight; without one (on open, on another list), the featured row when that
+  is in sight, else the first whole row in sight. The scrollbar moving your
+  cursor out of sight, or the rows changing under it, lets it go; removing
+  the cursor's row (`x`, Delete, Backspace) hands the cursor to the row that
   takes its place, the next one, or the one before when it was the last
   (`StonksBody.removeRow`). Every symbol in All keeps its row
   across lists: a list shows its members and hides the rest, so a
@@ -281,8 +287,8 @@ run time.
   so a move past the edge carries the rows along and the moved row stays
   still on screen. Shift and the wheel move the row the wheel started on a
   place a notch, however finely the wheel ticks, until the pointer moves.
-  Signals out feature/remove/move/reorder; the body acts on them through
-  the service, and every removal goes through `StonksBody.removeRow`.
+  Signals out feature/lists/move/reorder; the body acts on them through
+  the service, and every removal by key goes through `StonksBody.removeRow`.
 - `Hero.qml`, `HeaderStatus.qml`, `HeroBand.qml`, `AddFooter.qml`,
   `HelpSheet.qml` — shared value-in pieces the body composes. The header
   starts with the day's animal and ends in the look and `?`. The listing
@@ -316,12 +322,15 @@ run time.
   line keeping its height, and the rule rests.
 - `ListMenu.qml` — the list menu: lists with counts, a check on the
   current one, "New list…" as an inline name field, and "Manage lists…".
-  Owns its keys while open, like search.
+  Owns its keys while open, like search. Its edge is drawn over its ground:
+  Qt draws a border in place of a fill, so a translucent one shows the rows
+  under it.
 - `ManageLists.qml` — rename, reorder, and delete named lists, in the rows'
   place; delete asks in the row. `SymbolLists.qml` — one symbol's tick box
-  per list (`m`, or Ctrl-click a row). Both own their keys while open
-  (`StonksBody.ownsKeys`) and share `ListAction.qml`, the caption-sized word
-  that acts.
+  per list (`m`, or a right-click or Ctrl-click on a row); it takes no
+  click within the double-click interval of opening, since it opens under
+  the pointer. Both own their keys while open (`StonksBody.ownsKeys`) and
+  share `ListAction.qml`, the caption-sized word that acts.
 - `SymbolSearch.qml` — the search field, results, debounce, and Yahoo
   lookup; the body handles `picked` / `chose` / `cancelled`. The
   keyboard owns the choice Enter adds, and tells every change of it
@@ -406,7 +415,10 @@ run time.
 - `WatchlistRow.qml` — one row; value-in, signals out. Owns the press-and-
   move gesture that lifts a row; the watchlist positions it and the others.
   A double-click, on a row or the footer, is one click: its second would
-  land on whatever took the first one's place.
+  land on whatever took the first one's place. A right-click shows the
+  row's lists; no click removes a row, so a slip never loses one.
+- `CursorBar.qml` — the cursor's one mark, a bar down a row's left edge, on
+  the watchlist's rows and in every list view.
 - `DayChart.qml`, `Sparkline.qml`, `DrawnAnimal.qml` — the smooth look's
   Canvas drawings: the charts, and the header's bull and bear, one 1.5 px
   round line in the day's colour with the hero's wash inside.
@@ -687,11 +699,13 @@ run time.
   change only, so the hero's change is a click target only while it shows
   the day's.
 - A key-hint row shows its view's most-used keys.
-- Row states each have their own mark: the featured row the selected fill,
-  the keyboard cursor a bar down the left edge, the pointer a faint tint.
-  In the list menu the keyboard's row takes the fill and the pointer's row
-  a tint and the shell's outline, which reads on an opaque ground where a
-  tint alone may not.
+- One cursor, the keys' and the pointer's, as in the shell's panels. The
+  featured row takes the selected fill; the cursor's row the shell's
+  hover-cursor fill and a bar down the left edge, in the shell's 60 ms,
+  and on the featured row only the bar. The list menu, a symbol's lists,
+  and Manage lists mark their cursor the same way. Search keeps its split:
+  the keys choose a result and the pointer only tints one, so passing over
+  results never swaps the hero's preview.
 - Stonks' own controls (the range tokens, the list name, the order word,
   the look icon, the `?`, the footer, and the list views' actions) take the
   shell's pressed fill from the moment the button goes down, while it is
