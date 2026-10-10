@@ -540,6 +540,9 @@ ShellRoot {
         // cursor there. (A middle-click used to remove it; it removes nothing
         // now.)
         body.watchlist.contentY = 0
+        // The pointer comes in as a hand's does, over more than one place:
+        // the first place it is seen at in a list is where it starts.
+        mouseMove(body.watchlist, 12, body.watchlist.rowPitch + 10)
         mouseMove(body.watchlist, 12, body.watchlist.rowPitch + 12)
         wait(50)
         var removed = body.watchlist.displayedSymbols[1]
@@ -745,6 +748,7 @@ ShellRoot {
         wl.contentY = 0
         wait(50)
         var third = wl.rowItem(wl.displayedSymbols[2])
+        mouseMove(third, third.width / 2, third.height / 2 - 2)
         mouseMove(third, third.width / 2, third.height / 2)
         wait(100)
         var onThird = [wl.cursorRow === wl.displayedSymbols[2]].concat(misdrawn())
@@ -1202,6 +1206,7 @@ ShellRoot {
           var view = root.find(body, viewName)
           var rows = root.findAll(view, rowName)
           var at = rows[1].mapToItem(body, rows[1].width / 2, rows[1].height / 2)
+          mouseMove(body, at.x, at.y - 2)
           mouseMove(body, at.x, at.y)
           wait(50)
           var pointed = view.cursor

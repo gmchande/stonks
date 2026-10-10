@@ -543,6 +543,9 @@ ShellRoot {
       var menuRows = choices.concat([harness.find(body2, "newListRow"), harness.find(body2, "manageListsRow")])
       var opened = menu.cursor + " " + marks(menuRows)
       var allAt = center(choices[0])
+      // The pointer comes in as a hand's does, over more than one place: the
+      // first place it is seen at in the menu is where it starts.
+      mouseMove(body2, allAt.x, allAt.y - 2)
       mouseMove(body2, allAt.x, allAt.y)
       wait(100)
       grab("menu-hover")
@@ -646,6 +649,9 @@ ShellRoot {
         spot = Qt.point(row.mapToItem(body2, row.width / 2, 0).x, (top + bottom) / 2)
         spotSymbol = symbol
       })
+      // The pointer comes to the row by moving, as a hand's does.
+      mouseMove(body2, spot.x, spot.y)
+      wait(50)
       mouseClick(body2, spot.x, spot.y, Qt.RightButton)
       var shown = body2.listsSymbol
       var allUnder = listsAll.contains(listsAll.mapFromItem(body2, spot.x, spot.y))
@@ -655,8 +661,63 @@ ShellRoot {
         shown === spotSymbol && allUnder && body2.listsSymbol === spotSymbol
           && harness.same(service.symbols, ["AAPL", "NVDA"]) && service.library.indexOf(spotSymbol) >= 0,
         shown + "|" + spotSymbol + "|" + allUnder + "|" + body2.listsSymbol + "|" + service.symbols)
+
+      // A view that opens under a resting pointer keeps the cursor it opens
+      // on until the pointer really moves, so Enter or Space acts on that
+      // row, never on the one the pointer happens to rest on. From the
+      // review of #9: the first hover at the resting pointer counted as a
+      // move, put a right-click's lists on All, and Space removed the
+      // symbol from every list. Energy and Wins, Wins current.
+      var energy = function() {
+        return service.dataSettings.lists.filter(function(l) { return l.name === "Energy" })[0].symbols
+      }
+      // A symbol's lists, opened by that right-click with All under the
+      // pointer: Space ticks the first named list, as the view opened.
+      var checklistView = harness.find(body2, "symbolLists")
+      wait(100)
+      var listsOpenedOn = checklistView.cursor
+      keyClick(Qt.Key_Space)
+      wait(100)
+      var spaced = [listsOpenedOn === 1, service.library.indexOf(spotSymbol) >= 0,
+        body2.listsSymbol === spotSymbol, energy().indexOf(spotSymbol) >= 0].join(",")
+      keyClick(Qt.Key_Space)
+      wait(100)
       keyClick(Qt.Key_Escape)
       wait(100)
+      // The list menu, opened by its key with the pointer resting on All:
+      // Enter takes the current list.
+      // Off the middle, where the pointer rested the last time the menu was
+      // open, so this is a new place to its pointer.
+      var menuAllAt = center(harness.findAll(body2, "listChoice")[0])
+      menuAllAt.x += 20
+      mouseMove(body2, menuAllAt.x, menuAllAt.y)
+      wait(50)
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_W)
+      wait(100)
+      var menuOpenedOn = menu.cursor
+      keyClick(Qt.Key_Return)
+      wait(100)
+      var entered = [menuOpenedOn === 2, service.listName === "Wins", !body2.listMenuOpen].join(",")
+      // Manage lists, opened by its key with the pointer resting on All:
+      // Enter renames the first named list.
+      var manageView = harness.find(body2, "manageLists")
+      var manageAllAt = center(harness.findAll(body2, "manageRow")[0])
+      mouseMove(body2, manageAllAt.x, manageAllAt.y)
+      wait(50)
+      keys.forceActiveFocus()
+      keyClick("W")
+      wait(100)
+      var manageOpenedOn = manageView.cursor
+      keyClick(Qt.Key_Return)
+      wait(50)
+      var renamed = [manageOpenedOn === 1, manageView.renaming && manageView.cursor === 1].join(",")
+      keyClick(Qt.Key_Escape)
+      keyClick(Qt.Key_Escape)
+      wait(100)
+      harness.check("a view opening under a resting pointer keeps the cursor it opens on: a right-click's lists over All, the list menu, and Manage lists",
+        spaced === "true,true,true,true" && entered === "true,true,true" && renamed === "true,true" && !body2.managingLists,
+        [spaced, entered, renamed, body2.managingLists].join(" | "))
       keys.forceActiveFocus()
       wl.cursorSymbol = "AAPL"
       keyClick(Qt.Key_X)
