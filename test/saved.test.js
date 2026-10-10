@@ -1253,11 +1253,14 @@ test("the header's animal sleeps while its market does: by phase and calendar, n
   const gspc = savedDay("sweep-2026-10-07-1455", "gspc")
   expect([asleep(gspc, at("2026-10-08", "06:00")), asleep(gspc, at("2026-10-08", "11:00"))]).toEqual([true, false])
   // An early close's own periods rule its day: the day after Thanksgiving,
-  // PSIX's after hours ends at 17:00, so it sleeps at 18:00, not at 20:00.
+  // PSIX's after hours ends at 17:00, so it sleeps at 18:00, not at 20:00,
+  // whether they are its bars' periods or only Yahoo's current ones over
+  // Wednesday's bars.
   const early = clock => at("2026-11-27", clock)
-  const friday = { ...psix, session: {
+  const periods = {
     pre: { start: early("04:00"), end: early("09:30") },
     regular: { start: early("09:30"), end: early("13:00") },
-    post: { start: early("13:00"), end: early("17:00") } } }
-  expect(["16:00", "18:00"].map(clock => asleep(friday, early(clock)))).toEqual([false, true])
+    post: { start: early("13:00"), end: early("17:00") } }
+  for (const friday of [{ ...psix, session: periods }, { ...psix, current: periods }])
+    expect(["16:00", "18:00"].map(clock => asleep(friday, early(clock)))).toEqual([false, true])
 })
