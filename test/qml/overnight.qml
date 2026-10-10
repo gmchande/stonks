@@ -454,11 +454,16 @@ ShellRoot {
         return read
       }
       var snowClose = readAt(bell - 1)
-      var snowAfter = readAt(bell)
+      // The first after-hours print whose price is not the close's, so
+      // reading the close there would show.
+      var off = bell
+      while (Format.money(snow.points[off].p, snow.priceDigits) === snowRest) off++
+      var offText = Format.money(snow.points[off].p, snow.priceDigits)
+      var snowAfter = readAt(off)
       harness.check("Saturday: a scrub to the index's right edge, or to a stock's last regular print, reads the close at 16:00; its after-hours reads its own print",
         indexEnd === "At 16:00 · Closing bell | " + indexRest && snowClose === "At 16:00 · Closing bell | " + snowRest
-          && snowAfter === "At 16:00 · After hours | " + Format.money(snow.points[bell].p, snow.priceDigits) && snowAfter !== snowClose,
-        indexEnd + " ; " + snowClose + " ; " + snowAfter + " | at rest " + indexRest + ", " + snowRest)
+          && /^At \d\d:\d\d · After hours \| /.test(snowAfter) && snowAfter.split(" | ")[1] === offText,
+        indexEnd + " ; " + snowClose + " ; " + snowAfter + " | at rest " + indexRest + ", " + snowRest + "; that print " + offText)
 
       // Monday 5 October, 00:36: the first live night, saved as it was. ET
       // last traded at 22:40 on Sunday, so its chart stays on Friday, never
