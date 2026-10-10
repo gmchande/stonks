@@ -133,10 +133,11 @@ function zoneName(cal, offset, quote) {
   return Format.offsetName(offset)
 }
 
-// A calendar's clock at `t`, its zone named where the reader's differs.
-function calendarClock(cal, t, quote) {
-  var local = localDate(t, cal)
-  return Format.zoned(clockOf(local), t, local.offset, zoneName(cal, local.offset, quote))
+// A calendar's clock at `t`, its zone named where the reader's differs,
+// and never where the exchange's own clock is in sight (`local`).
+function calendarClock(cal, t, quote, local) {
+  var at = localDate(t, cal)
+  return local ? clockOf(at) : Format.zoned(clockOf(at), t, at.offset, zoneName(cal, at.offset, quote))
 }
 
 function epochAt(cal, dateString, hm) {
@@ -197,9 +198,9 @@ function breakUntil(cal, t) {
   return null
 }
 
-function formatNextOpen(cal, nxt) {
-  var local = localDate(nxt.t, cal)
-  return "opens " + Format.WEEKDAYS[local.weekday] + " " + calendarClock(cal, nxt.t)
+function formatNextOpen(cal, nxt, local) {
+  var at = localDate(nxt.t, cal)
+  return "opens " + Format.WEEKDAYS[at.weekday] + " " + calendarClock(cal, nxt.t, null, local)
 }
 
 function calendarQuiet(calendars, quote, now) {
@@ -210,11 +211,11 @@ function calendarQuiet(calendars, quote, now) {
   return kind.kind === "weekend" || kind.kind === "closure"
 }
 
-function scheduleNote(quote, now, calendars) {
+function scheduleNote(quote, now, calendars, local) {
   var cal = calendarFor(calendars, quote)
   if (!cal) return calendarMap(calendars) ? "" : " · schedule unavailable"
   var nxt = nextOpen(cal, now)
-  return nxt ? " · " + formatNextOpen(cal, nxt) : " · schedule unavailable"
+  return nxt ? " · " + formatNextOpen(cal, nxt, local) : " · schedule unavailable"
 }
 
 function previousDateString(dateString) {
@@ -240,10 +241,34 @@ function scrubPhase(quote, t) {
 // A time where `quote` trades: by its calendar's offset for that moment's
 // date, the series' own or the listing's in `calendars`, so a time across a
 // change of clocks reads true; else the response's offset. Its zone is named
-// where the reader's clock differs.
-function printClock(quote, t, calendars) {
+// where the reader's clock differs, unless the exchange's own clock is in
+// sight (`local`).
+function printClock(quote, t, calendars, local) {
   var cal = quote.calendar || calendarFor(calendars, quote)
-  return cal ? calendarClock(cal, t, quote) : Format.zonedHhmm(t, quote.gmtoffset, quote.zoneName)
+  if (cal) return calendarClock(cal, t, quote, local)
+  return local ? Format.hhmm(t, quote.gmtoffset) : Format.zonedHhmm(t, quote.gmtoffset, quote.zoneName)
+}
+
+// The cities whose exchanges Stonks knows, by the exchange's name: New
+// York's, Toronto's, London's, and Tokyo's, the four with calendars. Any
+// other listing's clock is named by its zone, so no clock names a wrong
+// city, as a Frankfurt listing's zone's would: Berlin.
+var CITIES = {
+  NASDAQ: "NEW YORK", NYSE: "NEW YORK", "NYSE ARCA": "NEW YORK", "NYSE AMERICAN": "NEW YORK",
+  TSX: "TORONTO", LSE: "LONDON", TSE: "TOKYO"
+}
+
+// The listing's clock now, where it is not the reader's: "TOKYO 03:55", or
+// "CEST 09:55" where Stonks knows no city for the exchange. "" where the
+// reader keeps the listing's time, and for a cryptocurrency, which keeps
+// no exchange's hours.
+function listingClock(quote, now, calendars) {
+  if (!quote || quote.crypto) return ""
+  var cal = quote.calendar || calendarFor(calendars, quote)
+  var offset = cal ? localDate(now, cal).offset : quote.gmtoffset
+  if (offset === Format.readerOffset(now)) return ""
+  var place = CITIES[quote.exchange] || (cal ? zoneName(cal, offset, quote) : quote.zoneName || Format.offsetName(offset))
+  return place + " " + printClock(quote, now, calendars, true)
 }
 
 // A closure as the header names it: the holiday, without the calendar's
@@ -260,16 +285,18 @@ function holidayName(name) {
 // the bell the phase stands on its own, with the regular close named so
 // 16:00 is never mistaken for the end of after-hours trading. While
 // scrubbing, where in the day the finger is: at the close's own time, the
-// closing bell, when it reads the close (`Quote.readingAt`).
-function marketStatus(quote, now, scrubT, calendars) {
+// closing bell, when it reads the close (`Quote.readingAt`). Its times name
+// no zone where the exchange's clock is in sight (`local`), as a row's is
+// beside its symbol.
+function marketStatus(quote, now, scrubT, calendars, local) {
   if (scrubT) {
     var read = Quote.readingAt(quote, scrubT)
-    return "At " + printClock(quote, read.t, calendars) + " · " + phaseLabel(read.close ? "closing" : scrubPhase(quote, scrubT))
+    return "At " + printClock(quote, read.t, calendars, local) + " · " + phaseLabel(read.close ? "closing" : scrubPhase(quote, scrubT))
   }
   var cal = calendarFor(calendars, quote)
   var brk = cal ? breakUntil(cal, now) : null
   if (brk) {
-    return "Lunch break · reopens " + calendarClock(cal, brk, quote) + " · in " + Format.duration(brk - now)
+    return "Lunch break · reopens " + calendarClock(cal, brk, quote, local) + " · in " + Format.duration(brk - now)
   }
   var phase = sessionPhase(quote, now)
   var bell = secondsToBell(quote, now)
@@ -286,9 +313,9 @@ function marketStatus(quote, now, scrubT, calendars) {
   if (!closure && bell) return "Market opens in " + Format.duration(bell.seconds)
   var reg = clockSession(quote, now).regular
   var base = closure ? holidayName(kind.name)
-    : (phase === "post" && reg && now >= reg.end ? phaseLabel(phase) + " · close " + printClock(quote, reg.end, calendars)
+    : (phase === "post" && reg && now >= reg.end ? phaseLabel(phase) + " · close " + printClock(quote, reg.end, calendars, local)
       : phaseLabel(phase))
-  return base + (phase === "post" ? "" : scheduleNote(quote, now, calendars))
+  return base + (phase === "post" ? "" : scheduleNote(quote, now, calendars, local))
 }
 
 // Whether a quote's own market is in its regular session now: Yahoo's
