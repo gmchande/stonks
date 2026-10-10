@@ -8,9 +8,10 @@ import "Tones.js" as Tones
 // removal took, with what a click does about it (`noteAction`), said whole
 // so a long list name is what gets cut. It stays while the pointer is on
 // it (`hovered`). Until what it says is fixed, a notice, in the foreground
-// too, under any note, whose click is the surface's (`acts`); or, quiet as
-// the label, a hint for the visit. It is painted in its surface's ground, so
-// riding a growing edge it covers the rows it passes.
+// too, under any note, whose click is the surface's (`acts`). A hint for the
+// visit is a quiet line of its own above the bar, which it never replaces,
+// and takes no click. It is painted in its surface's ground, so riding a
+// growing edge it covers the rows it passes.
 Item {
   id: root
 
@@ -32,7 +33,10 @@ Item {
 
   signal clicked()
 
-  implicitHeight: rowHeight + Style.space(6)
+  // The hint's lines and the gap under them, above the bar; none without one.
+  readonly property int hintHeight: hint !== "" ? hintText.implicitHeight + Style.space(6) : 0
+
+  implicitHeight: hintHeight + rowHeight + Style.space(6)
   height: implicitHeight
 
   Rectangle {
@@ -40,15 +44,31 @@ Item {
     color: root.ground
   }
 
-  PanelSeparator {
+  Text {
+    id: hintText
+    objectName: "footerHint"
+    visible: root.hint !== ""
     anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    width: Math.min(implicitWidth, parent.width)
+    elide: Text.ElideRight
+    horizontalAlignment: Text.AlignHCenter
+    textFormat: Text.PlainText
+    text: root.hint
+    color: root.dim
+    font.family: root.fontFamily
+    font.pixelSize: Style.font.bodySmall
+  }
+
+  PanelSeparator {
+    y: root.hintHeight
     foreground: root.foreground
     strength: 0.08
   }
 
   Rectangle {
     anchors.fill: parent
-    anchors.topMargin: Style.space(6)
+    anchors.topMargin: root.hintHeight + Style.space(6)
     radius: root.retro ? 0 : Style.cornerRadius
     color: root.acts && addMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
 
@@ -59,12 +79,10 @@ Item {
         objectName: "footerText"
         width: Math.min(implicitWidth, root.width - Style.space(20) - (noteAction.visible ? noteAction.implicitWidth : 0))
         elide: Text.ElideRight
-        // The hint is longer than the popup is wide: it says its last part on
-        // a second line, in the footer's height.
-        horizontalAlignment: Text.AlignHCenter
-        lineHeight: text.indexOf("\n") >= 0 ? 0.9 : 1
+        // Cut short, it ends against its action, not a gap's width away.
+        horizontalAlignment: Text.AlignRight
         textFormat: Text.PlainText
-        text: root.note !== "" ? root.note : root.notice !== "" ? root.notice : root.hint !== "" ? root.hint : root.label
+        text: root.note !== "" ? root.note : root.notice !== "" ? root.notice : root.label
         color: root.note !== "" || root.notice !== "" ? root.foreground : root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall

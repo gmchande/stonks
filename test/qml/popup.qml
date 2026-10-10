@@ -183,6 +183,20 @@ ShellRoot {
   function footerText(panel) {
     return String(test.find(test.find(panel.testBody, "footer"), "footerText").text)
   }
+  readonly property string hintStart: "Drag the pill to move it along the bar"
+  // The first visit's hint as its line above the footer shows it; "" with
+  // none.
+  function hintLine(panel) {
+    var line = test.find(test.find(panel.testBody, "footer"), "footerHint")
+    return line && line.visible ? String(line.text) : ""
+  }
+  // The hint's line ends above the footer's words.
+  function hintAbove(panel) {
+    var footer = test.find(panel.testBody, "footer")
+    var line = test.find(footer, "footerHint")
+    var words = test.find(footer, "footerText")
+    return !!line && line.mapToItem(footer, 0, line.height).y <= words.mapToItem(footer, 0, 0).y
+  }
   function restartsAsked() {
     var view = Qt.createQmlObject('import Quickshell.Io; FileView { blockLoading: true; printErrors: false }', test)
     view.path = Quickshell.env("STONKS_FAKE_STATE") + "/omarchy.calls"
@@ -858,17 +872,21 @@ ShellRoot {
           panel.testContentHeightChanged.disconnect(test.recordHeight)
           test.edgeFrames.destroy()
           panel.close()
-          // The first popup visit on a fresh install shows the hint in the
-          // footer's place, though it opened before the service was ready;
-          // the next open does not.
-          var firstHint = test.hintPanel.testBody.hint
+          // The first popup visit on a fresh install shows the hint, though
+          // it opened before the service was ready, as a line of its own
+          // above the footer, which still says "+ Add a symbol"; the next
+          // open does not. It used to take the footer's place.
+          var firstHint = test.hintLine(test.hintPanel)
+          var firstFooter = test.footerText(test.hintPanel)
+          var firstAbove = test.hintAbove(test.hintPanel)
           test.hintPanel.close()
           test.hintPanel.open()
-          var secondHint = test.hintPanel.testBody.hint
+          var secondHint = test.hintLine(test.hintPanel)
           test.hintPanel.close()
-          test.check("the first popup visit shows the hint, opened before the service was ready, and the next does not",
-            test.openedUnready && firstHint.indexOf("Drag the pill anywhere") === 0 && secondHint === "",
-            test.openedUnready + "|" + firstHint + "|" + secondHint)
+          test.check("the first popup visit shows the hint above \"+ Add a symbol\", opened before the service was ready, and the next does not",
+            test.openedUnready && firstHint.indexOf(test.hintStart) === 0 && firstFooter === "+  Add a symbol" && firstAbove
+              && secondHint === "",
+            [test.openedUnready, firstHint, firstFooter, firstAbove, secondHint].join("|"))
         } else if (test.step === 28) {
           // A restart, of the service and the popup, reads that it has shown
           // from the data file: the first open after it shows no hint.
@@ -891,7 +909,7 @@ ShellRoot {
           var onReadyOpen = test.hintPanel.testBody.hint
           test.hintPanel.close()
           test.check("an open with the service ready shows the hint when the file has not",
-            onReadyOpen.indexOf("Drag the pill anywhere") === 0 && test.hintService.hinted, onReadyOpen)
+            onReadyOpen.indexOf(test.hintStart) === 0 && test.hintService.hinted, onReadyOpen)
           test.hintPanel.close()
         } else if (test.step === 30) {
           // The data file goes bad by hand while the popup is closed.
@@ -975,11 +993,11 @@ ShellRoot {
           if (test.hold(!writer.running)) return
           var savedBehindUpdate = test.savedSettings().hinted
           test.hintPanel.open()
-          var hintAfterUpdate = test.footerText(test.hintPanel)
+          var hintAfterUpdate = test.hintLine(test.hintPanel)
           test.hintPanel.close()
           test.check("a first open behind the update notice records no hint, and the next open shows and records it",
             test.hintBehind === test.updateNotice && savedBehindUpdate === false
-              && hintAfterUpdate.indexOf("Drag the pill anywhere") === 0 && test.hintService.hinted,
+              && hintAfterUpdate.indexOf(test.hintStart) === 0 && test.hintService.hinted,
             [test.hintBehind, savedBehindUpdate, hintAfterUpdate, test.hintService.hinted].join("|"))
           test.hintService.persist({ hinted: false })
         } else if (test.step === 39) {
@@ -996,11 +1014,11 @@ ShellRoot {
           if (test.hold(!test.hintService.settingsUnreadable)) return
           var behindFile = test.hintService.hinted
           test.hintPanel.open()
-          var hintAfterFile = test.footerText(test.hintPanel)
+          var hintAfterFile = test.hintLine(test.hintPanel)
           test.hintPanel.close()
           test.check("a first open behind the file notice records no hint, and the next open shows and records it",
             test.hintBehind === test.fileNotice + "|false" && behindFile === false
-              && hintAfterFile.indexOf("Drag the pill anywhere") === 0 && test.hintService.hinted,
+              && hintAfterFile.indexOf(test.hintStart) === 0 && test.hintService.hinted,
             [test.hintBehind, behindFile, hintAfterFile, test.hintService.hinted].join("|"))
         } else if (test.step === 42) {
           if (test.hold(test.savedSettings().hinted === true)) return

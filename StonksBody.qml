@@ -75,11 +75,12 @@ Item {
   // is on it: why a key did nothing, or what a removal took, which a click
   // on it puts back (`offered`).
   property string note: ""
-  // A quiet line in the footer's place for this visit, under any note: the
-  // popup's first-run hint (`showFirstRunHint`). The next open clears it.
+  // A quiet line above the footer for this visit: the popup's first-run
+  // hint (`showFirstRunHint`), how the pill is moved and changed. The next
+  // open clears it.
   property string hint: ""
   function showFirstRunHint() {
-    hint = "Drag the pill anywhere · middle-click to change it\nright-click opens the window"
+    hint = "Drag the pill to move it along the bar\nMiddle-click changes its form · right-click opens the window"
   }
   // A standing word in the footer's place, under a note, until what it says
   // is fixed: the data file can't be read, or an update waits on a shell

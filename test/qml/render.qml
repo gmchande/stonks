@@ -51,7 +51,7 @@ ShellRoot {
   readonly property bool bigList: !!w22 || minWindow || windowWidth > 0 || stateName.indexOf("popup-search-") === 0
     || stateName.indexOf("popup-price") === 0
     || stateName.indexOf("popup-waiting-") === 0 || stateName.indexOf("popup-rowstates-") === 0
-    || stateName.indexOf("popup-note-") === 0 || stateName.indexOf("popup-lists-") === 0
+    || stateName.indexOf("popup-note-") === 0 || stateName.indexOf("window-note-") === 0 || stateName.indexOf("popup-lists-") === 0
     || stateName.indexOf("popup-rowlines-") === 0 || stateName.indexOf("popup-52w-") === 0
     || stateName.indexOf("popup-breadth-even-") === 0
     || stateName.indexOf("window-lists-") === 0 || orderState
@@ -159,6 +159,13 @@ ShellRoot {
 
   function isDefaultSprite(rows, standard) {
     return rows.join("|") === standard.join("|")
+  }
+
+  // A removal's offer from a list whose long name the footer cuts, so its
+  // action is still said whole.
+  function offerUndo() {
+    body.offered = { symbol: "SHEL.L" }
+    body.note = "Removed SHEL.L from Long-term dividend growth picks"
   }
 
   FileView { id: aaplFile; path: fixtureDir + "/aapl.json"; blockLoading: true }
@@ -540,11 +547,17 @@ ShellRoot {
       var quotes = Object.assign({}, stub.quotes)
       quotes["SHOP.TO"] = Object.assign({}, still, { prevClose: Quote.regularClose(still) })
       stub.quotes = quotes
-    } else if (root.stateName.indexOf("popup-note-") === 0) {
-      body.note = "Keep at least one symbol"
+    } else if (/^(popup|window)-note-/.test(root.stateName)) {
+      // popup-note-<look>: a refusal. <popup|window>-note-undo-<look>: a
+      // removal's offer from a long list name, whose action is said whole.
+      if (root.stateName.indexOf("-undo-") > 0) root.offerUndo()
+      else body.note = "Keep at least one symbol"
     } else if (root.stateName.indexOf("popup-hint-") === 0) {
-      // The first open's footer: the line has to fit the popup's width.
+      // The first open's footer: the hint's lines have to fit the popup's
+      // width, above "+ Add a symbol". popup-hint-undo-<look>: a removal's
+      // note under them.
       body.showFirstRunHint()
+      if (root.stateName.indexOf("-undo-") > 0) root.offerUndo()
     } else if (root.stateName.indexOf("popup-notice-file-") === 0) {
       // The footer's notices have to fit the popup's width.
       stub.settingsUnreadable = true
