@@ -302,26 +302,29 @@ Flickable {
   // as for a row: a click within the double-click interval of the last,
   // at its place, does nothing, whatever button and whichever row is under
   // it by then, as the one sliding up into a removed row's place.
-  // Says whether the click acts. The wheel, a key, a move of a row, another
-  // list, or a new open starts another gesture, so the next click acts
-  // (endClick), even one Qt takes for a double-click's `second` press. A
-  // second press with no gesture between does nothing, wherever its first
-  // landed: on this row, on the one a removal took away, or on a search
-  // result the rows came back from under.
+  // Says whether the click acts. The wheel, a key, or a move of a row
+  // starts another gesture, so the next click acts (endClick), even one Qt
+  // takes for a double-click's `second` press, as long as that pair's first
+  // press was this list's last click. Any other second press does nothing,
+  // wherever its first landed: on this row, on the one a removal took
+  // away, or on a view or a search result the rows came back from under.
+  // Another list, a new open, or the rows hidden behind a view forget the
+  // last click (forgetClicks), so the next single click acts.
   property real lastClickTime: 0
   property point lastClickPlace: Qt.point(-1, -1)
-  // When a gesture last ended a row click's window still open.
+  // This list's last click, and the last gesture that ended its window.
+  property real rowClickAt: 0
   property real clickEndedAt: 0
   function clickRow(symbol, x, y, second) {
     var now = Date.now()
     var interval = Application.styleHints.mouseDoubleClickInterval
     var near = Application.styleHints.startDragDistance
-    var again = second ? now - clickEndedAt >= interval
+    var again = second ? !(clickEndedAt >= rowClickAt && clickEndedAt > 0 && now - rowClickAt < interval)
       : now - lastClickTime < interval
         && Math.abs(x - lastClickPlace.x) <= near && Math.abs(y - lastClickPlace.y) <= near
     lastClickTime = now
     lastClickPlace = Qt.point(x, y)
-    clickEndedAt = 0
+    rowClickAt = now
     if (again || displayedSymbols.indexOf(symbol) < 0) return false
     takeOver()
     cancelFlick()
@@ -329,10 +332,14 @@ Flickable {
     return true
   }
   function endClick() {
-    var now = Date.now()
-    if (now - lastClickTime < Application.styleHints.mouseDoubleClickInterval) clickEndedAt = now
     lastClickTime = 0
+    clickEndedAt = Date.now()
   }
+  function forgetClicks() {
+    lastClickTime = 0
+    clickEndedAt = 0
+  }
+  onVisibleChanged: forgetClicks()
 
   // Whether row `index` is whole in the list's view with it scrolled to
   // `top`. The card's edge easing past the foot is left out: the cursor
@@ -561,7 +568,7 @@ Flickable {
       places[before.listKey] = snappedY(wheelTarget())
       cancelDrag()
       cursorSymbol = ""
-      endClick()
+      forgetClicks()
       takeOver()
       layOut()
       contentY = clampY(places[view.listKey] || 0)
@@ -582,7 +589,7 @@ Flickable {
   // Shift+wheel move left half made.
   function reopen() {
     wheelMoving = ""
-    endClick()
+    forgetClicks()
     layOut()
   }
   Component.onCompleted: {

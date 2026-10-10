@@ -847,6 +847,29 @@ ShellRoot {
           [afterWheel, afterKey, afterMove].every(function(r) { return /^true /.test(r) }),
           [afterWheel, afterKey, afterMove].join(" | "))
 
+        // A double-click on a view's DONE, its second press landing on a row
+        // as the rows come back, does nothing there, even soon after a row
+        // click and the wheel: the pair's first press was the view's, not the
+        // list's. From rows-review: the second press featured the row.
+        body.watchlist.contentY = 0
+        wait(50)
+        stub.featuredSymbol = body.watchlist.displayedSymbols[5]
+        var fourth = body.watchlist.displayedSymbols[4]
+        var fourthY = 4 * pitch + 20
+        mouseMove(body.watchlist, 12, fourthY - 2)
+        mouseMove(body.watchlist, 12, fourthY)
+        mouseClick(body.watchlist, 12, fourthY)
+        mouseWheel(body.watchlist, 12, fourthY, 0, -120, Qt.NoModifier)
+        body.openManageLists()
+        var doneButton = root.find(body, "manageDone")
+        var doneAt = doneButton.mapToItem(body, doneButton.width / 2, doneButton.height / 2)
+        mouseDoubleClickSequence(body, doneAt.x, doneAt.y)
+        wait(300)
+        root.check("a double-click on a view's DONE soon after a row click and the wheel features no row under it",
+          !body.managingLists && stub.featuredSymbol === fourth, body.managingLists + "|" + stub.featuredSymbol + " for " + fourth)
+        root.setFixtureWatchlist()
+        wait(100)
+
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,
         // not as a fill.
