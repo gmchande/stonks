@@ -33,11 +33,15 @@ var STRAY_GAP = 0.005
 // The longest run of stray buckets seen: Yahoo has sent two in a row.
 var STRAY_RUN = 3
 
+// The longest run of mixed stray prints seen inside one extended session:
+// BRK-B's four after its close on Friday 2 October.
+var MIXED_RUN = 4
+
 // Yahoo drops stray ticks into intraday buckets: a bell bucket that falls
 // back to yesterday's close, a lone after-hours print, sometimes two in a
 // row. What identifies them is not how far they reach — one of the saved
 // cases is 0.8% — but that the series carries on as if they never happened.
-function filterStrayCloses(bars) {
+function filterStrayCloses(bars, periods) {
   var source = bars || []
   if (source.length < 3) return { bars: source.slice(), droppedTimes: [] }
   var kept = [bars[0]]
@@ -45,7 +49,7 @@ function filterStrayCloses(bars) {
   var level = 0
   var i = 1
   while (i < bars.length) {
-    var run = strayRun(bars, level, i)
+    var run = strayRun(bars, level, i) || mixedRun(bars, level, i, periods)
     if (run > 0) {
       for (var dropped = 0; dropped < run; dropped++) droppedTimes.push(bars[i + dropped].t)
       i += run
@@ -77,6 +81,46 @@ function strayRun(bars, level, from) {
   return 0
 }
 
+// Yahoo also mixes stray prints into a quiet extended session: BRK-B on
+// Friday 2 October, 16:45 to 17:10, closed at 520.93, 489.66, 500.31, and
+// 489.66 between 502.80 and 502.65, 30, 5, 10, and 10 minutes apart. Inside
+// one pre- or post-market session, whatever the gaps, a run of three or four
+// bars is stray when none of them opens where the one before closed, their
+// closes land both above and below the accepted price, and the bar after
+// them opens back at that price. A thin listing's own trades take that shape
+// two bars at a time (RVII's 18:25 and 18:40 on 1 October), never three in
+// the saved answers. Zero otherwise; `periods` are the answer's sessions.
+function mixedRun(bars, level, from, periods) {
+  var price = bars[level].c
+  var session = extendedSession(periods, bars[level].t)
+  if (!session) return 0
+  var above = false
+  var below = false
+  for (var end = from; end < from + MIXED_RUN && end + 1 < bars.length; end++) {
+    var bar = bars[end]
+    var back = bars[end + 1]
+    if (end > from && apart(bar.o, bars[end - 1].c) <= STRAY_GAP) return 0
+    if (extendedSession(periods, back.t) !== session) return 0
+    if (apart(bar.c, price) > STRAY_GAP) {
+      if (bar.c > price) above = true
+      else below = true
+    }
+    if (end - from >= 2 && above && below && Format.isFiniteNumber(back.o)
+        && apart(back.o, price) <= STRAY_GAP && apart(back.o, bar.c) > STRAY_GAP) return end - from + 1
+  }
+  return 0
+}
+
+// "pre" or "post" when `t` falls in that session of `periods`, else "".
+function extendedSession(periods, t) {
+  var names = ["pre", "post"]
+  for (var n = 0; periods && n < names.length; n++) {
+    var period = periods[names[n]]
+    if (period && t >= period.start && t < period.end) return names[n]
+  }
+  return ""
+}
+
 function parseChart(json) {
   var result = json && json.chart && json.chart.result && json.chart.result[0]
   if (!result || !result.meta) return null
@@ -96,7 +140,7 @@ function parseChart(json) {
     if (closes[i] !== null && closes[i] !== undefined)
       bars.push({ t: timestamps[i], o: opens[i], c: closes[i] })
   }
-  var filtered = filterStrayCloses(bars)
+  var filtered = filterStrayCloses(bars, periods)
   var kept = filtered.bars
   var regular = periodOf(periods.regular)
   // An index is worked out only while its exchange trades. Yahoo still

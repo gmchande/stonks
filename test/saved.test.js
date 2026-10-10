@@ -63,7 +63,7 @@ test("parseChart drops a null close, even on the newest bar the stray filter nev
   expect(M.parseChart(json).points.map(p => p.t)).toEqual(quote.points.map(p => p.t).filter(t => t !== gone))
 })
 
-test("across every saved intraday response the filter drops only those five bars", () => {
+test("across every saved intraday response the filter drops only those nine bars", () => {
   const days = [
     ["aapl.json", []],
     ["aapl-2026-09-04-day-prepost.json", []],
@@ -73,7 +73,10 @@ test("across every saved intraday response the filter drops only those five bars
     ["btc-usd-day.json", []],
     ["nbis-2026-09-11-day-prepost.json", [1789158000]],
     ["spy-2026-09-11-day-prepost.json", [1789156800]],
-    ["msft-2026-09-11-day-prepost.json", [1789157100, 1789162200, 1789162500]]
+    ["msft-2026-09-11-day-prepost.json", [1789157100, 1789162200, 1789162500]],
+    // BRK-B's after hours on Friday 2 October: 520.93, 489.66, 500.31, and
+    // 489.66 between 502.80 and 502.65, 30, 5, 10, and 10 minutes apart.
+    ["overnight/sweep-2026-10-03-1200/brk-b.json", [1790973900, 1790974200, 1790974800, 1790975400]]
   ]
   for (const [name, expected] of days) {
     const json = fixture(name)

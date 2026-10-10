@@ -727,7 +727,12 @@ run time.
   and the bar after them opens back at that price instead of continuing from
   the run's last close. How far a stray reaches is not the test — one saved
   case is 0.8% wide, inside ordinary trading. Never the newest bar, never
-  across an uneven gap, never daily or coarser history.
+  across an uneven gap, never daily or coarser history. Inside one pre- or
+  post-market session, whatever the gaps, a run of three or four is stray
+  when no bar of it opens where the one before closed, its closes land both
+  above and below the last accepted price, and the bar after opens back at
+  it: BRK-B's 520.93 and 489.66 against 502.65 on 2 October. Thin listings
+  trade that shape two bars at a time, so two is never enough.
 - The 1D chart draws the whole day the response describes, pre-market
   included, so the line reaches the previous close it is measured against.
   For a US stock or ETF Robinhood trades all day it is one New York
