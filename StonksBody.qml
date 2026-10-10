@@ -215,8 +215,10 @@ Item {
   // (`dayTone`) or before a direction is known; Shift-click's choice first.
   readonly property string animalKind: spriteOverride === 1 ? "bull" : spriteOverride === 2 ? "bear"
     : !featured || featured.dayTone === "flat" ? "" : featured.dayTone === "up" ? "bull" : "bear"
-  // What it reads: a change of it is no turn, so the animal changes at once.
-  readonly property string animalChart: [chartSymbol, chartRange, view.listKey, retro].join(" ")
+  // What it reads, the chart as the motion tells charts apart (a failed
+  // range's stand-in day is another chart than its history), the list, and
+  // the look: a change of it is no turn, so the animal changes at once.
+  readonly property string animalChart: [motion.chartKeyOf(chart), view.listKey, retro].join(" ")
   readonly property var animal: ({ kind: animalKind, chart: animalChart })
   // The info block describes what the chart shows: the range's statistics,
   // or the day's when the chart is the day. Before any chart, nothing.

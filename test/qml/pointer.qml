@@ -412,6 +412,23 @@ ShellRoot {
             body.featured.tone === "flat" && body.animal.kind === "" && root.animalShows(""), body.featured.changeText)
         })
         stub.retro = false
+
+        // A range whose first fetch failed shows the day in its place; the
+        // retry that lands is another chart, so the animal changes at once.
+        // Found in review: the up day's bull crossfaded into the range's bear.
+        stub.featuredSymbol = "UP"
+        stub.range = "1Y"
+        stub.histories = { "UP|1Y": { history: null } }
+        root.check("a failed range's stand-in day draws its bull",
+          body.chart.failed && within(500, function() { return root.animalShows("bull") }))
+        stub.histories = { "UP|1Y": { history: { symbol: "UP", range: "1Y", baseline: 120, interval: "1d", gmtoffset: -14400, bars: [
+          { t: stub.now - 86400, c: 120, h: 121, l: 119, o: 120, v: 100 },
+          { t: stub.now, c: 110, h: 111, l: 109, o: 110, v: 100 }
+        ] } } }
+        root.check("a failed range's retry that lands down draws the bear at once, no crossfade",
+          !body.chart.failed && root.animalShows("bear"), body.animal.kind + " " + root.find(body, "drawnBear").opacity)
+        stub.range = "1D"
+        stub.histories = {}
         stub.featuredSymbol = restFeatured
         wait(50)
 
