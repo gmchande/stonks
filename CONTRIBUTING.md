@@ -105,6 +105,10 @@ run time.
   Its writes of the data file are synchronous (`blockWrites`):
   Quickshell's async write skipped a change back to a value still being
   written, and the file's watch then read the older one back over it.
+  Quickshell ignores a reload asked for while a read of the file is in
+  flight, so a change notice that comes during one is held and the file
+  read again once that read ends (`readDataFile`, `dataReadEnded`); a write
+  of its own drops a read in flight unheard, which ends it too.
   `library` is All, whose every symbol gets one first answer; `symbols` is the current
   list's rows; `range` is the chart range the popup and the window share.
   Quotes are asked for each second as they fall due (`askDue`): of
