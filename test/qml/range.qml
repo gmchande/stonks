@@ -225,6 +225,36 @@ ShellRoot {
       return fn()
     }
 
+    // What hovering the pill hands the bar to show, as the shell's bar
+    // receives it, "" for nothing: the pointer comes in from off the pill,
+    // and leaves again. A test middle-click leaves this window's pointer
+    // stuck over the pill, so every hover here comes before the first.
+    function hoverTip() {
+      var shown = null
+      mouseMove(pill, pill.width / 2, -5)
+      wait(20)
+      barApi._showTooltip = function(target, text) { shown = text }
+      mouseMove(pill, pill.width / 2, pill.height / 2)
+      wait(20)
+      barApi._showTooltip = null
+      mouseMove(pill, pill.width / 2, -5)
+      wait(20)
+      return shown
+    }
+
+    // The hover of each form, as "form tip", the form set as a
+    // middle-click sets it.
+    function hoverEveryForm() {
+      var before = pill.settings
+      var tips = ["text", "sparkline", "arrow", "icon"].map(function(form) {
+        pill.settings = Object.assign({}, before, { barStyle: form })
+        wait(20)
+        return form + " " + JSON.stringify(hoverTip())
+      })
+      pill.settings = before
+      return tips
+    }
+
     // The pill in every bar style, cycled by middle-clicks until it comes
     // round, in both looks: what it says and the change's colour against
     // `expected(retro)` and `tone`, and for the icon form the mark alone,
@@ -909,6 +939,14 @@ ShellRoot {
       service.removeSymbol("NOPE")
       app.close()
 
+      // The text pill shows its words already, so its hover is quiet; the
+      // other forms name what they don't show.
+      var company = service.quotes[service.featuredSymbol].name
+      var quietTips = hoverEveryForm()
+      harness.check("the text pill's hover says nothing, and the sparkline's, the arrow's, and the icon's name the company",
+        quietTips[0] === 'text ""' && quietTips.slice(1).every(function(t) { return t.indexOf(company + " · ") >= 0 && t.indexOf("!") < 0 }),
+        company + ": " + quietTips.join(" | "))
+
       // A featured symbol whose first fetch is out is only on its way; once
       // that fetch has failed, the pill says so.
       service.addSymbol("FAIL")
@@ -918,6 +956,12 @@ ShellRoot {
         service.featuredSymbol === "FAIL" && pillChange.text === "…", service.featuredSymbol + "|" + pillChange.text)
       harness.check("the pill says no data when the first fetch failed",
         within(10000, function() { return pillChange.text === "! no data" }), pillChange.text)
+      // The "!" names itself on hover on every form, the text's included,
+      // in the popup's words; the text's says nothing else.
+      var warningTips = hoverEveryForm()
+      harness.check("hovering a pill with a failed first fetch says so on every form, and the text form says only that",
+        warningTips[0] === 'text "REFRESH FAILED"' && warningTips.slice(1).every(function(t) { return /· REFRESH FAILED"$/.test(t) }),
+        warningTips.join(" | "))
 
       // While a chart loads, the hero keeps what was on screen, chart,
       // figures, and info lines alike, under "Loading", and the new chart
