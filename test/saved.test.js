@@ -96,6 +96,11 @@ test("across every saved intraday response the filter drops only those nine bars
   const msft = M.parseChart(fixture("msft-2026-09-11-day-prepost.json"))
   expect(msft.points.filter(p => [1789157400, 1789161900, 1789162800].indexOf(p.t) >= 0).map(p => p.p))
     .toEqual([495.3218, 495.4, 495.0108])
+  // RVII's after hours on Thursday 1 October: 21.63 at 18:25 and 21.30 at
+  // 18:40 after 21.50 at 18:20, and the bar after opens back at 21.50: a thin
+  // stock's own trades, BRK-B's shape two bars long. A mixed run is three.
+  const rvii = M.parseChart(fixture("overnight/night/rvii.json"))
+  expect(rvii.points.filter(p => p.t === 1790893500 || p.t === 1790894400).map(p => p.p)).toEqual([21.63, 21.3])
 })
 
 test("the headline is Yahoo's regular-market quote with its own time; the chart only stands in", () => {
