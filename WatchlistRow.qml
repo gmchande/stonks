@@ -5,10 +5,10 @@ import "Figures.js" as Figures
 import "Format.js" as Format
 import "Tones.js" as Tones
 // One watchlist row: symbol over name, the day line, price over change.
-// Three states, each with its own mark so they read apart at a glance: the
-// featured row sits in the shell's selected fill, the keyboard cursor is a
-// bar down the left edge, and the pointer is a faint tint. A row held in a
-// drag takes the pressed fill and a border.
+// The featured row sits in the shell's selected fill; the cursor, which the
+// keys and the pointer both move, takes the shell's hover-cursor fill and a
+// bar down the left edge, and on the featured row only the bar. A row held
+// in a drag takes the pressed fill and a border.
 Rectangle {
   id: row
 
@@ -37,8 +37,7 @@ Rectangle {
   property string fontFamily: Style.font.family
 
   signal featureRequested()
-  signal removeRequested()
-  // Ctrl-click, Apple's Control-click: this row's lists.
+  // A right-click, or Ctrl-click, Apple's Control-click: this row's lists.
   signal listsRequested()
   // Shift and the wheel over this row, by its angle.
   signal moveWheeled(real angle)
@@ -53,7 +52,6 @@ Rectangle {
   // never with the clock, the change mode, or another symbol's quote.
   readonly property var geometry: quote ? Chart.chartGeometry(quote, calendars) : null
 
-  readonly property bool hovered: mouse.containsMouse
   readonly property color trend: !view || view.tone === "flat" ? dim : view.tone === "up" ? upColor : downColor
   // What the feed has done for this symbol, from Figures.freshness. A failed
   // or overdue refresh is said in words on the name line, so it reads
@@ -87,15 +85,17 @@ Rectangle {
   radius: retro ? 0 : Style.cornerRadius
   // The fill the row's state asks for; the row eases to it, and the
   // retro stems are weighed against it over the ground, so a featured or
-  // hovered row's two colours still read alike.
+  // cursor row's two colours still read alike.
   readonly property color fill: lifted ? Style.pressedFillFor(foreground, Color.accent)
     : featuredRow ? Style.selectedFillFor(foreground, Color.accent)
-    : hovered ? Style.normalFillFor(foreground, Color.accent) : "transparent"
+    : cursor ? Style.hoverFillFor(foreground, Color.accent) : "transparent"
   color: fill
   border.width: lifted ? 1 : 0
   border.color: Style.normalBorderFor(foreground, Color.accent)
 
-  Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+  // The shell's own speed (CursorSurface), so the fill keeps up with the
+  // pointer.
+  Behavior on color { ColorAnimation { duration: 60 } }
 
   // Under the fill, and there at once: the fill fades, the ground must not.
   Rectangle {
@@ -107,15 +107,10 @@ Rectangle {
     color: row.ground
   }
 
-  Rectangle {
-    objectName: "cursorBar"
+  CursorBar {
     visible: row.cursor
-    x: 0
-    y: Style.space(6)
-    width: Style.space(2)
-    height: row.height - Style.space(12)
-    radius: row.retro ? 0 : width / 2
-    color: Style.selectedStateColor(row.foreground, Color.accent)
+    retro: row.retro
+    foreground: row.foreground
   }
 
   Text {
@@ -213,14 +208,15 @@ Rectangle {
     font.bold: true
   }
 
-  // Press and move a few pixels to lift the row; a plain click features it.
-  // The list never steals the press, so the wheel is how it scrolls.
+  // Press and move a few pixels to lift the row; a plain click features it,
+  // and a right-click shows its lists. The list never steals the press, so
+  // the wheel is how it scrolls.
   MouseArea {
     id: mouse
     anchors.fill: parent
     hoverEnabled: true
     preventStealing: true
-    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
     cursorShape: row.lifted ? Qt.ClosedHandCursor : Qt.PointingHandCursor
 
     property real pressY: -1
@@ -247,9 +243,8 @@ Rectangle {
     }
     onClicked: function(event) {
       if (dragged) return
-      if (event.button === Qt.RightButton || event.button === Qt.MiddleButton) row.removeRequested()
-      else if (event.modifiers & Qt.ControlModifier) row.listsRequested()
-      else if (event.button === Qt.LeftButton) row.featureRequested()
+      if (event.button === Qt.RightButton || event.modifiers & Qt.ControlModifier) row.listsRequested()
+      else row.featureRequested()
     }
     // A double-click is one click: its second would land on whatever took
     // the first one's place, a row sliding up or the rows back from search.

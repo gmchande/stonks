@@ -389,8 +389,8 @@ Item {
     if (service) service.stepList(delta)
   }
 
-  // Every removal comes through here, from a key or a right-click, so All's
-  // last row's refusal is said once, in the footer. A named list may empty.
+  // A removal by key comes through here, so All's last row's refusal is said
+  // once, in the footer. A named list may empty.
   // Removing the row the keyboard cursor is on hands the cursor to the row
   // that takes its place, as Mail and Finder do: the next row, or the one
   // before when it was the last.
@@ -822,7 +822,6 @@ Item {
     onRowRested: Qt.callLater(root.featureLanding)
     ground: root.ground
     onFeatureRequested: function(symbol) { root.featureSymbol(symbol) }
-    onRemoveRequested: function(symbol) { root.removeRow(symbol) }
     onManualOrderRequested: function(symbols) {
       root.cancelAdding()
       if (root.service) root.service.setManualOrder(symbols)

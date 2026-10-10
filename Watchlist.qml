@@ -48,7 +48,6 @@ Flickable {
 
   property string cursorSymbol: ""
   property var displayedSymbols: []
-  property point pointerScenePosition: Qt.point(-1, -1)
   property string dragSymbol: ""
   property real dragY: 0
   property int dragTarget: -1
@@ -59,12 +58,15 @@ Flickable {
   readonly property int rowPitch: rowHeight + rowGap
   // Where the list is headed: a glide's destination, or where it rests.
   readonly property real headedY: glide.running ? glide.to : contentY
-  // The row the keys act on, always one in sight, so a key never acts on a
-  // row you cannot see. A cursor of your own stays while it is in sight;
-  // without one (on open, after a drag, once the pointer moves) the cursor
-  // sits on the featured row when that is in sight, else on the first whole
-  // row in sight. Read where the list is headed, so a key gliding the list
-  // to its row keeps it.
+  // The one cursor the keys and the pointer both move, as in the shell's own
+  // panels. Moving the pointer puts it on the row under it, the wheel on the
+  // row it brings under a still pointer, and a key one row on from wherever
+  // it is; the pointer leaving the list leaves it there. Always a row in
+  // sight, so a key never acts on a row you cannot see: a cursor of your own
+  // stays while any of its row is in sight; without one (on open, after
+  // another list) it sits on the featured row when that is in sight, else on
+  // the first whole row in sight. Read where the list is headed, so a key
+  // gliding the list to its row keeps it.
   readonly property string cursorRow: {
     var top = headedY
     if (ownInSight(top)) return cursorSymbol
@@ -73,16 +75,17 @@ Flickable {
     var first = Math.max(0, Math.ceil((top - 0.5) / rowPitch))
     return displayedSymbols[Math.min(first, displayedSymbols.length - 1)] || ""
   }
-  // A cursor of your own that leaves sight, as the wheel scrolls, the list
-  // shortens, or the rows change under it, is let go: the cursor moves by
-  // the rule above and stays there when the row comes back. Let go as the
-  // sight changes, not as cursorRow does: it reads the cursor it would clear.
+  // A cursor of your own that leaves sight, as the scrollbar moves the
+  // list, the list shortens, or the rows change under it, is let go: the
+  // cursor moves by the rule above and stays there when the row comes back.
+  // Let go as the sight changes, not as cursorRow does: it reads the cursor
+  // it would clear.
   onHeadedYChanged: letGoUnseen()
   onHeightChanged: letGoUnseen()
   onDisplayedSymbolsChanged: letGoUnseen()
   function ownInSight(top) {
     var own = displayedSymbols.indexOf(cursorSymbol)
-    return cursorSymbol !== "" && own >= 0 && wholeInSight(own, top)
+    return cursorSymbol !== "" && own >= 0 && partInSight(own, top)
   }
   function letGoUnseen() {
     if (cursorSymbol !== "" && !ownInSight(headedY)) cursorSymbol = ""
@@ -91,7 +94,6 @@ Flickable {
   readonly property bool manualOrder: view.order === "manual"
 
   signal featureRequested(string symbol)
-  signal removeRequested(string symbol)
   signal listsRequested(string symbol)
   signal manualOrderRequested(var symbols)
   // The rows show the latest view.
@@ -130,7 +132,8 @@ Flickable {
       // A notch is 120 units and one row; a high-resolution mouse sends many
       // smaller ticks, and each moves its fraction of a row.
       else if (event.angleDelta.y !== 0) root.wheelBy(-event.angleDelta.y / 120)
-      else event.accepted = false
+      else { event.accepted = false; return }
+      root.pointAtPointer()
     }
   }
 
@@ -149,21 +152,36 @@ Flickable {
   Timer {
     id: wheelQuiet
     interval: 260
-    onTriggered: root.glideTo(root.snappedY(root.wheelTarget()))
+    onTriggered: {
+      root.glideTo(root.snappedY(root.wheelTarget()))
+      root.pointAtPointer()
+    }
   }
 
-  HoverHandler {
+  RowPointer {
     id: listHover
     parent: root
-    onPointChanged: {
-      var next = point.scenePosition
-      var moved = next.x !== root.pointerScenePosition.x || next.y !== root.pointerScenePosition.y
-      root.pointerScenePosition = next
-      if (hovered && moved && root.surfaceOpen) {
-        root.cursorSymbol = ""
-        root.wheelMoving = ""
-      }
+    onMoved: function(x, y) {
+      if (!root.surfaceOpen) return
+      root.wheelMoving = ""
+      root.pointAt(x, y)
     }
+  }
+
+  // The cursor to the row at (x, y) in the scene, where the list is headed:
+  // past the rows' ends, or on the scrollbar's gutter, it stays. A lifted
+  // row is the drag's, so the pointer moves no cursor then.
+  function pointAt(x, y) {
+    var seen = mapFromItem(null, x, y)
+    if (dragSymbol !== "" || seen.x >= rowsBox.width) return
+    var at = Math.floor((seen.y + headedY) / rowPitch)
+    if (at >= 0 && at < displayedSymbols.length) cursorSymbol = displayedSymbols[at]
+  }
+
+  // The cursor to the row the wheel brings under a still pointer: the row
+  // that will rest there, so the bar never stops on a row on the way.
+  function pointAtPointer() {
+    if (listHover.hovered && surfaceOpen) pointAt(listHover.scenePosition.x, listHover.scenePosition.y)
   }
 
   function entryOf(symbol) {
@@ -263,6 +281,13 @@ Flickable {
   function wholeInSight(index, top) {
     var y = index * rowPitch
     return y >= top - 0.5 && y + rowHeight <= top + height + 0.5
+  }
+
+  // Whether any of row `index` shows, with the list scrolled to `top`: the
+  // pointer may rest on a row the list's foot cuts.
+  function partInSight(index, top) {
+    var y = index * rowPitch
+    return y + rowHeight > top + 0.5 && y < top + height - 0.5
   }
 
   // Shift and the wheel move a row a place a notch; a high-resolution wheel's
@@ -399,7 +424,7 @@ Flickable {
     if (from < 0) return
     takeOver()
     dropAnim.stop()
-    cursorSymbol = ""
+    cursorSymbol = symbol
     dragOffset = y - from * rowPitch
     dragPointer = y - contentY
     dragY = from * rowPitch
@@ -623,9 +648,16 @@ Flickable {
         upColor: root.upColor
         downColor: root.downColor
         fontFamily: root.fontFamily
-        onFeatureRequested: root.featureRequested(symbol)
-        onRemoveRequested: root.removeRequested(symbol)
-        onListsRequested: root.listsRequested(symbol)
+        // A click puts the cursor on its row too, wherever the keys left it
+        // under a still pointer.
+        onFeatureRequested: {
+          root.cursorSymbol = symbol
+          root.featureRequested(symbol)
+        }
+        onListsRequested: {
+          root.cursorSymbol = symbol
+          root.listsRequested(symbol)
+        }
         onMoveWheeled: function(angle) { root.wheelMove(symbol, angle) }
         onDragStarted: function(y) { root.beginDrag(symbol, y) }
         onDragMoved: function(y) { root.dragTo(y) }

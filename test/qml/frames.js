@@ -11,7 +11,9 @@
 //                                      default), or `ink`, read from the last
 //                                      frame's own ink, where a day's newest
 //                                      print leaves the hours to come empty
-//   bun frames.js same FRAME@T...     every frame is the same picture
+//   bun frames.js same[:X,Y,W,H] FRAME@T...
+//                                      every frame is the same picture, or
+//                                      the same within that rectangle
 //   bun frames.js edge BAND FRAME@T...
 //                                      the card's bottom edge eases to its
 //                                      new place over about 160 ms, and the
@@ -66,6 +68,17 @@ function groundIn(data) {
     counts.set(key, (counts.get(key) || 0) + 1)
   }
   return [...counts].reduce((a, b) => b[1] > a[1] ? b : a)[0]
+}
+
+// The part of `image` inside `rect`, "X,Y,W,H" in pixels.
+function cropped(image, rect) {
+  const [x, y, w, h] = rect.split(",").map(Number)
+  const data = Buffer.alloc(w * h * 3)
+  for (let row = 0; row < h; row++) {
+    const from = ((y + row) * image.width + x) * 3
+    image.data.copy(data, row * w * 3, from, from + w * 3)
+  }
+  return { width: w, height: h, data }
 }
 
 // A verdict that the picture changed says when: `changedAt`, the time of
@@ -434,6 +447,11 @@ function selfCheck() {
   const sameRight = same(synthetic(() => true, 100)).ok && !same(synthetic((x, t) => x < outCubic(t, 320), 100)).ok
   if (!sameRight) failed++
   console.log((sameRight ? "PASS " : "FAIL ") + "a still picture is the same on every frame, a moving one is not")
+  const changedRight = synthetic((x, t) => x >= 0.9 && t > 50, 100)
+  const crop = rect => same(changedRight.map(f => ({ ...f, image: cropped(f.image, rect) })))
+  const cropRight = crop("0,0,100,20").ok && !crop("100,0,20,20").ok
+  if (!cropRight) failed++
+  console.log((cropRight ? "PASS " : "FAIL ") + "a crop is the same while only what is outside it changes, and not when what is inside does")
   // The card's edge, from 60 to 100 px or back.
   const ease = (t, length, from = 0) => 60 + 40 * outCubic(t, length, from)
   const edgeCases = [
@@ -545,7 +563,8 @@ else {
     const at = arg.lastIndexOf("@")
     return { t: Number(arg.slice(at + 1)), image: picture(readFileSync(arg.slice(0, at))) }
   }).sort((a, b) => a.t - b.t)
-  const verdict = kind === "same" ? same(frames) : kind === "drawin" ? drawin(frames, end === undefined ? 1 : end === "ink" ? end : Number(end))
+  const verdict = kind === "same" ? same(end === undefined ? frames : frames.map(f => ({ ...f, image: cropped(f.image, end) })))
+    : kind === "drawin" ? drawin(frames, end === undefined ? 1 : end === "ink" ? end : Number(end))
     : kind === "edge" ? edge(frames, band) : kind === "edgeheld" ? edgeheld(frames)
     : kind === "turn" ? turn(frames, end === "0")
     : kind === "press" ? press(frames, rest[0].split(",").map(Number), rest[1].split(",").map(Number))

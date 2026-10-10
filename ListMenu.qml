@@ -8,11 +8,11 @@ import "Tones.js" as Tones
 // The list menu: All and each named list with its count, a check on the
 // current one, then "New list…", which turns into a name field in place, and
 // "Manage lists…".
-// Value-in, signals out; the body switches and creates. Like search, the
-// keyboard owns the choice: it opens on the current list, the arrows or
-// j k move it, Enter or 1–9 take one, and Escape backs out. The pointer only
-// marks the row under it, a tint and the shell's outline, since a tint alone
-// can vanish against the menu's opaque ground; a click takes that row.
+// Value-in, signals out; the body switches and creates. One cursor, as on
+// the rows: it opens on the current list, moving the pointer puts it on the
+// row under it, the arrows or j k move it from there, Enter or 1–9 take one,
+// and Escape backs out. It takes the rows' mark, the hover-cursor fill and
+// the bar; a click takes the row clicked.
 FocusScope {
   id: root
 
@@ -102,6 +102,21 @@ FocusScope {
     Qt.callLater(function() { if (root.active && root.naming) nameField.forceActiveFocus() })
   }
 
+  // The cursor to the row the pointer moved onto, at (x, y) in the scene:
+  // the separator and the note under the field are no row. While a name is
+  // typed, the field keeps the cursor.
+  function pointAt(x, y) {
+    if (naming) return
+    var seen = scroll.mapFromItem(null, x, y)
+    if (seen.x < 0 || seen.x >= scroll.width || seen.y < 0 || seen.y >= scroll.height) return
+    var at = column.mapFromItem(null, x, y)
+    var item = column.childAt(at.x, at.y)
+    if (!item) return
+    if (item === newRow) cursor = newIndex
+    else if (item === manageRow) cursor = manageIndex
+    else if (item.objectName === "listChoice") cursor = Math.floor(at.y / itemHeight)
+  }
+
   function stopNaming() {
     naming = false
     problem = ""
@@ -125,12 +140,19 @@ FocusScope {
     else event.accepted = true
   }
 
+  // The edge is drawn over the ground, not see-through: Qt draws a border in
+  // place of the fill, so a translucent one showed the rows' cursor bar
+  // under the menu's left edge.
   Rectangle {
     anchors.fill: parent
     radius: root.retro ? 0 : Style.cornerRadius
     color: root.background
     border.width: 1
-    border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.18)
+    border.color: Qt.tint(root.background, Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.18))
+  }
+
+  RowPointer {
+    onMoved: function(x, y) { root.pointAt(x, y) }
   }
 
   Flickable {
@@ -156,17 +178,21 @@ FocusScope {
           objectName: "listChoice"
           required property var modelData
           required property int index
+          readonly property bool isCursor: index === root.cursor && !root.naming
           width: column.width
           height: root.itemHeight
 
           Rectangle {
-            readonly property bool pointed: entryMouse.containsMouse && !(entry.index === root.cursor && !root.naming)
             anchors.fill: parent
             radius: root.retro ? 0 : Style.cornerRadius
-            color: entry.index === root.cursor && !root.naming ? Style.hoverFillFor(root.foreground, Color.accent)
-              : pointed ? Style.normalFillFor(root.foreground, Color.accent) : "transparent"
-            border.width: pointed ? 1 : 0
-            border.color: Style.normalBorderFor(root.foreground, Color.accent)
+            color: entry.isCursor ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+            Behavior on color { ColorAnimation { duration: 60 } }
+          }
+
+          CursorBar {
+            visible: entry.isCursor
+            retro: root.retro
+            foreground: root.foreground
           }
 
           Text {
@@ -208,7 +234,6 @@ FocusScope {
           }
 
           MouseArea {
-            id: entryMouse
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
@@ -240,10 +265,14 @@ FocusScope {
           anchors.fill: parent
           visible: !root.naming
           radius: root.retro ? 0 : Style.cornerRadius
-          color: root.cursor === root.newIndex ? Style.hoverFillFor(root.foreground, Color.accent)
-            : newMouse.containsMouse ? Style.normalFillFor(root.foreground, Color.accent) : "transparent"
-          border.width: newMouse.containsMouse && root.cursor !== root.newIndex ? 1 : 0
-          border.color: Style.normalBorderFor(root.foreground, Color.accent)
+          color: root.cursor === root.newIndex ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+          Behavior on color { ColorAnimation { duration: 60 } }
+        }
+
+        CursorBar {
+          visible: root.cursor === root.newIndex && !root.naming
+          retro: root.retro
+          foreground: root.foreground
         }
 
         Text {
@@ -258,7 +287,6 @@ FocusScope {
         }
 
         MouseArea {
-          id: newMouse
           anchors.fill: parent
           visible: !root.naming
           hoverEnabled: true
@@ -299,17 +327,23 @@ FocusScope {
       }
 
       Item {
+        id: manageRow
         objectName: "manageListsRow"
         width: column.width
         height: root.itemHeight
+        readonly property bool isCursor: root.cursor === root.manageIndex && !root.naming
 
         Rectangle {
           anchors.fill: parent
           radius: root.retro ? 0 : Style.cornerRadius
-          color: root.cursor === root.manageIndex && !root.naming ? Style.hoverFillFor(root.foreground, Color.accent)
-            : manageMouse.containsMouse ? Style.normalFillFor(root.foreground, Color.accent) : "transparent"
-          border.width: manageMouse.containsMouse && !(root.cursor === root.manageIndex && !root.naming) ? 1 : 0
-          border.color: Style.normalBorderFor(root.foreground, Color.accent)
+          color: manageRow.isCursor ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+          Behavior on color { ColorAnimation { duration: 60 } }
+        }
+
+        CursorBar {
+          visible: manageRow.isCursor
+          retro: root.retro
+          foreground: root.foreground
         }
 
         Text {
@@ -323,7 +357,6 @@ FocusScope {
         }
 
         MouseArea {
-          id: manageMouse
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor

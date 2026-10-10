@@ -203,6 +203,8 @@ ShellRoot {
 
   DayChart { id: directionlessSmooth; visible: false; up: null; baselineColor: "#667788" }
   PixelChart { id: directionlessRetro; visible: false; up: null; baselineColor: "#667788" }
+  // The body's rendered frames, for frames.js.
+  FrameGrab { id: grab }
 
   FloatingWindow {
     id: window
@@ -534,19 +536,24 @@ ShellRoot {
         root.setQuotes(fifteen, values)
         wait(100)
 
+        // `x` with the pointer on a row removes that row: the pointer put the
+        // cursor there. (A middle-click used to remove it; it removes nothing
+        // now.)
         body.watchlist.contentY = 0
         mouseMove(body.watchlist, 12, body.watchlist.rowPitch + 12)
         wait(50)
         var removed = body.watchlist.displayedSymbols[1]
         mouseClick(body.watchlist, 12, body.watchlist.rowPitch + 12, Qt.MiddleButton)
+        var middleKept = body.watchlist.displayedSymbols.indexOf(removed) === 1
+        body.removeRow(body.watchlist.cursorRow)
         wait(200)
         var contiguous = true
         for (i = 0; i < body.watchlist.displayedSymbols.length; i++) {
           var row = body.watchlist.rowItem(body.watchlist.displayedSymbols[i])
           if (!row || Math.abs(row.y - i * body.watchlist.rowPitch) > 0.5) contiguous = false
         }
-        root.check("pointer-held removal updates membership without a hole",
-          body.watchlist.sortHeld && body.watchlist.displayedSymbols.indexOf(removed) < 0
+        root.check("a middle-click on a row removes nothing, and x on the pointer's row removes it without a hole",
+          middleKept && body.watchlist.sortHeld && body.watchlist.displayedSymbols.indexOf(removed) < 0
             && body.watchlist.rowItem(removed) === null && contiguous
             && body.watchlist.displayedSymbols.length === 14)
 
@@ -603,8 +610,9 @@ ShellRoot {
             && Math.abs(body.watchlist.contentY - userScroll) < 0.5)
         mouseMove(body.watchlist, 24, body.watchlist.rowPitch + 12)
         wait(50)
-        root.check("real pointer movement clears the added-symbol cursor",
-          body.watchlist.cursorSymbol === "")
+        var pointedRow = body.watchlist.displayedSymbols[Math.floor((body.watchlist.rowPitch + 12 + body.watchlist.contentY) / body.watchlist.rowPitch)]
+        root.check("real pointer movement takes the cursor from the added row to the row under the pointer",
+          pointedRow !== "NEW" && body.watchlist.cursorSymbol === pointedRow, pointedRow + "|" + body.watchlist.cursorSymbol)
         mouseMove(body, body.width / 2, 20)
         wait(200)
         addedRow.shiftChanged.disconnect(watchAdded)
@@ -691,6 +699,114 @@ ShellRoot {
         root.check("the first Down moves the cursor off the featured row",
           body.watchlist.cursorRow === body.watchlist.displayedSymbols[1]
             && root.find(otherRow, "cursorBar").visible && !cursorBar.visible)
+
+        // One cursor, as the shell's own panels have it: the pointer puts it
+        // on the row under it; a wheel notch with the pointer still leaves
+        // it, once the glide rests, on the row then under the pointer, never
+        // the first row in sight; ↓ moves it on from there; the pointer
+        // leaving the list leaves it. Only the cursor's row takes the hover
+        // fill and the bar, and the featured row keeps its selected fill.
+        // From the owner's trial: the pointer cleared the cursor, so the bar
+        // went to the featured row, and after the wheel to the first row in
+        // sight, wherever the pointer was; a hovered row only tinted, at 4%.
+        var wl = body.watchlist
+        var hoverFill = Style.hoverFillFor(stub.foreground, Color.accent)
+        var selectedFill = Style.selectedFillFor(stub.foreground, Color.accent)
+        // The rows whose fill or bar says something other than their state.
+        var misdrawn = function() {
+          var wrong = []
+          wl.displayedSymbols.forEach(function(symbol) {
+            var item = wl.rowItem(symbol)
+            var want = symbol === stub.featuredSymbol ? selectedFill : symbol === wl.cursorRow ? hoverFill : "transparent"
+            if (!Qt.colorEqual(item.color, want)) wrong.push(symbol + " fill " + item.color)
+            if (root.find(item, "cursorBar").visible !== (symbol === wl.cursorRow)) wrong.push(symbol + " bar")
+          })
+          return wrong
+        }
+        wl.contentY = 0
+        wait(50)
+        var third = wl.rowItem(wl.displayedSymbols[2])
+        mouseMove(third, third.width / 2, third.height / 2)
+        wait(100)
+        var onThird = [wl.cursorRow === wl.displayedSymbols[2]].concat(misdrawn())
+        mouseWheel(third, third.width / 2, third.height / 2, 0, -120, Qt.NoModifier)
+        wait(700)
+        var afterWheel = [wl.contentY === pitch, wl.cursorRow === wl.displayedSymbols[3], wl.cursorRow !== wl.displayedSymbols[1]].concat(misdrawn())
+        body.moveCursor(1)
+        wait(100)
+        var afterDown = [wl.cursorRow === wl.displayedSymbols[4]].concat(misdrawn())
+        mouseMove(body, body.width / 2, 20)
+        wait(100)
+        var afterLeaving = [wl.cursorRow === wl.displayedSymbols[4]].concat(misdrawn())
+        var steps = [onThird, afterWheel, afterDown, afterLeaving]
+        root.check("one cursor: the pointer puts it on row 3, the wheel on the row under the still pointer once it rests, ↓ one row on, and leaving keeps it; no other row is tinted",
+          steps.every(function(step) { return step.every(function(part) { return part === true }) }),
+          steps.map(function(step) { return step.join(",") }).join(" | "))
+
+        // The cursor's fill keeps up with the pointer at the shell's own
+        // 60 ms: on rendered frames, the rows change as the pointer moves a
+        // row down and are still from 80 ms on. It eased in 160 ms.
+        var listBand = function() {
+          var corner = wl.mapToItem(body, 0, 0)
+          return [Math.round(corner.x), Math.round(corner.y), Math.round(wl.width), Math.round(wl.height)].join(",")
+        }
+        var fillFrom = wl.rowItem(wl.displayedSymbols[2])
+        mouseMove(fillFrom, fillFrom.width / 2, fillFrom.height / 2)
+        wait(200)
+        grab.source = body
+        grab.begin("cursor-fill")
+        wait(50)
+        grab.markStart()
+        mouseMove(fillFrom, fillFrom.width / 2, fillFrom.height / 2 + pitch)
+        wait(250)
+        grab.end()
+        var fillRow = wl.cursorRow
+        grab.judge("same:" + listBand(), grab.frames.filter(function(frame) { return frame.at >= grab.start }))
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        var fillMoved = grab.verdict
+        grab.judge("same:" + listBand(), grab.frames.filter(function(frame) { return frame.at >= grab.start + 80 }))
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        var fillStill = grab.verdict
+        root.check("the cursor's fill follows the pointer to the next row, and is still 80 ms on",
+          fillRow === wl.displayedSymbols[3] && !fillMoved.ok && fillStill.ok,
+          fillRow + " | " + fillMoved.detail + " | " + fillStill.detail)
+
+        // The list menu's edge is drawn over its ground, so the rows' cursor
+        // never shows through it. Found in the first-run design review: the
+        // bar of the cursor's row under the open menu showed as a bright
+        // stroke on its left edge. Judged on rendered frames, inside the
+        // menu between its rounded corners: the cursor moving from a row
+        // under the menu to one below it changes nothing there.
+        mouseMove(body, body.width / 2, 20)
+        wl.contentY = 0
+        body.openListMenu()
+        wait(100)
+        var listMenu = root.find(body, "listMenu")
+        var corner = Math.ceil(Style.cornerRadius)
+        var menuTop = Math.round(listMenu.y) + corner
+        var menuBottom = Math.round(listMenu.y + listMenu.height) - corner
+        var underMenu = ""
+        var belowMenu = ""
+        wl.displayedSymbols.forEach(function(symbol, index) {
+          var top = wl.rowItem(symbol).mapToItem(body, 0, 0).y
+          if (underMenu === "" && top + Style.space(6) >= menuTop && top + wl.rowHeight - Style.space(6) <= menuBottom) underMenu = symbol
+          if (belowMenu === "" && top >= listMenu.y + listMenu.height && wl.wholeInSight(index, wl.contentY)) belowMenu = symbol
+        })
+        wl.cursorSymbol = underMenu
+        wait(100)
+        grab.begin("menu-edge")
+        wait(100)
+        wl.cursorSymbol = belowMenu
+        wait(150)
+        grab.end()
+        var movedBelow = wl.cursorRow === belowMenu
+        grab.judge("same:" + [Math.round(listMenu.x), menuTop, Math.round(listMenu.width), menuBottom - menuTop].join(","))
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        root.check("the rows' cursor never shows through the list menu's edge",
+          underMenu !== "" && belowMenu !== "" && movedBelow && grab.verdict.ok,
+          underMenu + " -> " + belowMenu + " | " + movedBelow + " | " + grab.verdict.detail)
+        body.closeListMenu()
+        wait(100)
 
         // A touchpad's pixels move the list exactly and settle through the
         // same glide as the wheel.
@@ -850,7 +966,7 @@ ShellRoot {
           wait(300)
           var still = [stub.featuredSymbol === hero, body.watchlist.displayedSymbols.join() === rows.join(),
             body.watchlist.contentY === scrolled, !body.adding, stub.lastSettings === settings,
-            body.scrubT === 0, body.watchlist.cursorRow === cursor].join(",")
+            body.scrubT === 0, body.watchlist.cursorRow === cursor, body.listsSymbol === ""].join(",")
           body.surfaceOpen = true
           mouseMove(body, 1, 1)
           wait(50)
@@ -863,7 +979,7 @@ ShellRoot {
         stub.retro = false
         wait(50)
         root.check("a closing surface takes no click, right-click, wheel, or scrub, smooth and retro",
-          smoothInert === "true,true,true,true,true,true,true" && retroInert === smoothInert, smoothInert + " | " + retroInert)
+          smoothInert === "true,true,true,true,true,true,true,true" && retroInert === smoothInert, smoothInert + " | " + retroInert)
 
         // The order control hovers like a range token.
         var orderRow = root.find(body, "orderControl")
@@ -894,13 +1010,11 @@ ShellRoot {
         root.check("the scrollbar is absent when every row fits",
           !body.watchlist.ScrollBar.vertical.visible)
 
-        // Right-click removes a row; the last one stays, and the footer says
-        // why for a moment.
-        var fit2 = body.watchlist.rowItem("FIT2")
-        mouseClick(fit2, fit2.width / 2, fit2.height / 2, Qt.RightButton)
+        // x removes a row; the last one stays, and the footer says why for a
+        // moment.
+        body.removeRow("FIT2")
         wait(200)
-        var fit1 = body.watchlist.rowItem("FIT1")
-        mouseClick(fit1, fit1.width / 2, fit1.height / 2, Qt.RightButton)
+        body.removeRow("FIT1")
         wait(50)
         root.check("the last row stays and the footer says why",
           stub.symbols.join(",") === "FIT1" && body.note === "Keep at least one symbol")

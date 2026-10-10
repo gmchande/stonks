@@ -8,8 +8,9 @@ import "Tones.js" as Tones
 // A symbol's lists, in the rows' place: one tick box per list, All first.
 // Value-in, signals out; the body applies the membership rules. It owns its
 // keys while open: the arrows or j k move the cursor, Enter or Space ticks
-// the cursor's list, 1–9 tick that list, Escape or m closes. The pointer
-// tints the row under it, and a click ticks that row.
+// the cursor's list, 1–9 tick that list, Escape or m closes. One cursor, as
+// on the rows: moving the pointer puts it on the row under it, with the
+// rows' mark, and a click ticks the row clicked.
 FocusScope {
   id: root
 
@@ -46,6 +47,7 @@ FocusScope {
   onActiveChanged: {
     if (active) {
       reset()
+      opening.restart()
       Qt.callLater(function() { if (root.active) root.forceActiveFocus() })
     } else {
       root.focus = false
@@ -53,10 +55,29 @@ FocusScope {
   }
 
   // Opens on the first named list, and with none there is no cursor until an
-  // arrow or a number picks a row: a stray Enter never unticks All.
+  // arrow, a number, or the pointer picks a row: a stray Enter never unticks
+  // All.
   function reset() {
     cursor = choices.length > 1 ? 1 : -1
     scroll.contentY = 0
+  }
+
+  // The cursor to the row the pointer moved onto, at (x, y) in the scene;
+  // the title and the key line are no row.
+  function pointAt(x, y) {
+    var at = scroll.mapFromItem(null, x, y)
+    if (at.x < 0 || at.x >= scroll.width || at.y < 0 || at.y >= scroll.height) return
+    var index = Math.floor((at.y + scroll.contentY) / itemHeight)
+    if (index < choices.length) cursor = index
+  }
+
+  // A double-click is one click (WatchlistRow): the view opens in the rows'
+  // place, under the pointer, so the click that follows the right-click or
+  // Ctrl-click that opened it, within the double-click interval, lands
+  // nowhere, and never unticks the list under it.
+  Timer {
+    id: opening
+    interval: Application.styleHints.mouseDoubleClickInterval
   }
 
   function toggle(index) {
@@ -85,6 +106,10 @@ FocusScope {
     else if (event.key === Qt.Key_Down || event.text === "j") root.moveCursor(1)
     else if (event.key === Qt.Key_Up || event.text === "k") root.moveCursor(-1)
     else if (event.text >= "1" && event.text <= "9") root.toggle(Number(event.text) - 1)
+  }
+
+  RowPointer {
+    onMoved: function(x, y) { root.pointAt(x, y) }
   }
 
   Item {
@@ -176,17 +201,14 @@ FocusScope {
           Rectangle {
             anchors.fill: parent
             radius: root.retro ? 0 : Style.cornerRadius
-            color: rowMouse.containsMouse ? Style.normalFillFor(root.foreground, Color.accent) : "transparent"
+            color: entry.index === root.cursor ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+            Behavior on color { ColorAnimation { duration: 60 } }
           }
 
-          Rectangle {
-            objectName: "cursorBar"
+          CursorBar {
             visible: entry.index === root.cursor
-            y: Style.space(6)
-            width: Style.space(2)
-            height: parent.height - Style.space(12)
-            radius: root.retro ? 0 : width / 2
-            color: Style.selectedStateColor(root.foreground, Color.accent)
+            retro: root.retro
+            foreground: root.foreground
           }
 
           Rectangle {
@@ -291,5 +313,14 @@ FocusScope {
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
+  }
+
+  // Over the view while the opening click's double-click interval runs: it
+  // takes that click, and the pointer's hover passes.
+  MouseArea {
+    objectName: "openingShield"
+    anchors.fill: parent
+    visible: opening.running
+    acceptedButtons: Qt.AllButtons
   }
 }

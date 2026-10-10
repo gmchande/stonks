@@ -118,6 +118,15 @@ ShellRoot {
     }
 
     function center(item) { return item.mapToItem(app.testBody, item.width / 2, item.height / 2) }
+    // The cursor's mark on each of `rows`: "bar+fill" on the cursor's row, ""
+    // on the rest. A row's first child is its fill.
+    function marks(rows) {
+      return rows.map(function(row) {
+        var bar = harness.find(row, "cursorBar")
+        return [bar && bar.visible ? "bar" : "", Qt.colorEqual(row.children[0].color, "transparent") ? "" : "fill"]
+          .filter(function(part) { return part !== "" }).join("+")
+      }).join(",")
+    }
 
     function test_list_flows() {
       tryVerify(function() {
@@ -526,19 +535,27 @@ ShellRoot {
       wait(100)
       harness.check("a click on the list name opens the menu", body2.listMenuOpen)
       grab("menu")
+      // One cursor, as on the rows: the pointer puts it on the list under
+      // it, a key moves it on from there, and the pointer leaving the menu
+      // leaves it. One mark, the rows' bar and fill, and only on that row.
+      // It used to keep the keyboard's choice and tint the pointer's row.
       var choices = harness.findAll(body2, "listChoice")
+      var menuRows = choices.concat([harness.find(body2, "newListRow"), harness.find(body2, "manageListsRow")])
+      var opened = menu.cursor + " " + marks(menuRows)
       var allAt = center(choices[0])
       mouseMove(body2, allAt.x, allAt.y)
       wait(100)
       grab("menu-hover")
-      harness.check("hovering a list leaves the keyboard's choice where it was",
-        menu.cursor === 1)
-      var allTint = choices[0].children[0].color
-      harness.check("the list under the pointer takes a tint", !Qt.colorEqual(allTint, "transparent"), String(allTint))
-      // A tint alone did not show on the owner's theme against the menu's
-      // opaque ground; the pointer's row is also outlined, as a lifted row is.
-      harness.check("the list under the pointer is outlined, and the keyboard's row is not",
-        choices[0].children[0].border.width === 1 && choices[1].children[0].border.width === 0)
+      var pointed = menu.cursor + " " + marks(menuRows)
+      keyClick(Qt.Key_Down)
+      wait(100)
+      var keyed = menu.cursor + " " + marks(menuRows)
+      mouseMove(body2, 5, body2.height - 2)
+      wait(100)
+      var left = menu.cursor + " " + marks(menuRows)
+      harness.check("in the list menu the pointer puts the one cursor on the list under it, a key moves it on, and leaving keeps it",
+        opened === "1 ,bar+fill,," && pointed === "0 bar+fill,,," && keyed === "1 ,bar+fill,," && left === keyed,
+        [opened, pointed, keyed, left].join(" | "))
       mouseClick(body2, allAt.x, allAt.y)
       wait(150)
       harness.check("a click on a list switches to it and closes the menu",
@@ -613,11 +630,37 @@ ShellRoot {
       wait(150)
       harness.check("a click on a row of a named list features it", service.featuredSymbol === "NVDA")
       grab("named")
-      var aaplRow = wl.rowItem("AAPL")
-      mouseClick(aaplRow, aaplRow.width / 2, aaplRow.height / 2, Qt.RightButton)
+      // A right-click shows the row's lists and removes nothing; a click
+      // that follows it at once, a double-click's second, lands nowhere in
+      // them, though All's tick sits under it. A right-click used to remove
+      // the row.
+      var listsAll = harness.findAll(body2, "symbolListRow")[0]
+      var allTop = listsAll.mapToItem(body2, 0, 0).y
+      var spot = null
+      var spotSymbol = ""
+      ;["AAPL", "NVDA"].forEach(function(symbol) {
+        var row = wl.rowItem(symbol)
+        var top = Math.max(allTop, row.mapToItem(body2, 0, 0).y)
+        var bottom = Math.min(allTop + listsAll.height, row.mapToItem(body2, 0, row.height).y)
+        if (spot || bottom - top < 4) return
+        spot = Qt.point(row.mapToItem(body2, row.width / 2, 0).x, (top + bottom) / 2)
+        spotSymbol = symbol
+      })
+      mouseClick(body2, spot.x, spot.y, Qt.RightButton)
+      var shown = body2.listsSymbol
+      var allUnder = listsAll.contains(listsAll.mapFromItem(body2, spot.x, spot.y))
+      mouseClick(body2, spot.x, spot.y)
       wait(150)
-      harness.check("right-clicking a row on a named list takes it out of that list only",
-        harness.same(service.symbols, ["NVDA"]) && service.library.indexOf("AAPL") >= 0)
+      harness.check("a right-click shows that row's lists, and a click on All's tick at once after it removes nothing",
+        shown === spotSymbol && allUnder && body2.listsSymbol === spotSymbol
+          && harness.same(service.symbols, ["AAPL", "NVDA"]) && service.library.indexOf(spotSymbol) >= 0,
+        shown + "|" + spotSymbol + "|" + allUnder + "|" + body2.listsSymbol + "|" + service.symbols)
+      keyClick(Qt.Key_Escape)
+      wait(100)
+      keys.forceActiveFocus()
+      wl.cursorSymbol = "AAPL"
+      keyClick(Qt.Key_X)
+      wait(150)
 
       // Manage lists by keyboard: Energy and Wins, Wins current.
       var names = function() { return service.dataSettings.lists.map(function(l) { return l.name }) }
@@ -699,8 +742,12 @@ ShellRoot {
       var winsRow = manageRows[2]
       var winsAt = center(winsRow)
       mouseMove(body2, winsAt.x, winsAt.y)
-      wait(50)
+      wait(100)
+      harness.check("in Manage lists the pointer puts the one cursor, with the rows' mark, on the list under it",
+        manage.cursor === 2 && marks(manageRows) === ",,bar+fill", manage.cursor + " " + marks(manageRows))
+      // The pointer travels to the control it clicks, as a hand's does.
       var upAt = center(harness.find(winsRow, "moveUp"))
+      mouseMove(body2, upAt.x, upAt.y)
       mouseClick(body2, upAt.x, upAt.y)
       wait(100)
       harness.check("↑ on a hovered row moves that list up", harness.same(names(), ["Wins", "ENERGY"]), names())
@@ -731,6 +778,11 @@ ShellRoot {
         askHint.visible ? JSON.stringify(askHint.text) : "no line"].join(",")
       harness.check("deleting asks with its keys once, on the row's choices, and the key line says nothing",
         asked === "true,true,no line", asked)
+      var powerRowAt = center(harness.findAll(body2, "manageRow")[2])
+      mouseMove(body2, powerRowAt.x, powerRowAt.y)
+      wait(50)
+      harness.check("the delete question stays on its list as the pointer passes another",
+        manage.confirming && manage.cursor === 1, manage.confirming + "|" + manage.cursor)
       var keepAt = center(harness.find(winsRowNow, "keepList"))
       mouseClick(body2, keepAt.x, keepAt.y)
       wait(50)
@@ -783,7 +835,20 @@ ShellRoot {
       wait(100)
       harness.check("Ctrl-click opens that row's lists without featuring it",
         body2.listsSymbol === "AAPL" && service.featuredSymbol === "NVDA", body2.listsSymbol + "|" + service.featuredSymbol)
-      var powerAt = center(harness.findAll(body2, "symbolListRow")[1])
+      var listRows = harness.findAll(body2, "symbolListRow")
+      var listsAllAt = center(listRows[0])
+      mouseMove(body2, listsAllAt.x, listsAllAt.y)
+      wait(100)
+      var listsPointed = checklist.cursor + " " + marks(listRows)
+      keyClick(Qt.Key_Down)
+      wait(100)
+      harness.check("in a symbol's lists the pointer puts the one cursor, with the rows' mark, on the list under it, and a key moves it on",
+        listsPointed === "0 bar+fill," && checklist.cursor === 1 && marks(listRows) === ",bar+fill",
+        listsPointed + " | " + checklist.cursor + " " + marks(listRows))
+      var powerAt = center(listRows[1])
+      mouseMove(body2, powerAt.x, powerAt.y)
+      // Past the double-click interval of the click that opened them.
+      wait(Application.styleHints.mouseDoubleClickInterval + 50)
       mouseClick(body2, powerAt.x, powerAt.y)
       wait(100)
       harness.check("a click ticks that row's list", harness.same(power(), ["NVDA", "AAPL"]), power())
@@ -850,6 +915,8 @@ ShellRoot {
       harness.check("All's last symbol cannot be unticked, and the checklist says why",
         harness.same(service.library, ["NVDA"]) && body2.listsSymbol === "NVDA"
           && checklist.note === "Keep at least one symbol")
+      // Past the double-click interval of the open, which takes any click.
+      wait(Application.styleHints.mouseDoubleClickInterval)
       var listsDoneAt = center(harness.find(body2, "symbolListsDone"))
       mouseClick(body2, listsDoneAt.x, listsDoneAt.y)
       wait(100)

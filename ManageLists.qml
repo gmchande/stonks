@@ -9,8 +9,9 @@ import "Tones.js" as Tones
 // lists. All is listed first and cannot be changed. Value-in, signals out;
 // the body persists. Like the list menu it owns its keys while open: the
 // arrows or j k move the cursor, Enter renames, J K move the list, x asks to
-// delete and Enter confirms, Escape backs out one step. The pointer tints the
-// row under it and shows that row's controls; a click on one takes it.
+// delete and Enter confirms, Escape backs out one step. One cursor, as on the
+// rows: moving the pointer puts it, with the rows' mark, on the row under it,
+// which shows that row's controls; a click on one takes it.
 FocusScope {
   id: root
 
@@ -68,6 +69,17 @@ FocusScope {
     confirming = false
     cursor = Math.max(0, Math.min(choices.length - 1, cursor + delta))
     showCursor()
+  }
+
+  // The cursor to the row the pointer moved onto, at (x, y) in the scene;
+  // the title and the key line are no row. A row renaming or asking keeps
+  // it, so the question stays on its own list.
+  function pointAt(x, y) {
+    if (renaming || confirming) return
+    var at = scroll.mapFromItem(null, x, y)
+    if (at.x < 0 || at.x >= scroll.width || at.y < 0 || at.y >= scroll.height) return
+    var index = Math.floor((at.y + scroll.contentY) / itemHeight)
+    if (index < choices.length) cursor = index
   }
 
   function showCursor() {
@@ -141,6 +153,10 @@ FocusScope {
     else if (event.text === "W") root.dismissed()
   }
 
+  RowPointer {
+    onMoved: function(x, y) { root.pointAt(x, y) }
+  }
+
   Item {
     id: title
     width: parent.width
@@ -197,7 +213,7 @@ FocusScope {
           readonly property bool isCursor: index === root.cursor
           readonly property bool editing: isCursor && root.renaming
           readonly property bool asking: isCursor && root.confirming
-          readonly property bool showsActions: named && !editing && !asking && (isCursor || rowMouse.containsMouse)
+          readonly property bool showsActions: named && !editing && !asking && isCursor
           width: column.width
           height: root.itemHeight * (editing && root.problem !== "" ? 2 : 1)
 
@@ -205,24 +221,15 @@ FocusScope {
             width: parent.width
             height: root.itemHeight
             radius: root.retro ? 0 : Style.cornerRadius
-            color: rowMouse.containsMouse ? Style.normalFillFor(root.foreground, Color.accent) : "transparent"
+            color: entry.isCursor ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+            Behavior on color { ColorAnimation { duration: 60 } }
           }
 
-          MouseArea {
-            id: rowMouse
-            width: parent.width
-            height: root.itemHeight
-            hoverEnabled: true
-          }
-
-          Rectangle {
-            objectName: "cursorBar"
+          CursorBar {
             visible: entry.isCursor
-            y: Style.space(6)
-            width: Style.space(2)
-            height: root.itemHeight - Style.space(12)
-            radius: root.retro ? 0 : width / 2
-            color: Style.selectedStateColor(root.foreground, Color.accent)
+            rowHeight: root.itemHeight
+            retro: root.retro
+            foreground: root.foreground
           }
 
           Text {
