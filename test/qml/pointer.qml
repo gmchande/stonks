@@ -235,6 +235,8 @@ ShellRoot {
       id: heldAnchor
       pill: pillStandIn
     }
+    // The body's rendered frames, for frames.js.
+    FrameGrab { id: grab }
 
     TestCase {
       name: "Pointer"
@@ -255,23 +257,28 @@ ShellRoot {
         // The featured symbol is up while the list is net down.
         root.setQuotes(["UP", "DOWN", "DEEP"], [110, 95, 90])
 
-        // The header's animal, in both looks: the featured day's, and a
-        // Shift-click on it cycles the bull, the bear, and the day's again.
+        // The header's animal, in both looks: the featured day's, whatever
+        // the click. A Shift-click replays the chart as a click does, and
+        // never forces a bull or a bear over the day's direction.
         ;[true, false].forEach(function(retro) {
           stub.retro = retro
           var look = retro ? "retro" : "smooth"
           wait(50)
           root.check("featured direction beats a down watchlist in " + look + "'s animal",
             body.animal.kind === "bull" && within(500, function() { return root.animalShows("bull") }))
-          mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
-          root.check(look + "'s animal: shift-click selects the bull override",
-            body.spriteOverride === 1 && within(500, function() { return root.animalShows("bull") }))
-          mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
-          root.check(look + "'s animal: shift-click selects the bear override",
-            body.spriteOverride === 2 && within(500, function() { return root.animalShows("bear") }))
-          mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
-          root.check(look + "'s animal: shift-click returns to automatic",
-            body.spriteOverride === 0 && within(500, function() { return root.animalShows("bull") }))
+          var clicks = []
+          for (var shiftClick = 0; shiftClick < 3; shiftClick++) {
+            mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
+            var replayed = body.motion.replayRunning
+            // The replay reads the day from its start; at rest it is the day's.
+            body.motion.stopReplay()
+            body.motion.scrubT = 0
+            wait(50)
+            clicks.push(body.animal.kind + " " + replayed)
+          }
+          root.check(look + "'s animal: a Shift-click replays the chart and leaves the day's bull",
+            clicks.join(",") === "bull true,bull true,bull true" && within(500, function() { return root.animalShows("bull") }),
+            clicks.join(","))
         })
 
         var rangeRow = root.find(body, "rangeRow")
@@ -950,6 +957,79 @@ ShellRoot {
           heldAnchor.QsWindow.window === window && heldAnchor.parent === window.contentItem
             && heldAt === "200+150" && widened === heldAt && heldAgain === "200+200",
           [heldAnchor.QsWindow.window === window, heldAnchor.parent === window.contentItem, heldAt, widened, heldAgain].join("|"))
+
+        // Every Stonks control answers a press the moment the button goes
+        // down, as the shell's buttons do: its box, judged on the rendered
+        // frames, leaves what lay under it on the next frame and settles on
+        // the shell's pressed fill over it while the button is held. Let go
+        // off the control, so the press does nothing else. In both looks.
+        body.closeListViews()
+        body.showingHelp = false
+        stub.range = "1D"
+        stub.order = "pct"
+        grab.source = body
+        var status = root.find(body, "statusText")
+        var away = status.mapToItem(body, status.width / 2, status.height / 2)
+        var pressed = Style.pressedFillFor(stub.foreground, Color.accent)
+        var fillArg = [pressed.r, pressed.g, pressed.b, pressed.a].join(",")
+        var boxOf = function(item) {
+          var at = item.mapToItem(body, 0, 0)
+          return [Math.ceil(at.x) + 1, Math.ceil(at.y) + 1, Math.floor(item.width) - 3, Math.floor(item.height) - 3]
+        }
+        var settings = function() {
+          return [stub.range, stub.order, body.showingHelp, body.listMenuOpen, JSON.stringify(stub.lastSettings), body.adding, body.managingLists].join(",")
+        }
+        var pressOn = function(name, fill, target) {
+          // A control drawn with no fill at all is judged on its own box.
+          var box = boxOf(fill || target)
+          var at = target.mapToItem(body, target.width / 2, target.height / 2)
+          mouseMove(body, away.x, away.y)
+          wait(200)
+          var before = settings()
+          grab.begin("press-" + name)
+          wait(60)
+          grab.markStart()
+          mousePress(body, at.x, at.y)
+          wait(300)
+          grab.end()
+          mouseMove(body, away.x, away.y)
+          mouseRelease(body, away.x, away.y)
+          tryVerify(function() { return grab.waiting === 0 }, 3000)
+          grab.judge("press", null, [fillArg, box.join(",")])
+          tryVerify(function() { return grab.verdict !== null }, 10000)
+          var after = settings()
+          return grab.verdict.ok && after === before ? "" : name + ": " + grab.verdict.detail + (after !== before ? ", the press did " + before + " -> " + after : "")
+        }
+        var pressFaults = []
+        ;[false, true].forEach(function(retro) {
+          stub.retro = retro
+          stub.lastSettings = null
+          wait(300)
+          var look = retro ? "retro " : "smooth "
+          var token = root.findAll(root.find(body, "rangeRow"), "rangeToken")[1]
+          var controls = [
+            ["range token", token, token],
+            ["list name", root.find(body, "listControl"), root.find(body, "listLabel")],
+            ["order word", root.find(body, "orderControl"), root.find(body, "orderLabel")],
+            ["look icon", root.find(body, "lookFill"), root.find(body, "lookIcon")],
+            ["help mark", root.find(body, "helpFill"), root.find(body, "helpMark")],
+            ["footer", root.find(body, "footerFill"), root.find(body, "footerText")]
+          ]
+          controls.forEach(function(c) {
+            var fault = pressOn((look + c[0]).replace(/ /g, "-"), c[1], c[2])
+            if (fault !== "") pressFaults.push(fault)
+          })
+          body.openManageLists()
+          wait(100)
+          var doneAction = root.find(body, "manageDone")
+          var actionFault = pressOn((look + "list view action").replace(/ /g, "-"), root.find(doneAction, "actionFill"), doneAction)
+          if (actionFault !== "") pressFaults.push(actionFault)
+          body.closeListViews()
+          wait(100)
+        })
+        stub.retro = false
+        root.check("the range tokens, the list name, the order word, the look icon, the ?, the footer, and a list view's action take the pressed fill on mouse-down, in both looks",
+          pressFaults.length === 0, pressFaults.join(" | "))
 
         console.log("POINTER DONE")
         done.exitCode = root.failures ? 1 : 0

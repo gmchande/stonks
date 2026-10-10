@@ -20,6 +20,13 @@
 //                                      frame: nothing draws through them
 //   bun frames.js edgeheld FRAME@T... every frame that shows the card shows
 //                                      its bottom edge where the last does
+//   bun frames.js press R,G,B,A X,Y,W,H FRAME@T...
+//                                      a control pressed at the mark takes
+//                                      the fill R,G,B,A (0 to 1, as Qt
+//                                      gives it) over what was under it, in
+//                                      the X,Y,W,H box, from the next frame
+//                                      on, held there while the button is
+//                                      down
 //   bun frames.js turn[:0] FRAME@T... the header's animal crossfades to its
 //                                      new picture in about 160 ms, or with
 //                                      :0 changes at once, never through a
@@ -307,6 +314,42 @@ function edgeheld(frames) {
     + (moved >= 0 ? ", frame " + moved + " shows it at " + edges[moved] + ", not " + to : "") }
 }
 
+// The most common colour inside a box of the picture, as [r, g, b].
+function colourIn(image, [x0, y0, w, h]) {
+  const counts = new Map()
+  for (let y = y0; y < y0 + h; y++)
+    for (let x = x0; x < x0 + w; x++) {
+      const key = image.data.readUIntBE((y * image.width + x) * 3, 3)
+      counts.set(key, (counts.get(key) || 0) + 1)
+    }
+  const key = [...counts].reduce((a, b) => b[1] > a[1] ? b : a)[0]
+  return [key >> 16, (key >> 8) & 255, key & 255]
+}
+
+const apart = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])))
+
+// A press, as the shell's buttons answer one: the box's colour before the
+// mark is what lies under the control, and every frame from 20 ms on shows
+// something else (the first of them by 50 ms), a fill on its way; from
+// 240 ms on, the fill laid over that ground, within rounding. A fill that
+// waits for the release, or a hover's fainter fill, fails.
+function press(frames, fill, box) {
+  const before = frames.filter(f => f.t < 0)
+  const after = frames.filter(f => f.t >= 20)
+  const at = f => f.t + " ms " + colourIn(f.image, box).join(",")
+  if (!before.length || !after.length || after[after.length - 1].t < 240)
+    return { ok: false, detail: before.length + " frames before the press, the last at " + (frames.length ? frames[frames.length - 1].t : "-") + " ms" }
+  const ground = colourIn(before[before.length - 1].image, box)
+  const wants = ground.map((g, i) => Math.round(g * (1 - fill[3]) + fill[i] * 255 * fill[3]))
+  const still = after.find(f => apart(colourIn(f.image, box), ground) <= 2)
+  const wrong = after.filter(f => f.t >= 240).find(f => apart(colourIn(f.image, box), wants) > 3)
+  const problem = after[0].t > 50 ? "no frame from 20 to 50 ms"
+    : still ? "the ground's colour still at " + at(still)
+    : wrong ? "not the pressed fill at " + at(wrong) : ""
+  return { ok: problem === "", detail: "ground " + ground.join(",") + ", the pressed fill over it " + wants.join(",")
+    + (problem ? ": " + problem : ", from " + at(after[0]) + " to " + at(after[after.length - 1])) }
+}
+
 // Draw-ins drawn here, frame by frame, as a harness would grab them: a line
 // and the area under it across a 120 × 20 plot. `shown(x, t)` says whether
 // column x shows its ink t ms after the mark. Frames come every 16 ms, or
@@ -456,6 +499,39 @@ function selfCheck() {
     if (!right) failed++
     console.log((right ? "PASS " : "FAIL ") + "the animal " + name + (expected ? " passes" : " fails") + " — " + verdict.detail)
   }
+  // A control 30 × 12 on a dark ground, its word in light ink, its fill
+  // laid over the ground at `share(t)` of the pressed fill's alpha.
+  const pressFill = [0.9, 0.9, 0.9, 0.22]
+  const control = (share, until = 360, uneven = null) => {
+    const width = 30, height = 12
+    const frames = []
+    for (let t = -48, k = 0; t <= until; t += uneven ? uneven[k++ % uneven.length] : 16) {
+      const a = pressFill[3] * share(t)
+      const data = Buffer.alloc(width * height * 3)
+      for (let p = 0; p < width * height; p++) {
+        const x = p % width, y = Math.floor(p / width)
+        const word = y >= 4 && y < 8 && x >= 10 && x < 20 && (x + y) % 2 === 0
+        data.set(word ? [210, 210, 210] : [20, 22, 26].map((g, i) => Math.round(g * (1 - a) + pressFill[i] * 255 * a)), p * 3)
+      }
+      frames.push({ t, image: { width, height, data } })
+    }
+    return frames
+  }
+  const pressCases = [
+    ["eases to the pressed fill in 160 ms", true, t => outCubic(t, 160)],
+    ["takes the pressed fill at once", true, t => t >= 0 ? 1 : 0],
+    ["eases in 160 ms, frames 9 to 50 ms apart", true, t => outCubic(t, 160), 480, busy],
+    ["waits for a release 400 ms in", false, t => t >= 400 ? 1 : 0, 480],
+    ["settles on the hover's fill", false, t => outCubic(t, 160) * 0.08 / 0.22],
+    ["starts 100 ms late", false, t => outCubic(t, 160, 100)],
+    ["lets go while still held", false, t => t >= 0 && t < 200 ? 1 : 0],
+  ]
+  for (const [name, expected, share, until, uneven] of pressCases) {
+    const verdict = press(control(share, until, uneven), pressFill, [0, 0, 30, 12])
+    const right = verdict.ok === expected
+    if (!right) failed++
+    console.log((right ? "PASS " : "FAIL ") + "a press that " + name + (expected ? " passes" : " fails") + " — " + verdict.detail)
+  }
   process.exit(failed ? 1 : 0)
 }
 
@@ -464,7 +540,7 @@ if (mode === "self-check") selfCheck()
 else {
   const [kind, end] = mode.split(":")
   const band = kind === "edge" ? Number(rest[0]) : 0
-  const args = kind === "edge" ? rest.slice(1) : rest
+  const args = kind === "edge" ? rest.slice(1) : kind === "press" ? rest.slice(2) : rest
   const frames = args.map(arg => {
     const at = arg.lastIndexOf("@")
     return { t: Number(arg.slice(at + 1)), image: picture(readFileSync(arg.slice(0, at))) }
@@ -472,6 +548,7 @@ else {
   const verdict = kind === "same" ? same(frames) : kind === "drawin" ? drawin(frames, end === undefined ? 1 : end === "ink" ? end : Number(end))
     : kind === "edge" ? edge(frames, band) : kind === "edgeheld" ? edgeheld(frames)
     : kind === "turn" ? turn(frames, end === "0")
+    : kind === "press" ? press(frames, rest[0].split(",").map(Number), rest[1].split(",").map(Number))
     : { ok: false, detail: "unknown mode " + mode }
   console.log(JSON.stringify(verdict))
 }
