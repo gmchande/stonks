@@ -137,6 +137,18 @@ test("a bucket stamped at the bell is post-market, and the quote a second later 
   expect(M.headlineQuote(sep4)).toEqual({ price: 319.97, t: sep4Reg.end + 1, source: "quote" })
 })
 
+test("after the close, the session's last print reads the close at the bell, and the bucket after it reads itself", () => {
+  // London on Wednesday 7 October, fetched 14:55 New York: its last regular
+  // bucket is 16:25 at 3,646.50, its close 3,648.00 stamped 17:20:32 BST,
+  // after its 16:30 and 16:35 buckets.
+  const london = M.parseChart(fixture("overnight/sweep-2026-10-07-1455/shel.l.json"))
+  const bell = london.session.regular.end
+  expect(london.marketTime).toBeGreaterThan(bell)
+  expect(M.readingAt(london, bell - 300)).toEqual({ price: 3648, t: bell, close: true })
+  expect(M.marketStatus(london, 0, bell - 300, calendars)).toBe("At 16:30 BST · Closing bell")
+  expect(M.readingAt(london, bell)).toEqual({ price: 3657, t: bell, close: false })
+})
+
 test("the day is drawn whole, and its range holds the previous close", () => {
   const spy = M.parseChart(fixture("spy-2026-09-11-day-prepost.json"))
   const spyReg = spy.session.regular

@@ -785,9 +785,10 @@ run time.
   pointer's or a replay's, keeps to the prints: its left edge reads the
   day's first print, its right edge the last. Once the regular session has
   closed, its last regular print reads the close the hero shows, at the
-  close's time, "AT 16:00 · CLOSING BELL" (`Quote.readingAt`): the S&P
-  500's last bar is 15:55's, and Tokyo's row, following a scrub, read its
-  15:20 bar. A print after the close reads itself. The rows follow a scrub
+  bell, "AT 16:00 · CLOSING BELL" (`Quote.readingAt`): the S&P 500's last
+  bar is 15:55's, and Tokyo's row, following a scrub, read its 15:20 bar.
+  Not at the quote's own stamp: London's 16:30 close on 7 October was
+  stamped 17:20. A print after the close reads itself. The rows follow a scrub
   only inside Yahoo's day: one before it, or the night after it, leaves
   them, and the breadth, on now. The vertical range holds every drawn print
   and the baseline, with headroom; no print is ever clamped to keep it
