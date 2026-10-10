@@ -221,10 +221,11 @@ refreshed until you add it. `?` opens the shortcut sheet.
 
 **Two looks.** Smooth is the default: a big price and a line chart. Retro
 draws the way Omarchy draws its own logo: block digits on a lit grid, pixel
-columns, and pixel sparklines, with a pixel bull in the header when the
-featured chart is up and a bear when it is down, at the moment shown: a
+columns, and pixel sparklines. Both put a bull in the header when the
+featured chart is up and a bear when it is down, at the moment shown, drawn
+as a line in smooth and in pixels in retro, and none on a flat day: a
 scrub or a replay across the close turns one into the other. Click the
-sprite to replay the shown chart;
+animal to replay the shown chart;
 shift-click cycles Auto, bull, and bear. Both looks draw every range the same
 way: the line or columns and the area to the baseline (the previous close,
 or the price the range started at) in the up colour above it and the down

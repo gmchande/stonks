@@ -49,7 +49,7 @@ run time.
 - The popup's window (`PanelWindow`) does not load on the offscreen platform. Popup flows drive the real `Panel` in `popup.sh`, under the Wayland session, without mapping it: the script patches `open: false` into its copy of `Panel.qml`. An unmapped pill has no bar window to place a card from, so `popup.sh` copies the shell's `Ui` and lets its `KeyboardPanel` take the bar window and the pill's spot from the flow; the shell's own placement runs on them. An unmapped popup renders no frames, so `popup-motion.sh` puts its copy of `Panel.qml`'s card in `CardWindow.qml`, a plain window around the shell's own `BorderSurface` that copies only what lives on `KeyboardPanel` itself, its lines named in its comment: keep them in step when the shell changes.
 - A script patches its copies of plugin files only through `patch_copy` (`lib.sh`), which stops the script before Quickshell starts when a patch changes nothing. The feed harnesses (`run.sh`, `history.sh`) and `overnight.sh`, whose later moments hold one symbol's day, patch a 200 ms retry pause into theirs.
 - A check on motion reads it on its frames, from a change handler on the animated property, and a wait waits on an event (`within`, `tryVerify`); a fixed sleep into an animation or a debounce fails on a slow frame.
-- What a motion looks like is judged on rendered frames, not on the property behind it: `FrameGrab.qml` grabs an item on every frame and `frames.js` judges them (`frame_tools`, `lib.sh`), as `window-motion.sh` does for the draw-in, the window's first open in a fresh process (judged from its first painted frame: every canvas paints a frame late on a window's first show), a held chart, a day half gone (`aapl-noon`, AAPL's day cut at noon, its ink's end held against its newest print), and a closing surface, `layout.sh` for a live day held while the next chart loads, and `popup-motion.sh` for the popup card's edge (`edge`, `edgeheld`), its travel read from where the card stood before the mark. A property can move while the picture shows nothing. Offscreen, Qt renders on its own cadence while animations advance on QtCore's 16 ms clock, and `afterAnimating` fires on every render, so a frame is kept only when the clock has ticked since the last one, and timed by that tick, or by the mark when it came after: timed by the render, a late clock showed each moment later than it was, and a 160 ms edge read as 230 under the suite's load. `window-motion.sh` holds a draw-in's renders longer and longer on purpose, a busy machine, which frames timed by the render read as about 420 ms. `frames.js` reads a draw-in's length and start, and an edge's, from its frames' own curve, never from the mark, so a late start or a busy machine's uneven frames move neither; a draw-in is read across its ink's extent, taken from the last frame's own ink (`drawin:ink`), never from the painter, so a day partly gone is judged on its own sweep and a sweep that stops short and shows the rest at its end fails. `bun test/qml/frames.js self-check`, run by `test/all.sh`, shows wrong pictures failing it: 0, 160, and 400 ms, on even and uneven frames, a start 200 ms late, a chart that begins a quarter or 60% drawn, hidden ink, a slit, a chart cut short, whole at once, a tail, a half day swept across the whole plot, swept to 45% with the rest shown at its end, or cut short; an edge that jumps, never moves, takes 100, 240, or 400 ms, starts 200 ms late, jumps 60% at the mark, or shows rows through the footer riding it; an open that grows; and a right draw-in in retro's whole columns, a half day swept to its newest print in either look, and a right edge on uneven frames, passing. `window-motion.sh` runs the same capture and judge on a real draw-in made 160 ms, 400 ms, none, and one starting 60% drawn, and each fails.
+- What a motion looks like is judged on rendered frames, not on the property behind it: `FrameGrab.qml` grabs an item on every frame and `frames.js` judges them (`frame_tools`, `lib.sh`), as `window-motion.sh` does for the draw-in, the window's first open in a fresh process (judged from its first painted frame: every canvas paints a frame late on a window's first show), a held chart, a day half gone (`aapl-noon`, AAPL's day cut at noon, its ink's end held against its newest print), the header's animal crossfading across the close and changing at once on a new symbol (`turn`, `turn:0`), and a closing surface, `layout.sh` for a live day held while the next chart loads, and `popup-motion.sh` for the popup card's edge (`edge`, `edgeheld`), its travel read from where the card stood before the mark. A property can move while the picture shows nothing. Offscreen, Qt renders on its own cadence while animations advance on QtCore's 16 ms clock, and `afterAnimating` fires on every render, so a frame is kept only when the clock has ticked since the last one, and timed by that tick, or by the mark when it came after: timed by the render, a late clock showed each moment later than it was, and a 160 ms edge read as 230 under the suite's load. `window-motion.sh` holds a draw-in's renders longer and longer on purpose, a busy machine, which frames timed by the render read as about 420 ms. `frames.js` reads a draw-in's length and start, and an edge's, from its frames' own curve, never from the mark, so a late start or a busy machine's uneven frames move neither; a draw-in is read across its ink's extent, taken from the last frame's own ink (`drawin:ink`), never from the painter, so a day partly gone is judged on its own sweep and a sweep that stops short and shows the rest at its end fails. `bun test/qml/frames.js self-check`, run by `test/all.sh`, shows wrong pictures failing it: 0, 160, and 400 ms, on even and uneven frames, a start 200 ms late, a chart that begins a quarter or 60% drawn, hidden ink, a slit, a chart cut short, whole at once, a tail, a half day swept across the whole plot, swept to 45% with the rest shown at its end, or cut short; an edge that jumps, never moves, takes 100, 240, or 400 ms, starts 200 ms late, jumps 60% at the mark, or shows rows through the footer riding it; an open that grows; an animal that turns in 60 or 320 ms, starts 200 ms late, changes at once where it should turn or turns where it should change at once, fades out and then in through nothing, or changes at once through a blank frame; and a right draw-in in retro's whole columns, a half day swept to its newest print in either look, a right edge, and a right turn, on uneven frames too, passing. `window-motion.sh` runs the same capture and judge on a real draw-in made 160 ms, 400 ms, none, and one starting 60% drawn, and each fails.
 - Visual checks are those renders (`test/qml/render.sh`). Whoever built a visible change tries it by hand before its pull request, the way a user would, through the everyday flows end to end whatever the change names: open the popup from the pill, add a symbol through search, switch lists, remove and undo, feature a row, change the range and look, and use the window. Motion is judged frame by frame from a recording; a screenshot can't show it.
 - A limit blamed on the shell is confirmed in its code (`/usr/share/omarchy/shell/`) before a change designs around it.
 
@@ -194,7 +194,8 @@ run time.
   An open while open changes nothing. Closing only fades: everything that
   moves stops where it is (`StonksBody.freeze`, `still`): the edge, the
   chart's draw-in and replay, the live marks, the look icon's step, the
-  breadth rule's ends, a held drag, the rows, and the footer's note, which
+  header animal's turn, the breadth rule's ends, a held drag, the rows,
+  and the footer's note, which
   outlives its timer. What is shown stays, the chart, figures, and rows as
   they are, whatever the pointer or another surface does, since the body
   reads the service only while open; the next open takes the latest. The
@@ -261,7 +262,10 @@ run time.
   the service, and every removal goes through `StonksBody.removeRow`.
 - `Hero.qml`, `HeaderStatus.qml`, `HeroBand.qml`, `AddFooter.qml`,
   `HelpSheet.qml` — shared value-in pieces the body composes. The header
-  ends in the look and `?`. The footer says a note in the foreground for a
+  starts with the day's animal and ends in the look and `?`. The listing
+  line names its currency once: a pair's name that ends with it ("Bitcoin
+  USD") is not followed by it again (`Figures.listingMeta`). The footer
+  says a note in the foreground for a
   moment; under it, until what it says is fixed, a notice, in the
   foreground too: "grvc.stonks.json can't be read, so changes aren't being
   saved", whose click does nothing, ahead of "Updated to x · restart the
@@ -273,7 +277,9 @@ run time.
   in smooth, and as a curve in retro, stepping between them column by
   column in 200 ms as the look changes, and settled on the other look as a
   surface opens. A click on it switches the look, as `s` does, and hovering
-  says so: "Switch to retro (s)" or "Switch to smooth (s)".
+  says so: "Switch to retro (s)" or "Switch to smooth (s)", in a tooltip
+  under the header, its right edge on the header's, so it stays inside the
+  card; the shell's own place, above the icon, drew across the card's edge.
 - `BreadthRule.qml` — the rule between the list's name, with a dim TODAY
   after it, and its order, drawn as the list's breadth (`Figures.listBreadth`, the rows' own tones
   counted); cells in retro, counts on hover. Its ends ease only when the
@@ -371,7 +377,9 @@ run time.
   move gesture that lifts a row; the watchlist positions it and the others.
   A double-click, on a row or the footer, is one click: its second would
   land on whatever took the first one's place.
-- `DayChart.qml`, `Sparkline.qml` — the smooth look's Canvas drawings.
+- `DayChart.qml`, `Sparkline.qml`, `DrawnAnimal.qml` — the smooth look's
+  Canvas drawings: the charts, and the header's bull and bear, one 1.5 px
+  round line in the day's colour with the hero's wash inside.
   Every line is drawn from its own quote or history, so it redraws only when
   that data does, never with the clock or the change mode. Only what is on
   show draws: the hidden look's hero chart and price digits and the rows'
@@ -648,10 +656,17 @@ run time.
   moves the popup's bottom edge and the footer riding it, easing there.
   The list's header is the caption line's height, never its order word's,
   so no word moves the rows.
-  The header keeps the sprite's height in both looks, and the look is one
-  small icon in both, so only the icon changes; the sprite is retro's
-  only, and retro's status words keep its place while a symbol's first quote
-  is out. Loading holds still: a refetch with the range in hand, out or
+  The header keeps the animal's height in both looks, and the look is one
+  small icon in both, so only the icon changes. The animal is the day's in
+  both looks, retro's in cells and smooth's drawn, a bull up and a bear
+  down at the moment shown; a flat day has none. Its slot keeps its place
+  drawn or not, so the status words start after it in both looks, on a flat
+  day, and while a symbol's first quote is out. On a turn of the same chart
+  (a scrub or a replay across the close, a live day crossing it, a
+  Shift-click's cycle) smooth's crossfades in 160 ms OutCubic, from where a
+  turn under way left it; a symbol, range, list, or look change, or an
+  open, changes it at once, and retro's cells always change at once.
+  Loading holds still: a refetch with the range in hand, out or
   failed, keeps the chart at full ink and the header on the market; only a
   chart not yet in says "Loading", naming what is coming ("LOADING AAPL
   1M"), and while it is out the hero keeps the chart on show
@@ -679,8 +694,9 @@ run time.
   its hint of 5 would read 0.00001), none from 10,000 up. The hero, rows,
   pill, preview, info lines, and a scrub read the same digits; a move in
   money keeps cents where the price has none (`Format.moveDigits`). A
-  figure that rounds to nothing has no sign and neither colour
-  (`Format.changeTone`). The warning mark is "!" in both looks, never a
+  figure that rounds to nothing has no sign, neither colour, and no
+  animal (`Format.changeTone`, `dayTone`). The warning mark is "!" in
+  both looks, never a
   triangle that could read as ▲. Retro's thousands comma hangs a cell below
   the baseline, and the strip under the price clears it in both looks.
 - Intraday parsing drops a run of up to three buckets only when the series
@@ -762,7 +778,7 @@ run time.
   under 0.10 from the red in OKLab (Hackerman, Lumon, Vantablack, White),
   up is the foreground, as the shell shows a good state beside a bad one.
   The same pair everywhere: the hero, rows, charts and washes, the breadth
-  rule, the header's sprite, the mark, and every pill form. The theme's
+  rule, the header's animal, the mark, and every pill form. The theme's
   colours are never adjusted: the sign and the baseline carry direction
   too.
   5Y, 10Y, and All use a log scale; scrub works by bar position, so the
