@@ -9,12 +9,15 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 fixtures=$(test/fixtures-dir.sh)
 moment=$(TZ=America/New_York date +%Y-%m-%d-%H%M)
-dir="$fixtures/overnight/demo-$moment"
-[ ! -e "$dir" ] || { echo "$dir exists" >&2; exit 1; }
-mkdir -p "$dir"
+final="$fixtures/overnight/demo-$moment"
+[ ! -e "$final" ] || { echo "$final exists" >&2; exit 1; }
+# Saved into a folder readme.sh never picks, and named a capture only once
+# every answer is in: a failed fetch leaves nothing behind.
+dir=$(mktemp -d "$fixtures/overnight/.capture-XXXX")
+trap 'rm -rf "$dir"' EXIT
 ua="Mozilla/5.0 (Omarchy Stonks)"
 listed=$(jq -r '.symbols[]' test/tophat/demo.json)
-get() { curl -fsS --compressed --max-time 15 -A "$ua" "$1"; sleep 2; }
+get() { curl -fsS --compressed --max-time 15 -A "$ua" "$1" || return; sleep 2; }
 for s in $listed; do
   file=$(tr 'A-Z' 'a-z' <<< "${s#^}")
   get "https://query1.finance.yahoo.com/v8/finance/chart/$(jq -rn --arg s "$s" '$s|@uri')?range=1d&interval=5m&includePrePost=true" > "$dir/$file.json"
@@ -26,7 +29,7 @@ get "https://api.robinhood.com/marketdata/historicals/?symbols=$us&interval=5min
   > "$dir/robinhood-day.json"
 get "https://api.robinhood.com/instruments/?symbols=$us" \
   | jq -c '{ next: null, results: [.results[] | { symbol, all_day_tradability }] }' > "$dir/robinhood-instruments.json"
-cat > "$dir.url" << EOF
+cat > "$dir/.url" << EOF
 # fetched, not derived: the endpoints' answers at $(TZ=America/New_York date -Iseconds) (New York)
 # Yahoo: range=1d&interval=5m&includePrePost=true for each symbol, fetched in turn two seconds apart
 # Robinhood (symbols=$us&interval=5minute&span=day&bounds=24_5)
@@ -35,4 +38,6 @@ cat > "$dir.url" << EOF
 # The demo watchlist (test/tophat/demo.json), for the README's pictures.
 # Saved by test/capture-demo.sh.
 EOF
-echo "saved $dir"
+mv "$dir/.url" "$final.url"
+mv "$dir" "$final"
+echo "saved $final"

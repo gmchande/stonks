@@ -23,7 +23,7 @@ patch_copy plugin/Panel.qml '/readonly property int panelWidth:/a\  readonly pro
 # the window's grab takes a ground of that colour under the body.
 patch_copy plugin/App.qml '/readonly property bool ready:/a\  readonly property alias testBody: body\n  readonly property alias testKeyCatcher: keyCatcher'
 patch_copy plugin/App.qml '/^      StonksBody {$/i\      Rectangle { anchors.fill: parent; color: window.color }'
-patch_copy plugin/Service.qml '/readonly property var entries: feed.entries/a\  readonly property alias testFeed: feed'
+patch_copy plugin/Service.qml '/readonly property var entries: feed.entries/a\  readonly property alias testFeed: feed\n  readonly property alias testAllDay: allDayFeed\n  readonly property alias testOvernight: overnightFeed'
 patch_copy plugin/Service.qml "s/property int now: Math.floor(Date.now() \/ 1000)/property int now: $at/"
 patch_copy plugin/Service.qml 's/onTriggered: root.now = Math.floor(Date.now() \/ 1000)/onTriggered: {}/'
 # The pills on their strips open no popup of their own.
@@ -39,21 +39,24 @@ run_qs 90
 
 # Each picture as a palette PNG, so a clone stays small: the top picture the
 # pill's strip over the popup, and the pill's forms with the black between
-# their strips clear.
-if [ "$code" -eq 0 ]; then
-  raw=$STONKS_README_RAW
+# their strips clear. Only this run's grabs make them: a step that failed
+# leaves its grab missing, and finish names the failure.
+raw=$STONKS_README_RAW
+names="hero pill scrub lists retro window"
+for name in $names; do rm -f "$out/$name.png"; done
+grabbed() { local grab; for grab in popup strip forms scrub lists retro window; do [ -s "$raw/$grab.png" ] || return 1; done; }
+if [ "$code" -eq 0 ] && grabbed; then
   small() { local dest=$out/$1.png; shift; magick "$@" -strip -dither None -colors 128 "PNG8:$dest"; }
   small hero "$raw/strip.png" -size 1x16 xc:none "$raw/popup.png" -background none -gravity center -append
   small pill "$raw/forms.png" -transparent black
   for name in scrub lists retro window; do small "$name" "$raw/$name.png"; done
-  for name in hero pill scrub lists retro window; do
-    file="$out/$name.png"
-    if [ -s "$file" ]; then
-      echo "PASS $name.png $(magick identify -format '%wx%h' "$file"), $(( $(stat -c %s "$file") / 1024 )) KB"
-    else
-      echo "FAIL $name.png was not written" >> "$work/log"
-      code=1
-    fi
-  done
 fi
+for name in $names; do
+  file="$out/$name.png"
+  if [ -s "$file" ]; then
+    echo "PASS $name.png $(magick identify -format '%wx%h' "$file"), $(( $(stat -c %s "$file") / 1024 )) KB"
+  else
+    echo "FAIL $name.png was not written" >> "$work/log"
+  fi
+done
 finish "README DONE"
