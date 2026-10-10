@@ -156,7 +156,11 @@ down the left edge on a lightly filled row: the pointer puts it on the row
 under it, the arrow keys move it on from wherever it is, and it stays when
 the pointer leaves the list. Before you point or press a key, it rests on
 the featured row (or the first row, when the featured symbol is not in this
-list).
+list). Rest the pointer on a row and its name gives way to where its
+market is now, such as "Closed · opens Thu 09:00", with that market's time
+beside the symbol when it keeps another clock than yours: "TOKYO 03:55",
+or "CEST 09:55" where Stonks knows no city for the exchange. A warning or
+an "As of" on the row stays.
 
 **Lists.** All holds every symbol you follow; named lists, such as My
 Portfolio or Energy, hold some of them, and a symbol can be in several.
