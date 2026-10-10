@@ -33,7 +33,6 @@ qs_leader=""
 qs_code=0
 qs_session_runtime=${XDG_RUNTIME_DIR:-/run/user/$UID}
 qs_runtime=""
-qs_runs=0
 
 # quickshell_run SECONDS LOG ARGS…: Quickshell ARGS into LOG, stopped after
 # SECONDS. Sets qs_code: Quickshell's exit code, 124 on a timeout, or 128 and
@@ -50,14 +49,16 @@ quickshell_run() {
   local - secs=$1 log=$2 fd pid sig saved
   set +e
   shift 2
-  # Named before it is made, from the run's mark, so no other run can make
-  # it and an interrupt at any point leaves the stop a name to remove. Under
-  # /tmp, not $TMPDIR: Quickshell's IPC socket inside it must fit a Unix
-  # socket's 107 bytes.
-  qs_runtime=/tmp/qs-${qs_mark#STONKS_RUN=}-$((qs_runs += 1))
-  if ! mkdir -m 700 -- "$qs_runtime" \
+  # Under /tmp, not $TMPDIR, and short: the sockets Quickshell reaches
+  # through it must fit a Unix socket's 107 bytes, Hyprland's
+  # hypr/<signature>/.socket2.sock the longest, as they do under
+  # /run/user/<uid>. mktemp ignores INT and TERM, so an interrupt can't end
+  # it between making the folder and handing over its name: the stop
+  # always has the name of a folder this run made.
+  qs_runtime=$(trap '' INT TERM; mktemp -d /tmp/qs.XXXXXX)
+  if [ -z "$qs_runtime" ] \
     || ! find "$qs_session_runtime" -mindepth 1 -maxdepth 1 ! -name quickshell -exec ln -s -t "$qs_runtime" {} +; then
-    echo "FAIL the run's runtime folder $qs_runtime could not be made; Quickshell was not started" >> "$log"
+    echo "FAIL the run's runtime folder ${qs_runtime:-in /tmp} could not be made; Quickshell was not started" >> "$log"
     qs_code=1
     quickshell_stop
     return
@@ -127,8 +128,8 @@ quickshell_stop() {
     fi
   fi
   # With nothing of the run left to write in it, its runtime folder goes:
-  # the one named for it from its mark, whose links rm removes, never what
-  # they point to.
+  # the one mktemp made for it, whose links rm removes, never what they
+  # point to.
   [ -z "$qs_runtime" ] || rm -rf -- "$qs_runtime"
   qs_runtime=""
 }

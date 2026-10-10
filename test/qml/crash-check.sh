@@ -95,12 +95,6 @@ setsid sleep 300 < /dev/null > /dev/null 2>&1 &
 bystander=$!
 
 alive() { kill -0 "$1" 2> /dev/null; }
-# left_folders CASE: the runtime folders CASE's run named, from its mark,
-# that are still there.
-left_folders() {
-  local mark
-  mark=$(cat "$tmp/$1/mark" 2> /dev/null) && [ -n "$mark" ] && compgen -G "/tmp/qs-${mark#STONKS_RUN=}-*"
-}
 # gone CASE: nothing CASE's run started is still running, nothing of it is
 # in the session's runtime folder, and its own runtime folder, through which
 # the session's Wayland entry read, is gone.
@@ -116,7 +110,9 @@ gone() {
   if [ -z "$runtime" ]; then miss "$1: the stand-in never said its runtime folder"
   elif [ "$runtime" != "$XDG_RUNTIME_DIR" ] && [ -e "$runtime" ]; then miss "$1: its runtime folder $runtime is still there"; fi
   [ "$(cat "$dir/wayland" 2> /dev/null)" = socket ] || miss "$1: the session's Wayland entry read '$(cat "$dir/wayland" 2> /dev/null)' from its runtime folder"
-  left_folders "$1" && miss "$1: its runtime folder is still there: $(left_folders "$1")"
+  # Hyprland's event socket under it, hypr/<a 62-character
+  # signature>/.socket2.sock, must fit a Unix socket's 107 bytes.
+  [ -n "$runtime" ] && (( ${#runtime} + 82 > 107 )) && miss "$1: its runtime folder's name, $runtime, leaves Hyprland's sockets under it too long"
 }
 
 # harness CASE MODE SECONDS [LEAVE] [EARLY]: one run in a harness of its
@@ -125,7 +121,7 @@ gone() {
 # EARLY, the harness is sent TERM as it is about to record the group's
 # leader, once the stand-in has started its children; with EARLY=made, as
 # the run's runtime folder is made and Quickshell not yet started, noting
-# in CASE/made that the folder was there.
+# the folder in CASE/made.
 harness() {
   local dir=$tmp/$1
   mkdir -p "$dir"
@@ -135,7 +131,7 @@ harness() {
     echo "$qs_mark" > "$3/mark"
     trap quickshell_exit EXIT; trap "exit 130" INT; trap "exit 143" TERM
     early() { local i; for i in $(seq 50); do [ -s "$STANDIN_DIR/left" ] && break; sleep 0.1; done; kill -TERM $$; }
-    if [ "$EARLY" = made ]; then set -T; trap "[[ \$BASH_COMMAND == mkfifo* ]] && { [ -d \"\$qs_runtime\" ] && echo yes > \"\$STANDIN_DIR/made\"; kill -TERM \$\$; }" DEBUG
+    if [ "$EARLY" = made ]; then set -T; trap "[[ \$BASH_COMMAND == mkfifo* ]] && { [ -d \"\$qs_runtime\" ] && echo \"\$qs_runtime\" > \"\$STANDIN_DIR/made\"; kill -TERM \$\$; }" DEBUG
     elif [ -n "$EARLY" ]; then set -T; trap "[[ \$BASH_COMMAND == qs_leader=* ]] && early" DEBUG; fi
     quickshell_run "$2" "$3/log" -p nowhere
     echo "$qs_code" > "$3/code"' _ "$here" "$3" "$dir" < /dev/null > "$dir/out" 2>&1 &
@@ -211,14 +207,15 @@ ran "$h" no-session
 [ -e "$tmp/no-session/pid" ] && miss "no-session: Quickshell was started"
 grep -q "^FAIL the run's runtime folder .* could not be made; Quickshell was not started$" "$tmp/no-session/log" \
   || miss "no-session: no FAIL line saying why: $(cat "$tmp/no-session/log" 2> /dev/null)"
-left_folders no-session && miss "no-session: its runtime folder is still there: $(left_folders no-session)"
+folder=$(sed -n "s/^FAIL the run's runtime folder \(.*\) could not be made; Quickshell was not started$/\1/p" "$tmp/no-session/log")
+[ -e "$folder" ] && miss "no-session: its runtime folder $folder is still there"
 
 # TERM once the run's runtime folder is made, before Quickshell starts: the
 # folder goes all the same.
 harness made hang 60 "" made
 wait "$h" 2> /dev/null
 [ -s "$tmp/made/made" ] || miss "made: the TERM never came with the folder made"
-left_folders made && miss "made: its runtime folder is still there: $(left_folders made)"
+[ -e "$(cat "$tmp/made/made" 2> /dev/null)" ] && miss "made: its runtime folder $(cat "$tmp/made/made") is still there"
 
 # An interrupt of a harness: INT as a terminal sends it, TERM as test/all.sh
 # does, each to the harness's group, mid-run; and TERM the moment
