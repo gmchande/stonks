@@ -835,6 +835,7 @@ Item {
   // eases there.
   SymbolSearch {
     id: search
+    objectName: "symbolSearch"
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: heroBand.bottom

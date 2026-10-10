@@ -420,6 +420,7 @@ ShellRoot {
       var rowHeight = body.search.rowHeight
       var whole = tops.filter(function(top) { return top >= 0 && top + rowHeight <= view.height }).length
       var cut = tops.filter(function(top) { return top + rowHeight > 0 && top < view.height && (top < 0 || top + rowHeight > view.height) }).length
+      var atMinimum = Math.round(body.height) === app.testWindow.minimumSize.height
       var at = [Math.round(body.height), Math.round(view.height), whole, cut].join(",")
       keyClick(Qt.Key_Escape)
       app.close()
@@ -427,7 +428,7 @@ ShellRoot {
       app.open("{}")
       wait(200)
       harness.check("the smallest window shows search's results whole, one at least, none cut",
-        Math.round(body.height) === app.testWindow.minimumSize.height && whole >= 1 && cut === 0,
+        atMinimum && whole >= 1 && cut === 0,
         "body, results' room, whole, cut: " + at + " (minimum " + app.testWindow.minimumSize.height + ")")
     }
 

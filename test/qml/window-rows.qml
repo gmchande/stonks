@@ -567,8 +567,7 @@ ShellRoot {
       wait(50)
     }
 
-    // The keyboard cursor is always on a row in sight, and acting on the
-    // rows closes search first.
+    // The keyboard cursor is always on a row in sight.
     function cursorInSight(body, watchlist, keys) {
       var six = ["AAPL", "MSFT", "NVDA", "FLAT", "DOWN", "STRAY"]
       six.forEach(function(s) { service.addSymbol(s) })
@@ -683,40 +682,10 @@ ShellRoot {
         [longMiddle, longLast, shortMiddle, shortLast].every(function(r) { return /^true /.test(r) }),
         [longMiddle, longLast, shortMiddle, shortLast].join(" | "))
 
-      // Acting on the rows while search is open, before its answer, closes
-      // search first, then acts: a removal shows its row leaving and its undo
-      // note, by right- and middle-click, and a click features the row. Found
-      // in the transition audit (search 5): the note stayed hidden behind
-      // search and expired unseen.
       app.close()
       app.testWindow.implicitHeight = heightBefore
       app.open("{}")
       wait(200)
-      var withSearch = function(button) {
-        keys.forceActiveFocus()
-        keyClick(Qt.Key_A)
-        wait(50)
-        var target = watchlist.displayedSymbols.filter(function(s) { return s !== service.featuredSymbol })[1]
-        var row = watchlist.rowItem(target)
-        mouseClick(row, row.width / 2, row.height / 2, button)
-        wait(50)
-        var footer = harness.find(body, "footer")
-        var result = button === Qt.LeftButton
-          ? [!body.adding, service.featuredSymbol === target].join(",")
-          : [!body.adding, service.library.indexOf(target) < 0, footer.visible && body.note.indexOf("Removed " + target) === 0].join(",")
-        if (button !== Qt.LeftButton) {
-          keys.forceActiveFocus()
-          keyClick(Qt.Key_U)
-          wait(100)
-        }
-        return result + " " + target
-      }
-      var byRight = withSearch(Qt.RightButton)
-      var byMiddle = withSearch(Qt.MiddleButton)
-      var byClick = withSearch(Qt.LeftButton)
-      harness.check("acting on the rows with search open closes search, then acts: right- and middle-click removals and a click",
-        /^true,true,true /.test(byRight) && /^true,true,true /.test(byMiddle) && /^true,true /.test(byClick),
-        [byRight, byMiddle, byClick].join(" | "))
       service.deleteList("Tall")
       wait(50)
     }

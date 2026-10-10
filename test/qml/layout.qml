@@ -654,7 +654,7 @@ ShellRoot {
           var views = [
             { name: "manageLists", open: function() { body.openManageLists() }, close: function() { body.closeListViews() } },
             { name: "symbolLists", open: function() { body.openSymbolLists("MU") }, close: function() { body.closeListViews() } },
-            { name: "searchResults", open: function() {
+            { name: "symbolSearch", open: function() {
               body.startAdding()
               body.search.results = [{ symbol: "ONE", name: "One", exchange: "NYSE" }]
               body.search.answer = "results"
@@ -698,11 +698,10 @@ ShellRoot {
         }
         root.check("a shorter list's footer sits one gap under its rows", shortOk)
 
-        // Search's field opens at the bottom, where the footer is, the footer's
-        // height, and stays there while you type, on any list, at either
+        // Search's field opens where the list's rows were, under its
+        // header, and stays there while you type, on any list, at either
         // surface size.
         var fieldPlaces = []
-        var footerAt = find(body, "footer")
         var fieldBar = find(body.search, "searchField").parent
         for (var w = 0; w < 2; w++) {
           surface.wide = w === 1
@@ -711,11 +710,10 @@ ShellRoot {
             stub.listName = cases[c2].name
             stub.symbols = cases[c2].symbols
             wait(50)
-            var footerBottom = yIn(footerAt, footerAt.height) - surface.height
+            var rowsY = yIn(body.watchlist, 0)
             body.startAdding()
             wait(50)
             var fieldY = yIn(fieldBar, 0)
-            var fieldBottom = yIn(fieldBar, fieldBar.height) - surface.height
             body.search.results = [{ symbol: "ONE", name: "One", exchange: "NYSE" }]
             body.search.answer = "results"
             wait(50)
@@ -724,13 +722,13 @@ ShellRoot {
             body.search.answer = ""
             body.cancelAdding()
             wait(50)
-            if (footerBottom !== fieldBottom || fieldBar.height !== footerAt.height || typedY !== fieldY)
-              fieldPlaces.push((surface.wide ? "window " : "popup ") + (cases[c2].name || "All") + " "
-                + footerBottom + " vs " + fieldBottom + ", " + fieldY + " -> " + typedY)
+            if (fieldY !== rowsY || typedY !== fieldY)
+              fieldPlaces.push((surface.wide ? "window " : "popup ") + (cases[c2].name || "All") + " rows at "
+                + rowsY + ", field " + fieldY + " -> " + typedY)
           }
         }
         surface.wide = false
-        root.check("search's field opens at the bottom where the footer is and stays while you type, on any list and either surface", fieldPlaces.length === 0,
+        root.check("search's field opens where the rows were and stays while you type, on any list and either surface", fieldPlaces.length === 0,
           fieldPlaces.join(", "))
 
         // A live day and a range say the same words in the same place: nothing
