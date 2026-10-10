@@ -266,10 +266,10 @@ Item {
       root.dataReadEnded(null)
     }
   }
-  // A read of the data file is in flight; the first starts as its path is
-  // set. Quickshell 0.3.1 ignores a reload() asked for while one is, so a
-  // change saved meanwhile would never be read: it is held instead, and
-  // read once that read ends, however it ends.
+  // A read of the data file is in flight, or owed; the first starts as its
+  // path is set. Quickshell 0.3.1 ignores a reload() asked for while one is,
+  // so a change saved meanwhile would never be read: it is held instead,
+  // and read once that read ends, however it ends.
   property bool dataReading: true
   property bool dataChangedMeanwhile: false
   function readDataFile() {
@@ -277,17 +277,21 @@ Item {
       root.dataChangedMeanwhile = true
       return
     }
+    root.startDataRead()
+  }
+  function startDataRead() {
     root.dataReading = true
     dataFile.reload()
   }
-  // TAKE, when the read found something, takes it before a change held
-  // during the read is read.
+  // TAKE, when the read found something, takes it first. A change held
+  // during the read is read once the handler has returned: Quickshell lets
+  // go of a read only after its loaded or loadFailed handlers have run.
   function dataReadEnded(take) {
     var again = root.dataChangedMeanwhile
-    root.dataReading = false
+    root.dataReading = again
     root.dataChangedMeanwhile = false
     if (take) take()
-    if (again) root.readDataFile()
+    if (again) Qt.callLater(root.startDataRead)
   }
 
   Gate {
