@@ -5,8 +5,13 @@
 # file that fails to load) reads as an exit, not a crash, an ordinary pass
 # and failure read as before, and however a run ends nothing it started is
 # still running, in its group or out of it, while a process the run did not
-# start, and another run side by side, are left alone. The stand-in dies on
-# a real signal with its core dump turned off (prctl PR_SET_DUMPABLE, 0:
+# start, and another run side by side, are left alone. However a run ends,
+# too, it leaves nothing in the session's runtime folder, where the
+# stand-in, as Quickshell does, makes its instance's folder under the
+# XDG_RUNTIME_DIR it is given; its own runtime folder is gone, the
+# session's entries reachable through it while it ran; and a run whose
+# Quickshell says it saved in the session's folder fails. The stand-in dies
+# on a real signal with its core dump turned off (prctl PR_SET_DUMPABLE, 0:
 # prctl(2)), so no core is written and no one is notified. Prints FAILED per
 # miss.
 set -uo pipefail
@@ -33,17 +38,33 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 failed=0
 miss() { echo "FAILED $*"; failed=1; }
+# The session's runtime folder as the runs see it: a fake one, so the check
+# never writes in the real one. Its Wayland socket stands in as a file.
+export XDG_RUNTIME_DIR=$tmp/xdg STANDIN_SESSION=$tmp/xdg
+mkdir -p "$XDG_RUNTIME_DIR"
+echo socket > "$XDG_RUNTIME_DIR/wayland-0"
 
-# The stand-in: STANDIN says what it does. With STANDIN_LEAVE it first
-# leaves a process in its group, one that clears its environment, mark and
-# all, so only the group's stop can reach it; with STANDIN_LEAVE=both also
-# one out of the group, as a detached start does. Their pids, and its own,
-# go in STANDIN_DIR.
+# The stand-in: STANDIN says what it does. It first makes its instance's
+# folder where Quickshell would, and notes the runtime folder it was given
+# and what the session's Wayland entry read there. With STANDIN_LEAVE it
+# then leaves a process in its group, one that clears its environment, mark
+# and all, so only the group's stop can reach it; with STANDIN_LEAVE=both
+# also one out of the group, as a detached start does. Their pids, and its
+# own, go in STANDIN_DIR. Mode pass-saved says, as Quickshell's log does,
+# that it saved in the session's runtime folder.
 mkdir -p "$tmp/bin"
 cat > "$tmp/bin/quickshell" << 'EOF'
 #!/usr/bin/python3
 import ctypes, os, signal, subprocess, sys, time
 mode, folder, leave = os.environ["STANDIN"], os.environ["STANDIN_DIR"], os.environ.get("STANDIN_LEAVE")
+runtime = os.environ["XDG_RUNTIME_DIR"]
+os.makedirs("%s/quickshell/by-id/%d" % (runtime, os.getpid()))
+open(folder + "/runtime", "w").write(runtime + "\n")
+try:
+    wayland = open(runtime + "/wayland-0").read().strip()
+except OSError:
+    wayland = "none"
+open(folder + "/wayland", "w").write(wayland + "\n")
 left = []
 if leave:
     left.append(subprocess.Popen(["sleep", "300"], env={}).pid)
@@ -53,6 +74,8 @@ open(folder + "/left", "w").write(" ".join(map(str, left)) + "\n")
 open(folder + "/pid", "w").write("%d\n" % os.getpid())
 if mode.endswith("-mid"):
     print("PASS a step before it", flush=True)
+if mode == "pass-saved":
+    print('  INFO: Saving logs to "%s/quickshell/by-id/%d/log.qslog"' % (os.environ["STANDIN_SESSION"], os.getpid()), flush=True)
 if mode.startswith(("abort", "segv")):
     ctypes.CDLL(None).prctl(4, 0)  # PR_SET_DUMPABLE: no core dump
     os.kill(os.getpid(), signal.SIGABRT if mode.startswith("abort") else signal.SIGSEGV)
@@ -71,14 +94,21 @@ setsid sleep 300 < /dev/null > /dev/null 2>&1 &
 bystander=$!
 
 alive() { kill -0 "$1" 2> /dev/null; }
-# gone CASE: nothing CASE's run started is still running.
+# gone CASE: nothing CASE's run started is still running, nothing of it is
+# in the session's runtime folder, and its own runtime folder, through which
+# the session's Wayland entry read, is gone.
 gone() {
-  local pid dir=$tmp/$1
+  local pid dir=$tmp/$1 runtime
   for pid in $(cat "$dir/pid" "$dir/left" 2> /dev/null); do
     alive "$pid" && miss "$1: pid $pid is still running ($(tr '\0' ' ' < "/proc/$pid/cmdline"))"
   done
   [ -s "$dir/mark" ] && [ -n "$(marked "$(cat "$dir/mark")")" ] && miss "$1: marked processes still running: $(marked "$(cat "$dir/mark")")"
   alive "$bystander" || miss "$1: a process the run did not start was stopped"
+  [ -e "$XDG_RUNTIME_DIR/quickshell" ] && miss "$1: the session's runtime folder holds $(cd "$XDG_RUNTIME_DIR" && find quickshell -mindepth 2 -maxdepth 2 | tr '\n' ' ')"
+  runtime=$(cat "$dir/runtime" 2> /dev/null)
+  if [ -z "$runtime" ]; then miss "$1: the stand-in never said its runtime folder"
+  elif [ "$runtime" != "$XDG_RUNTIME_DIR" ] && [ -e "$runtime" ]; then miss "$1: its runtime folder $runtime is still there"; fi
+  [ "$(cat "$dir/wayland" 2> /dev/null)" = socket ] || miss "$1: the session's Wayland entry read '$(cat "$dir/wayland" 2> /dev/null)' from its runtime folder"
 }
 
 # harness CASE MODE SECONDS [LEAVE] [EARLY]: one run in a harness of its
@@ -152,6 +182,15 @@ for case in pass fail pass-in; do
   gone "$case"
 done
 
+# A Quickshell whose log says it saved in the session's runtime folder, as
+# one that ignored the run's would: the run fails, naming where.
+harness pass-saved pass-saved 20
+ran "$h" pass-saved
+[ "$code" = 1 ] || miss "pass-saved: code $code, not 1"
+grep -qxF "FAIL Quickshell wrote in the session's runtime folder: \"$XDG_RUNTIME_DIR/quickshell/by-id/$(cat "$tmp/pass-saved/pid" 2> /dev/null)/log.qslog\"" "$tmp/pass-saved/log" \
+  || miss "pass-saved: no FAIL line naming where it saved: $(cat "$tmp/pass-saved/log")"
+gone pass-saved
+
 # An interrupt of a harness: INT as a terminal sends it, TERM as test/all.sh
 # does, each to the harness's group, mid-run; and TERM the moment
 # Quickshell has started, before the harness has recorded its group.
@@ -168,7 +207,7 @@ sleep 0.5
 gone early
 
 # Side by side: one run crashes while another runs; the other's processes
-# are left alone.
+# and its runtime folder are left alone.
 harness side-a hang 60 both; a=$h
 within 5 test -s "$tmp/side-a/left" || miss "side by side: the first stand-in never started"
 harness side-b abort 20 both; b=$h
@@ -177,6 +216,7 @@ gone side-b
 for pid in $(cat "$tmp/side-a/pid" "$tmp/side-a/left"); do
   alive "$pid" || miss "side by side: the other run's pid $pid was stopped"
 done
+[ -d "$(cat "$tmp/side-a/runtime")/quickshell" ] || miss "side by side: the other run's runtime folder was removed"
 kill -TERM -- "-$a"
 wait "$a" 2> /dev/null
 gone side-a
