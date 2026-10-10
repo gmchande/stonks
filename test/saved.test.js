@@ -1242,7 +1242,14 @@ test("the header's animal sleeps while its market does: by phase and calendar, n
   expect(asleep(fakeOpen, labor)).toBe(true)
   const nbis = savedDay("sweep-2026-10-07-1455", "nbis")
   expect([asleep(nbis, at("2026-11-26", "12:00")), asleep(nbis, at("2026-11-25", "22:00"))]).toEqual([true, true])
-  // The data's age never sends it to sleep: Wednesday's answer held into
-  // Thursday's session is awake by the calendar.
-  expect(asleep(nbis, at("2026-10-08", "11:00"))).toBe(false)
+  // The data's age never sends it to sleep: Wednesday's answers held into
+  // Thursday are awake by the calendar through its pre-market, session, and
+  // after hours, PSIX asleep in the nights around them and NBIS, whose
+  // nights trade, awake; the index has no pre-market.
+  const thursday = ["03:00", "06:00", "11:00", "17:00", "21:00"].map(clock => at("2026-10-08", clock))
+  const psix = savedDay("sweep-2026-10-07-1455", "psix")
+  expect([nbis, psix].map(q => thursday.map(t => asleep(q, t))))
+    .toEqual([[false, false, false, false, false], [true, false, false, false, true]])
+  const gspc = savedDay("sweep-2026-10-07-1455", "gspc")
+  expect([asleep(gspc, at("2026-10-08", "06:00")), asleep(gspc, at("2026-10-08", "11:00"))]).toEqual([true, false])
 })
