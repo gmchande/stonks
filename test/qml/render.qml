@@ -40,6 +40,13 @@ ShellRoot {
   // The popup while adding, and the window at the size App.qml permits.
   readonly property bool searchState: stateName.indexOf("-search") >= 0
   readonly property bool minWindow: stateName.indexOf("min-window-") === 0
+  // <popup|window>-room-<list>-<moment>-<look>: search on a list of one,
+  // four, or five rows, or the empty named list Energy, as it opens, with
+  // one result, five, none, no answer, or an answer of long symbols.
+  readonly property var room: {
+    var match = /^(popup|window)-room-(one|four|five|energy)-(open|one|five|none|failed|long)-(smooth|retro)$/.exec(stateName)
+    return match ? { list: match[2], moment: match[3] } : null
+  }
   // window-1416-<look>: the tiled window at the full 1416 by 850 the live run
   // measured, the 22-symbol list.
   readonly property int windowWidth: {
@@ -48,9 +55,8 @@ ShellRoot {
   }
   // <popup|window>-order-<falls|rises>-<look>: the order word both ways.
   readonly property bool orderState: /^(popup|window)-order-(falls|rises)-/.test(stateName)
-  readonly property bool bigList: !!w22 || minWindow || windowWidth > 0 || stateName.indexOf("popup-search-") === 0
-    || stateName.indexOf("popup-price") === 0
-    || stateName.indexOf("popup-waiting-") === 0 || stateName.indexOf("popup-rowstates-") === 0
+  readonly property bool bigList: !!w22 || !!room || minWindow || windowWidth > 0 || stateName.indexOf("popup-search-") === 0
+    || stateName.indexOf("popup-price") === 0 || stateName.indexOf("popup-rowstates-") === 0
     || stateName.indexOf("popup-note-") === 0 || stateName.indexOf("window-note-") === 0 || stateName.indexOf("popup-lists-") === 0
     || stateName.indexOf("popup-rowlines-") === 0 || stateName.indexOf("popup-52w-") === 0
     || stateName.indexOf("popup-breadth-even-") === 0
@@ -442,6 +448,17 @@ ShellRoot {
         stub.symbols = ["MU", "BRK-A", "LONG", "MSFT", "TSLA", "AMZN"]
         stub.shown = stub.symbols.slice()
       }
+      // <surface>-room-*: All of one, four, or five rows, or the empty
+      // named list Energy beside All.
+      if (root.room) {
+        var lists = { one: ["AAPL"], four: ["AAPL", "NVDA", "MSFT", "SPY"], five: ["NVDA", "AAPL", "MSFT", "SPY", "TSLA"], energy: [] }
+        if (root.room.list === "energy") {
+          stub.library = stub.symbols.slice()
+          stub.listName = "Energy"
+        }
+        stub.symbols = lists[root.room.list]
+        stub.shown = stub.symbols.slice()
+      }
       // The order word both ways: All by % change, the biggest gain first
       // and, reversed, the biggest loss first.
       if (root.orderState) {
@@ -537,9 +554,32 @@ ShellRoot {
       // shows a sorted order's instead, without J K and the drag.
       stub.order = root.help.sorted ? "pct" : "manual"
       body.showingHelp = true
-    } else if (root.stateName.indexOf("popup-waiting-") === 0) {
-      // Search open, its first answer still out: the rows stay.
+    } else if (root.room) {
+      // Search open: as it opens, or with an answer for what the field says.
       body.adding = true
+      var moment = root.room.moment
+      var saved = Search.parseSearch(JSON.parse(searchFile.text()))
+      // Yahoo's answer for "wrapped btc", 9 October 2026: long symbols.
+      var coins = [["XBTC39577-USD", "OKX Wrapped BTC USD"], ["CBBTC32994-USD", "Coinbase Wrapped BTC USD"],
+        ["KBTC33513-USD", "Kraken Wrapped Bitcoin USD"], ["WBTC-USD", "Wrapped Bitcoin USD"],
+        ["CIRBTC-USD", "Circle Wrapped Bitcoin USD"]].map(function(c) { return { symbol: c[0], name: c[1], exchange: "CCC" } })
+      var query = moment === "long" ? "wrapped btc" : moment === "none" ? "ZZZ" : moment === "failed" ? "OOPS" : "SHOP"
+      if (moment !== "open") {
+        body.search.results = moment === "long" ? coins : moment === "one" ? saved.slice(0, 1) : moment === "five" ? saved.slice(0, 5) : []
+        body.search.searchText = query
+        body.search.resultsQuery = query
+        body.search.answer = moment === "none" ? "none" : moment === "failed" ? "failed" : "results"
+        // The field says the query; the same text asks for nothing.
+        var field = function(item) {
+          if (item.objectName === "searchField") return item
+          for (var i = 0; i < item.children.length; i++) {
+            var found = field(item.children[i])
+            if (found) return found
+          }
+          return null
+        }
+        field(body.search).text = query
+      }
     } else if (root.stateName.indexOf("popup-rowstates-") === 0) {
       // Featured, cursor, and a row that has not moved, side by side.
       body.watchlist.cursorSymbol = stub.shown[2]

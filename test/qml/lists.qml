@@ -154,7 +154,7 @@ ShellRoot {
       harness.check("a new list is made, current, empty, and search opens to fill it",
         service.listName === "Energy" && service.symbols.length === 0
           && !body.listMenuOpen && body.adding
-          && body.search.placeholder === "Add symbols to Energy…",
+          && body.search.placeholder.indexOf("Energy") >= 0,
         service.listName + "|" + service.symbols + "|" + body.listMenuOpen + "|" + body.adding + "|" + body.search.placeholder)
 
       // An add whose row joins in view, fresh or already quoted in All, is

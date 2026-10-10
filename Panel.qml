@@ -35,7 +35,7 @@ Panel {
   // While the popup is open its edge eases to that height, so a view that
   // changes it moves the edge instead of jumping it; the body lays out at
   // the new height at once and the card's edge reveals or covers it, the
-  // footer or the search field riding it. The shell's card is an item
+  // footer riding it. The shell's card is an item
   // inside a full-screen surface, so no window resizes. Closing stops the
   // edge where it is for the fade. An open from closed settles it before
   // the first frame; one during the close's fade eases from where it is.
