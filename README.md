@@ -58,7 +58,10 @@ sparkline, an arrow tilted by the size of the move, text with the price
 ("NBIS 235.62 −5.70%"; the symbol and change alone on a vertical bar), and
 Stonks' mark alone: a little chart in cells, in the day's up or down colour, that
 climbs on an up day and falls on a down one, and names the symbol and its
-change when you hover it. In the bar's right section, among
+change when you hover it. The sparkline and the arrow name the company and
+the market's phase on hover; the text says it all already, so its hover is
+quiet. A "!" before the change means a refresh failed or is overdue, and
+hovering any form says which. In the bar's right section, among
 Omarchy's own icons, the pill is that icon until you middle-click it there,
 and it keeps the form you pick there for the right; the centre and left keep
 theirs, and moving the pill brings back each section's own. Right click
@@ -166,7 +169,7 @@ Adding on a named list puts the symbol in that list and in All; removing on a
 named list takes it out of that list only, and removing on All takes it out
 of every list. All always keeps one symbol; a named list may be empty. Each
 list keeps its own order and direction: click the order word above the rows,
-or press `o`, to cycle manual, symbol, name, % change, and $ change, and
+or press `o`, to cycle manual, symbol, name, and % change, and
 Shift-click it, or press `Shift+O`, to run a sorted order the other way, so
 % change can put the biggest losers first. The arrow before the word says
 which way the values run down the list: `↓` from the largest, `↑` from the
@@ -183,7 +186,7 @@ out, and unticking All removes it everywhere.
 Rows can be moved by hand only while manual order is shown. Click the change
 to cycle percent, currency amount, and percent since the open; that is the
 day's change, so on a range it changes the rows and the hero keeps the
-range's. Sorting by % or $ change ranks the rows and leaves what they show
+range's. Sorting by % change ranks the rows and leaves what they show
 alone. In search, the top result is chosen to start with, and the arrows
 choose another; the hero shows the chosen result before you add it: its
 price, chart, and figures, on the range you are on. Enter adds it, or click
@@ -229,8 +232,7 @@ columns, and pixel sparklines. Both put a bull in the header when the
 featured chart is up and a bear when it is down, at the moment shown, drawn
 as a line in smooth and in pixels in retro, and none on a flat day: a
 scrub or a replay across the close turns one into the other. Click the
-animal to replay the shown chart;
-shift-click cycles Auto, bull, and bear. Both looks draw every range the same
+animal to replay the shown chart. Both looks draw every range the same
 way: the line or columns and the area to the baseline (the previous close,
 or the price the range started at) in the up colour above it and the down
 colour below, and the rows' lines do the same. Up is the theme's green and
