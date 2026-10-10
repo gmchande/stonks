@@ -210,7 +210,6 @@ and what the mouse does. Every key is in this table:
 | `h` `l` | Scrub one chart step (popup) |
 | `[` `]` | Change the chart range |
 | `p` | Replay the shown chart |
-| `Shift+P` | Replay it in slow motion |
 | `a` or `+` | Search and add a symbol |
 | `x` | Remove the cursor row |
 | `u` | Undo a removal, while the footer offers it |
@@ -246,7 +245,6 @@ Both looks leave a gap where the market paused: Tokyo's lunch break, and a
 quiet night. 5Y, 10Y, and All use a log
 scale. Smooth signs changes with +
 and −, retro with ▲ and ▼. Switching looks moves nothing but the digits.
-Shift-click the chart, or `Shift+P`, for the slow-motion replay.
 
 All, the named lists, each list's order and direction, the current list, the
 featured symbol, the chart range, look, change mode, refresh interval, and

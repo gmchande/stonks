@@ -125,11 +125,7 @@ Item {
         else if (event.text === "r") { root.refresh(); event.accepted = true }
         else if (event.text === "[") { body.stepRange(-1); event.accepted = true }
         else if (event.text === "]") { body.stepRange(1); event.accepted = true }
-        else if (event.key === Qt.Key_P
-            && (event.modifiers === Qt.NoModifier || event.modifiers === Qt.ShiftModifier)) {
-          body.replay(event.modifiers === Qt.ShiftModifier)
-          event.accepted = true
-        }
+        else if (event.key === Qt.Key_P && event.modifiers === Qt.NoModifier) { body.replay(); event.accepted = true }
         else if (event.text === "s") { body.toggleStyle(); event.accepted = true }
         else if (event.text === "o") { body.cycleOrder(); event.accepted = true }
         else if (event.text === "O") { body.reverseOrder(); event.accepted = true }

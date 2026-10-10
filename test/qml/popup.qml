@@ -661,7 +661,7 @@ ShellRoot {
             inHand && onItsWay, inHand + "|" + onItsWay)
           panel.testBody.selectRange("1D")
           // Closing mid-replay keeps the chart as far as the replay had drawn it.
-          panel.testBody.replay(false)
+          panel.testBody.replay()
           panel.close()
           test.check("closing mid-replay keeps what the replay had drawn",
             motion.replayRunning && motion.drawn < 1 && panel.testBody.scrubT !== 0,

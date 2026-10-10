@@ -206,7 +206,7 @@ ShellRoot {
       }
       curtain.widthChanged.connect(watch)
       pixelChart.scrubColumnChanged.connect(watch)
-      body.replay(false)
+      body.replay()
       within(4000, function() { return !body.motion.replayRunning })
       curtain.widthChanged.disconnect(watch)
       pixelChart.scrubColumnChanged.disconnect(watch)
@@ -516,7 +516,7 @@ ShellRoot {
           scrubAt(0)
           var edge = body.headerText + " | " + body.featured.priceText
           endScrub()
-          body.replay(false)
+          body.replay()
           var replayed = body.headerText + " | " + body.featured.priceText
           body.motion.clearScrub()
           var first = "At " + print[2] + " · Overnight | " + print[3]

@@ -353,7 +353,7 @@ ShellRoot {
         body.motion.drawnChanged.connect(watch)
         change()
         var held = [hero() === shown, body.motion.drawn === 1, body.headerText === coming].join(",")
-        body.replay(false)
+        body.replay()
         var noReplay = !body.motion.replayRunning
         settle(key)
         body.motion.drawnChanged.disconnect(watch)
@@ -1132,7 +1132,7 @@ ShellRoot {
       // A held chart takes no replay: 1W draws in clean.
       var toUncachedWeek = switchChart(function() { service.setRange("1W") }, "SLOW|1W", function() {
         wait(50)
-        body.replay(true)
+        body.replay()
       })
       harness.check("6M to an uncached 1W keeps 6M under Loading until 1W lands, then draws 1W in, with no replay on the held chart",
         toUncachedWeek.states === "AB" && toUncachedWeek.loading && toUncachedWeek.drewIn && !toUncachedWeek.carried

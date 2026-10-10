@@ -369,7 +369,7 @@ ShellRoot {
         // Watch the whole sweep: its furthest moment is the last print, and
         // it reaches it rather than stopping short.
         body.motion.scrubT = 0
-        body.replay(false)
+        body.replay()
         var furthest = 0
         var sampled = 0
         while (body.motion.replayRunning && sampled < 80) {

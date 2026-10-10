@@ -66,7 +66,6 @@ Item {
   signal listClicked()
   signal scrubRequested(real fraction)
   signal scrubCleared()
-  signal slowReplayRequested()
   signal snapToNow()
   signal rangeRequested(string range)
 
@@ -161,10 +160,7 @@ Item {
           if (!root.replayRunning) root.scrubRequested(root.retro ? mouse.x / width : dayChart.fractionAt(mouse.x))
         }
         onExited: if (!root.replayRunning) root.scrubCleared()
-        onClicked: function(mouse) {
-          if (mouse.modifiers & Qt.ShiftModifier) root.slowReplayRequested()
-          else root.snapToNow()
-        }
+        onClicked: root.snapToNow()
       }
     }
 

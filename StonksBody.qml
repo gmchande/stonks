@@ -472,9 +472,9 @@ Item {
   }
 
   // A replay plays the shown chart; the motion runs it.
-  function replay(slow) {
+  function replay() {
     showingHelp = false
-    motion.replay(slow)
+    motion.replay()
   }
 
   // Back from a scrub or a replay to now; false when there was none.
@@ -728,7 +728,7 @@ Item {
     fontFamily: root.fontFamily
     onStyleRequested: function(v) { root.setStyle(v) }
     onHelpRequested: root.toggleHelp()
-    onReplayRequested: root.replay(false)
+    onReplayRequested: root.replay()
   }
 
   HeroBand {
@@ -785,7 +785,6 @@ Item {
     onListClicked: root.listMenuOpen ? root.closeListMenu() : root.openListMenu()
     onScrubRequested: function(fraction) { motion.scrubTo(fraction) }
     onScrubCleared: if (root.surfaceOpen) motion.clearScrub()
-    onSlowReplayRequested: root.replay(true)
     onSnapToNow: motion.clearScrub()
     onRangeRequested: function(value) { root.selectRange(value) }
   }

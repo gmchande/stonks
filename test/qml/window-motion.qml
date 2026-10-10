@@ -84,20 +84,6 @@ ShellRoot {
       return fn()
     }
 
-    // A range replay's position about 300 ms after `startedAt`, against
-    // where a 4 s replay would be by then: a slow (8 s) one is always
-    // behind it, a fast (2 s) one never is. The body eases the position
-    // in and out of a sine.
-    function replayPace(body, startedAt) {
-      wait(300)
-      var elapsed = Date.now() - startedAt
-      var fourSeconds = (1 - Math.cos(Math.PI * Math.min(1, elapsed / 4000))) / 2
-      return {
-        slow: body.motion.replayPosition > 0 && body.motion.replayPosition < fourSeconds,
-        detail: body.motion.replayPosition + " at " + elapsed + " ms; a 4 s replay: " + fourSeconds
-      }
-    }
-
     // `symbol`'s quote as the next session's: every time in it a day later.
     function nextDay(symbol) {
       var shift = function(value, key) {
@@ -159,8 +145,8 @@ ShellRoot {
         scrubEnded === "true,true" && replayEnded === "true,true", scrubEnded + " | " + replayEnded)
 
       // So does a range's: a refetch whose history no longer covers the bar
-      // a replay has reached ends the replay, not only its scrub, fast in
-      // smooth and slow in retro. Found in the review of the transitions
+      // a replay has reached ends the replay, not only its scrub, in smooth
+      // and in retro. Found in the review of the transitions
       // branch: the replay ran on, jumping to another date.
       service.setRange("1W")
       within(5000, function() { return body.historyShown && !body.chartLoading })
@@ -172,25 +158,25 @@ ShellRoot {
         next["AAPL|1W"] = Object.assign({}, entry, { history: history })
         service.testHistoryFeed.entries = next
       }
-      var rangeReplay = function(slow, look) {
+      var rangeReplay = function(look) {
         service.persist({ style: look })
         wait(100)
-        body.replay(slow)
+        body.replay()
         wait(300)
         var replaying = body.motion.replayRunning && body.scrubT !== 0
         laterWeek()
         wait(100)
         return replaying + "," + (!body.motion.replayRunning && body.scrubT === 0)
       }
-      var fastSmooth = rangeReplay(false, "smooth")
-      var slowRetro = rangeReplay(true, "retro")
+      var inSmooth = rangeReplay("smooth")
+      var inRetro = rangeReplay("retro")
       service.persist({ style: "smooth" })
       service.refresh()
       within(5000, function() { return !service.testHistoryFeed.busy && service.histories["AAPL|1W"].status === "ok" })
       service.setRange("1D")
       within(2000, function() { return !body.chartLoading })
-      harness.check("a refetch that no longer covers a range replay ends it, fast in smooth and slow in retro",
-        fastSmooth === "true,true" && slowRetro === "true,true", fastSmooth + " | " + slowRetro)
+      harness.check("a refetch that no longer covers a range replay ends it, in smooth and in retro",
+        inSmooth === "true,true" && inRetro === "true,true", inSmooth + " | " + inRetro)
 
       // The hero's change is a target only where a click changes it: the
       // day's change, not a range's, which is always its percentage. On 1W in
@@ -328,7 +314,7 @@ ShellRoot {
       }
       var afterOpen = startsOver(function() { app.close(); app.open("{}") })
       var afterRange = startsOver(function() { service.setRange("1W"); rest(); service.setRange("1D") })
-      var midReplay = startsOver(function() { body.replay(false) })
+      var midReplay = startsOver(function() { body.replay() })
       harness.check("a row featured mid draw-in or mid-replay draws its chart in from the start: after an open, a range change, and in a replay",
         /^true /.test(afterOpen) && /^true /.test(afterRange) && /^true /.test(midReplay),
         afterOpen + " | " + afterRange + " | " + midReplay)
@@ -782,15 +768,6 @@ ShellRoot {
       service.persist({ style: "smooth" })
       tryVerify(function() { return !body.retro }, 2000)
 
-      // A slow replay takes 8 s, a fast one 2 s; read the pace 300 ms in.
-      var slowStart = Date.now()
-      mouseClick(body.chartItem, body.chartItem.width / 2, body.chartItem.height / 2,
-        Qt.LeftButton, Qt.ShiftModifier)
-      var pace = replayPace(body, slowStart)
-      harness.check("Shift-clicking the chart slowly replays a historical range",
-        body.motion.replayRunning && body.motion.drawn < 1 && pace.slow, pace.detail)
-      body.resetInteraction()
-
       keys.forceActiveFocus()
       keyClick(Qt.Key_P)
       harness.check("P replays a historical range",
@@ -807,14 +784,6 @@ ShellRoot {
       wait(20)
       harness.check("Escape stops range replay before closing the window",
         app.testWindow.visible && !body.motion.replayRunning && body.scrubT === 0 && body.motion.drawn === 1)
-
-      keys.forceActiveFocus()
-      slowStart = Date.now()
-      keyClick(Qt.Key_P, Qt.ShiftModifier)
-      pace = replayPace(body, slowStart)
-      harness.check("Shift+P slowly replays a historical range",
-        body.motion.replayRunning && body.motion.drawn < 1 && pace.slow, pace.detail)
-      body.resetInteraction()
 
       sixRows(body, "MSFT", "1D")
 
