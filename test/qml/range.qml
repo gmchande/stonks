@@ -160,11 +160,15 @@ ShellRoot {
     }
   }
 
+  // The bar mirrors its ink and urgent onto the facade, as Bar.qml does.
   PluginBarApi {
     id: barApi
     pluginId: "grvc.stonks"
     moduleName: "grvc.stonks"
     shell: shellApi
+    foreground: Color.bar.text
+    barForeground: Color.bar.text
+    urgent: Color.bar.active
   }
 
   // The two pills, each in a Loader, so a flow can take one away as an
@@ -957,8 +961,9 @@ ShellRoot {
       var pillChange = harness.find(pill, "pillChange")
       harness.check("the pill waits quietly while the first fetch is out",
         service.featuredSymbol === "FAIL" && pillChange.text === "…", service.featuredSymbol + "|" + pillChange.text)
-      harness.check("the pill says no data when the first fetch failed",
-        within(10000, function() { return pillChange.text === "! no data" }), pillChange.text)
+      harness.check("the pill says no data in the bar's urgent when the first fetch failed",
+        within(10000, function() { return pillChange.text === "! no data" && Qt.colorEqual(pillChange.color, barApi.urgent) }),
+        pillChange.text + " in " + pillChange.color)
       // The "!" names itself on hover on every form, the text's included,
       // in the popup's words; the text's says nothing else.
       var warningTips = hoverEveryForm()
@@ -1168,10 +1173,10 @@ ShellRoot {
       service.removeSymbol("SLOW")
 
       // On 6M every bar style, in both looks, shows the featured symbol's
-      // day, as its row does, and names no range; so does the vertical bar.
-      // DOWN's day fell and its history rose, so a figure or a colour from
-      // the range shows. FAIL, added above, would keep DOWN's first fetch
-      // behind its retries.
+      // day, as its row does, in the bar's ink, and names no range; so does
+      // the vertical bar. DOWN's day fell and its history rose, so a figure
+      // or a direction from the range shows. FAIL, added above, would keep
+      // DOWN's first fetch behind its retries.
       service.removeSymbol("FAIL")
       service.addSymbol("DOWN")
       tryVerify(function() { return !!service.quotes.DOWN && service.arriving.length === 0 }, 10000)
@@ -1180,8 +1185,8 @@ ShellRoot {
       app.close()
       var downDay = Figures.rowModel(service.quotes.DOWN, 0, service.changeMode)
       var downRange = History.historyRowModel(service.histories["DOWN|6M"].history, service.quotes.DOWN, 0)
-      var dayWrong = pillInEveryStyle(function(retro) { return Format.lookSigns(downDay.changeLine, retro) }, Color.urgent)
-      harness.check("on 6M every bar style in both looks shows the day in its colour, and a middle-click keeps the entry's other keys",
+      var dayWrong = pillInEveryStyle(function(retro) { return Format.lookSigns(downDay.changeLine, retro) }, barApi.barForeground)
+      harness.check("on 6M every bar style in both looks shows the day in the bar's ink, and a middle-click keeps the entry's other keys",
         service.range === "6M" && downDay.tone === "down" && downRange.tone === "up" && dayWrong.length === 0,
         service.range + " " + downDay.tone + "/" + downRange.tone + " " + dayWrong.join(" | "))
 
@@ -1199,7 +1204,7 @@ ShellRoot {
         // a minus and a "%" at its ends, is a pixel past each side of the
         // bar, as the old two-decimal figure without its "%" was.
         var wantChange = Format.lookSigns(Format.narrowPct(downDay.pct), service.retro)
-        if (daySymbol.text !== "DOWN" || dayChange.text !== wantChange || !Qt.colorEqual(dayChange.color, Color.urgent)
+        if (daySymbol.text !== "DOWN" || dayChange.text !== wantChange || !Qt.colorEqual(dayChange.color, barApi.barForeground)
             || !/%$/.test(dayChange.text) || dayChange.tightWidth > Style.bar.sizeVertical + 2)
           verticalWrong.push((service.retro ? "retro" : "smooth") + ": " + daySymbol.text + " " + dayChange.text
             + " in " + dayChange.color + ", " + Math.ceil(dayChange.tightWidth) + " px across a " + Style.bar.sizeVertical
@@ -1207,7 +1212,7 @@ ShellRoot {
         // The icon form on a vertical bar: the mark alone, falling, in one slot.
         pill.settings = Object.assign({}, settingsBefore, { barStyle: "icon" })
         var verticalMark = harness.find(pill, "pillMark")
-        if (!verticalMark.visible || daySymbol.visible || !Qt.colorEqual(verticalMark.color, Color.urgent)
+        if (!verticalMark.visible || daySymbol.visible || !Qt.colorEqual(verticalMark.color, barApi.barForeground)
             || harness.markWay(verticalMark) !== "falls" || pill.implicitHeight !== Style.bar.iconSlot)
           verticalWrong.push((service.retro ? "retro" : "smooth") + " icon: mark " + verticalMark.visible + " in "
             + verticalMark.color + ", " + harness.markWay(verticalMark) + ", symbol " + daySymbol.visible + ", "
@@ -1240,7 +1245,7 @@ ShellRoot {
       barApi.barSize = 0
       pill.settings = settingsBefore
       service.persist({ style: "smooth" })
-      harness.check("a vertical bar shows the day on 6M, in its colour, its change with its % across the bar, in both looks, and the icon form as the mark alone in one slot",
+      harness.check("a vertical bar shows the day on 6M, in the bar's ink, its change with its % across the bar, in both looks, and the icon form as the mark alone in one slot",
         verticalWrong.length === 0, verticalWrong.join(" | "))
       harness.check("a saved arrow is the arrow again on a horizontal bar, and on a vertical one every middle-click changes what shows",
         walk.join(",") === "arrow stacked,arrow arrow,icon mark,sparkline stacked,icon mark", walk.join(","))
@@ -1264,16 +1269,16 @@ ShellRoot {
       }
       var centreForm = formIn("center")
       var movedRight = formIn("right")
-      // The mark climbs on an up day and falls on a down one, in the day's
-      // colour: the shape says the direction without the colour.
+      // The mark climbs on an up day and falls on a down one, in the bar's
+      // ink both ways: the shape says the direction, not a colour.
       var mark = harness.find(pill, "pillMark")
       var upSymbol = service.library.filter(function(s) {
         return !!service.quotes[s] && Figures.rowModel(service.quotes[s], 0, service.changeMode).tone === "up"
       })[0] || ""
       service.feature(upSymbol)
-      var onUpDay = upSymbol + " " + harness.markWay(mark) + (Qt.colorEqual(mark.color, "#9ece6a") ? " up colour" : " " + mark.color)
+      var onUpDay = upSymbol + " " + harness.markWay(mark) + (Qt.colorEqual(mark.color, barApi.barForeground) ? " ink" : " " + mark.color)
       service.feature("DOWN")
-      var onDownDay = "DOWN " + harness.markWay(mark) + (Qt.colorEqual(mark.color, Color.urgent) ? " down colour" : " " + mark.color)
+      var onDownDay = "DOWN " + harness.markWay(mark) + (Qt.colorEqual(mark.color, barApi.barForeground) ? " ink" : " " + mark.color)
       middleClick()
       middleClick()
       var pickedRight = pill.barStyle
@@ -1284,9 +1289,9 @@ ShellRoot {
       var backOnRight = formIn("right")
       barApi.layoutConfig = ({})
       pill.settings = settingsBeforeMove
-      harness.check("on the right the pill is its mark, climbing on an up day and falling on a down one, until a middle-click there picks a form, kept for the right; the centre and left keep theirs",
+      harness.check("on the right the pill is its mark, climbing on an up day and falling on a down one in the bar's ink, until a middle-click there picks a form, kept for the right; the centre and left keep theirs",
         centreForm === "sparkline" && movedRight === "icon alone" && pickedRight === "arrow"
-          && onUpDay === upSymbol + " climbs up colour" && upSymbol !== "" && onDownDay === "DOWN falls down colour"
+          && onUpDay === upSymbol + " climbs ink" && upSymbol !== "" && onDownDay === "DOWN falls ink"
           && wrote.barStyleRight === "arrow" && wrote.barStyle === "sparkline"
           && backInCentre === "sparkline" && onLeft === "sparkline" && backOnRight === "arrow",
         [centreForm, movedRight, onUpDay, onDownDay, pickedRight, JSON.stringify(wrote), backInCentre, onLeft, backOnRight].join(" | "))
@@ -1307,9 +1312,10 @@ ShellRoot {
       // Hackerman's green is too close to its red, a green too, so up there
       // is its foreground. A theme that differs from the last in its green
       // alone (Tokyo Night with Kanagawa's) is read too: found in review,
-      // its green stayed the last one's.
+      // its green stayed the last one's. Read on the window's row: the pill
+      // is in the bar's ink.
       service.feature(upSymbol)
-      var change = harness.find(pill, "pillChange")
+      var upRow = body.watchlist.rowItem(upSymbol)
       var upIn = function(theme, command) {
         var before = plugin.trendColors.green
         harness.themeCopied = false
@@ -1322,11 +1328,11 @@ ShellRoot {
         Color.loadShell("")
         view.destroy()
         within(2000, function() { return plugin.trendColors.green !== before })
-        return theme + " " + change.color
+        return theme + " " + upRow.trend
       }
       var greenOnly = ["sh", "-c", "sed 's/^green = .*/green = \"#76946a\"/' /usr/share/omarchy/themes/tokyo-night/colors.toml > '"
         + harness.themeDir + "/colors.toml'"]
-      var upColours = [service.featuredSymbol + " tokyo-night " + change.color, upIn("hackerman"), upIn("kanagawa"), upIn("tokyo-night"),
+      var upColours = [service.featuredSymbol + " tokyo-night " + upRow.trend, upIn("hackerman"), upIn("kanagawa"), upIn("tokyo-night"),
         upIn("tokyo-night with kanagawa's green", greenOnly), upIn("tokyo-night")]
       harness.check("up is the theme's green and follows a theme switch, the foreground where the green is too close to the red",
         upColours.join(" | ") === upSymbol + " tokyo-night #9ece6a | hackerman #ddf7ff | kanagawa #76946a | tokyo-night #9ece6a"
