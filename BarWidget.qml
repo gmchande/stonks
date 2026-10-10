@@ -102,9 +102,14 @@ BarWidget {
       root.bar.shell.updateEntryInline(root.moduleName, entry)
   }
 
+  // A vertical bar draws the line, the arrow, and the text alike, the symbol
+  // over its change, so a middle-click there steps between that and the
+  // icon; a saved arrow or text stays saved, for a horizontal bar, until it
+  // does.
   function cycleBarStyle() {
     var ring = ["sparkline", "arrow", "text", "icon"]
-    root.persistBarStyle(ring[(ring.indexOf(barStyle) + 1) % ring.length])
+    root.persistBarStyle(root.vertical ? (root.iconOnly ? "sparkline" : "icon")
+      : ring[(ring.indexOf(barStyle) + 1) % ring.length])
   }
 
   // Shape contract for shell.summon/hide/toggle routing (Bar.findPanelWidget
@@ -288,7 +293,7 @@ BarWidget {
         objectName: "pillDayChange"
         width: button.width
         height: Style.bar.iconSlot
-        text: root.featured ? Format.lookSigns(Format.pct(root.featured.pct), root.retro).replace("%", "") : "…"
+        text: root.featured ? Format.lookSigns(Format.narrowPct(root.featured.pct), root.retro) : "…"
         fontFamily: button.fontFamily
         fontSize: button.fontSize * 0.85
         color: root.trendColor

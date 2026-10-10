@@ -171,19 +171,21 @@ run time.
   add of the preview takes its answer: a quote, featured at once, or a
   failed first fetch, so the add is done there and its row says it failed.
 - `BarWidget.qml` — the pill; owns the popup loader. Middle click steps its
-  form: sparkline, arrow, text (the symbol, the row's price, and the change
-  on a horizontal bar; no room for the price on a vertical one), and icon,
-  Stonks' mark (`StonksMark`) alone in one icon slot on either bar, whose
-  hover names the symbol and its change. The sparkline's and the arrow's
-  hover names the company and the phase; the text's, which shows its words
-  already, says nothing. While a warning's "!" shows, every form's hover
-  says what it means, in the popup's words (`Figures.freshnessText`). The
-  shell copies a hover's words only as the pointer enters, so while it
+  form: sparkline, arrow, text (the symbol, the row's price, and the change),
+  and icon, Stonks' mark (`StonksMark`) alone in one icon slot on either
+  bar, whose hover names the symbol and its change. The sparkline's and the
+  arrow's hover names the company and the phase; the text's, which shows its
+  words already, says nothing. While a warning's "!" shows, every form's
+  hover says what it means, in the popup's words (`Figures.freshnessText`).
+  The shell copies a hover's words only as the pointer enters, so while it
   stays a warning that starts, ends, or changes its words goes to the bar
   again: an answer that lands takes the warning out of the bubble, and the
   text form's bubble with it. A new figure alone leaves an open bubble as
-  it opened, so a resting pointer sees no blink. It
-  reads its section from the bar's layout
+  it opened, so a resting pointer sees no blink. A vertical bar draws the
+  first three alike, the symbol over its change narrowed to five characters
+  (`Format.narrowPct`), so there a middle-click switches between that and
+  the icon, and a saved arrow or text stays saved for a horizontal bar until
+  it does. It reads its section from the bar's layout
   (`bar.layoutConfig`): in the right section its form is `barStyleRight`,
   the icon until a middle-click there writes one, and elsewhere `barStyle`.
   Its right-click asks the window's host to toggle the window.

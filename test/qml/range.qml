@@ -1185,17 +1185,25 @@ ShellRoot {
         service.range === "6M" && downDay.tone === "down" && downRange.tone === "up" && dayWrong.length === 0,
         service.range + " " + downDay.tone + "/" + downRange.tone + " " + dayWrong.join(" | "))
 
+      // A vertical bar is as wide as the shell's bar makes it (Bar.qml's
+      // barSize), and the pill takes that width.
       barApi.vertical = true
+      barApi.barSize = Style.bar.sizeVertical
       var verticalWrong = []
       var settingsBefore = pill.settings
       for (var vlook = 0; vlook < 2; vlook++) {
         service.persist({ style: vlook === 0 ? "smooth" : "retro" })
         var daySymbol = harness.find(pill, "pillDaySymbol")
         var dayChange = harness.find(pill, "pillDayChange")
-        var wantChange = Format.lookSigns(Format.pct(downDay.pct), service.retro).replace("%", "")
-        if (daySymbol.text !== "DOWN" || dayChange.text !== wantChange || !Qt.colorEqual(dayChange.color, Color.urgent))
+        // Its change keeps its "%", narrowed to five characters. Their ink,
+        // a minus and a "%" at its ends, is a pixel past each side of the
+        // bar, as the old two-decimal figure without its "%" was.
+        var wantChange = Format.lookSigns(Format.narrowPct(downDay.pct), service.retro)
+        if (daySymbol.text !== "DOWN" || dayChange.text !== wantChange || !Qt.colorEqual(dayChange.color, Color.urgent)
+            || !/%$/.test(dayChange.text) || dayChange.tightWidth > Style.bar.sizeVertical + 2)
           verticalWrong.push((service.retro ? "retro" : "smooth") + ": " + daySymbol.text + " " + dayChange.text
-            + " in " + dayChange.color + ", want DOWN " + wantChange)
+            + " in " + dayChange.color + ", " + Math.ceil(dayChange.tightWidth) + " px across a " + Style.bar.sizeVertical
+            + " px bar, want DOWN " + wantChange)
         // The icon form on a vertical bar: the mark alone, falling, in one slot.
         pill.settings = Object.assign({}, settingsBefore, { barStyle: "icon" })
         var verticalMark = harness.find(pill, "pillMark")
@@ -1206,10 +1214,31 @@ ShellRoot {
             + pill.implicitHeight + " px tall")
         pill.settings = settingsBefore
       }
+      // There the line, the arrow, and the text draw alike, so every
+      // middle-click changes what shows: the symbol over its change, then
+      // the mark, and back. A saved arrow draws as the others do there, and
+      // as the arrow again on a horizontal bar. Found in a render: two of
+      // four middle-clicks changed nothing.
+      pill.settings = Object.assign({}, settingsBefore, { barStyle: "arrow" })
+      var drawn = function() {
+        return pill.barStyle + " " + (harness.find(pill, "pillMark").visible ? "mark" : harness.find(pill, "pillDaySymbol").visible ? "stacked" : "nothing")
+      }
+      var walk = [drawn()]
+      for (var vclick = 0; vclick < 3; vclick++) {
+        mouseClick(pill, pill.width / 2, pill.height / 2, Qt.MiddleButton)
+        harness.middleClicks++
+        walk.push(drawn())
+      }
+      pill.settings = Object.assign({}, settingsBefore, { barStyle: "arrow" })
       barApi.vertical = false
+      barApi.barSize = 0
+      var arrowAgain = harness.find(pill, "pillArrow").visible
+      pill.settings = settingsBefore
       service.persist({ style: "smooth" })
-      harness.check("a vertical bar shows the day on 6M, in its colour, in both looks, and the icon form as the mark alone in one slot",
+      harness.check("a vertical bar shows the day on 6M, in its colour, its change with its % across the bar, in both looks, and the icon form as the mark alone in one slot",
         verticalWrong.length === 0, verticalWrong.join(" | "))
+      harness.check("on a vertical bar every middle-click changes what shows, and a saved arrow is the arrow again on a horizontal bar",
+        walk.join(",") === "arrow stacked,icon mark,sparkline stacked,icon mark" && arrowAgain, walk.join(",") + " | arrow " + arrowAgain)
 
       // In the bar's right section, among its bare icons, the pill shows its
       // icon until a middle-click there picks another form, which it keeps

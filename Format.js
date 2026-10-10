@@ -127,10 +127,19 @@ function money(value, digits) {
 }
 
 function pct(value) {
+  return isFiniteNumber(value) ? percent(value, pctDigits(Math.abs(value))) : "—"
+}
+
+// A move as a vertical bar's pill has room for, about five characters
+// across its 28 px: one decimal under 10%, none from there, by the figure
+// shown, so 9.96 reads "+10%".
+function narrowPct(value) {
   if (!isFiniteNumber(value)) return "—"
-  var abs = Math.abs(value)
-  var digits = pctDigits(abs)
-  return signText(shownSign(value, digits)) + grouped(abs.toFixed(digits)) + "%"
+  return percent(value, Number(Math.abs(value).toFixed(1)) >= 10 ? 0 : 1)
+}
+
+function percent(value, digits) {
+  return signText(shownSign(value, digits)) + grouped(Math.abs(value).toFixed(digits)) + "%"
 }
 
 // A move in money, signed, in its listing's decimals (`moveDigits`).
