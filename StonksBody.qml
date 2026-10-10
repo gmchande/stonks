@@ -342,11 +342,10 @@ Item {
     showingHelp = false
     if (service) service.persist({ changeMode: Settings.nextChangeMode(changeMode) })
   }
-  function setStyle(style) {
+  function toggleStyle() {
     showingHelp = false
-    if (service) service.persist({ style: style })
+    if (service) service.persist({ style: retro ? "smooth" : "retro" })
   }
-  function toggleStyle() { setStyle(retro ? "smooth" : "retro") }
   function cycleOrder() {
     showingHelp = false
     if (service) service.setOrder(Settings.nextOrder(order))
@@ -685,8 +684,8 @@ Item {
   }
 
   // At rest before the first frame: the rows in their places and the list on
-  // a row, wherever a close stopped the wheel, and the look icon and the
-  // breadth rule on what the surface now reads.
+  // a row, wherever a close stopped the wheel, and the header's animal and
+  // the breadth rule on what the surface now reads.
   function resetInteraction() {
     closeViews()
     showingHelp = false
@@ -726,7 +725,6 @@ Item {
     upColor: root.upColor
     downColor: root.downColor
     fontFamily: root.fontFamily
-    onStyleRequested: function(v) { root.setStyle(v) }
     onHelpRequested: root.toggleHelp()
     onReplayRequested: root.replay()
   }

@@ -551,10 +551,9 @@ ShellRoot {
     // meanwhile. The window hides at once, so its body is put where the
     // popup's close fade leaves the popup's, closed but still on screen.
     // Found in the motion audit (finding 3): the fading card changed chart,
-    // and a removed row left a hole; and in its design review: the look
-    // icon, the breadth rule, and the footer's note went on.
+    // and a removed row left a hole; and in its design review: the
+    // breadth rule and the footer's note went on.
     function closingHolds(body, watchlist, keys) {
-      var icon = harness.find(body, "lookIcon")
       var frames = function(n) {
         var at = grab.frames.length
         tryVerify(function() { return grab.frames.length >= at + n }, 2000)
@@ -584,14 +583,14 @@ ShellRoot {
       mouseMove(body, 1, 1)
       keys.forceActiveFocus()
 
-      // In flight at the close: the look icon's step, the rows closing a
-      // removal's gap, and the breadth rule's ends. Every frame after the
-      // close is the same picture.
-      watchlist.cursorSymbol = "NVDA"
-      keyClick(Qt.Key_X)
-      keyClick(Qt.Key_S)
+      // In flight at the close: the rows closing a removal's gap and the
+      // breadth rule's ends. Every frame after the close is the same
+      // picture. The cursor rests on a row the removal leaves in place
+      // first: a cursor's fill on its way finishes its 60 ms, by design.
+      watchlist.cursorSymbol = "MSFT"
+      wait(100)
+      body.removeRow("NVDA")
       wait(60)
-      var stepping = icon.cells > 0 && icon.cells < 1
       close()
       grab.source = body
       grab.begin("closing-in-flight")
@@ -600,7 +599,6 @@ ShellRoot {
       var inFlight = verdict()
       reopen()
       service.undoRemoval("NVDA")
-      service.persist({ style: "smooth" })
       rest()
 
       // At rest, a removal's note on show: the frames before the close are
@@ -641,9 +639,9 @@ ShellRoot {
       reopen()
       var adopted = [service.featuredSymbol === "MSFT", body.chartSymbol === "MSFT",
         watchlist.displayedSymbols.indexOf("AAPL") < 0, body.motion.reveal < 1].join(",")
-      harness.check("a closing surface stops the look icon, the rows, and the rule where they are, and holds its chart, figures, rows, and note through an answer, another surface's choice, a removal from All, and the note's time; the next open takes the latest and draws in — in flight "
-        + stepping + " " + inFlight.detail + " | at rest " + noted + " " + atRest.detail + " | open " + adopted,
-        stepping && inFlight.ok && noted && atRest.ok && adopted === "true,true,true,true")
+      harness.check("a closing surface stops the rows and the rule where they are, and holds its chart, figures, rows, and note through an answer, another surface's choice, a removal from All, and the note's time; the next open takes the latest and draws in — in flight "
+        + inFlight.detail + " | at rest " + noted + " " + atRest.detail + " | open " + adopted,
+        inFlight.ok && noted && atRest.ok && adopted === "true,true,true,true")
       service.undoRemoval("AAPL")
       service.addSymbol("NVDA")
       service.testFeed.quotes = quotesBefore

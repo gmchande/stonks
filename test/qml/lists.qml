@@ -1253,21 +1253,6 @@ ShellRoot {
       var rowsAgain = !body2.showingHelp
       harness.check("? then a opens search alone, and ? then a row key shows the rows",
         sheetUp && searchOnly && rowsAgain, sheetUp + "|" + searchOnly + "|" + rowsAgain)
-      // So does a click on the header's look, as s does. Found in the review
-      // of the untangle: the click changed the look behind the sheet.
-      keyClick(Qt.Key_Question)
-      wait(50)
-      var lookBefore = service.retro
-      var clickLook = function() {
-        var icon = harness.find(body2, "lookIcon")
-        var over = icon.mapToItem(body2, icon.width / 2, icon.height / 2)
-        mouseClick(body2, over.x, over.y)
-        wait(50)
-      }
-      clickLook()
-      harness.check("a click on the header's look over the key sheet closes it and changes the look once",
-        !body2.showingHelp && service.retro !== lookBefore, body2.showingHelp + "|" + service.retro)
-      clickLook()
 
       // The list menu opens scrolled to its own start, the current list in
       // view, however far the last visit scrolled it. Found in the review of

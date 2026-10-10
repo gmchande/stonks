@@ -500,13 +500,13 @@ ShellRoot {
   }
 
   // A closing popup holds its picture through the card's fade: the card's
-  // edge stops where it was easing, the look icon where it was stepping, and
+  // edge stops where it was easing, and
   // an answer that lands, a hero chosen on another surface, and a removal
   // from All change nothing of its chart, figures, or rows, at the close
   // and through the fade (the next step); the next open takes the latest.
   // Found in the motion audit (finding 3): the fading card changed chart,
-  // and a removed row left a hole; and in its design review: the edge and
-  // the icon went on. The frames as rendered are window-motion.sh's; the
+  // and a removed row left a hole; and in its design review: the edge
+  // went on. The frames as rendered are window-motion.sh's; the
   // popup is never mapped.
   property string heldBefore: ""
   property string heldAtClose: ""
@@ -515,10 +515,9 @@ ShellRoot {
   property var heldQuotes: null
   function shownNow() {
     var body = panel.testBody
-    var icon = test.find(body, "lookIcon")
     return [body.chartSymbol, body.chart ? body.chart.symbol : "none", body.featuredQuote ? body.featuredQuote.price : "none",
       body.watchlist.displayedSymbols.join(","), body.motion.reveal, body.headerText, body.managingLists,
-      panel.testContentHeight, icon.cells.toFixed(4)].join("|")
+      panel.testContentHeight].join("|")
   }
   function closeHolding() {
     var body = panel.testBody
@@ -540,27 +539,21 @@ ShellRoot {
       test.heldAtClose = test.shownNow()
     }
     panel.testContentHeightChanged.connect(closeMid)
-    service.retro = !service.retro
     body.openManageLists()
   }
   function heldThroughFade() {
     var body = panel.testBody
     var throughFade = test.shownNow()
-    var icon = test.find(body, "lookIcon")
-    var moving = test.heldBefore.split("|")
-    test.check("a closing popup holds its edge and look icon mid-motion, and its chart, figures, and rows through an answer, another surface's choice, and a removal from All, at the close and through the fade",
-      test.heldBefore !== "" && Number(moving[8]) > 0 && Number(moving[8]) < 1
-        && test.heldAtClose === test.heldBefore && throughFade === test.heldBefore,
+    test.check("a closing popup holds its edge mid-motion, and its chart, figures, and rows through an answer, another surface's choice, and a removal from All, at the close and through the fade",
+      test.heldBefore !== "" && test.heldAtClose === test.heldBefore && throughFade === test.heldBefore,
       test.heldBefore + " -> " + test.heldAtClose + " -> " + throughFade)
     var other = service.featuredSymbol
     panel.open()
-    test.check("the next open takes the latest, draws in, and settles the edge and the icon",
+    test.check("the next open takes the latest, draws in, and settles the edge",
       body.chartSymbol === other && body.watchlist.displayedSymbols.indexOf(test.heldHero) < 0 && body.motion.reveal < 1
-        && !body.managingLists && panel.testContentHeight === Math.round(panel.fittedCardHeight)
-        && icon.cells === (service.retro ? 0 : 1),
+        && !body.managingLists && panel.testContentHeight === Math.round(panel.fittedCardHeight),
       body.chartSymbol + "|" + body.watchlist.displayedSymbols + "|" + body.motion.reveal + "|" + body.managingLists
-        + "|" + panel.testContentHeight + " vs " + panel.fittedCardHeight + "|" + icon.cells)
-    service.retro = !service.retro
+        + "|" + panel.testContentHeight + " vs " + panel.fittedCardHeight)
     service.symbols = test.heldSymbols
     service.quotes = test.heldQuotes
     service.feature(test.heldHero)

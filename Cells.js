@@ -33,8 +33,8 @@ var BLOCK_GLYPHS = {
 }
 
 // Stonks' mark: a small chart that climbs, as points left to right, 0 at the
-// top. The look icon's curve, and, in cells, the pill's icon form, the look
-// icon's retro cells, and the launcher icon (test/mark-svg.js).
+// top. In cells, the pill's icon form and the launcher icon
+// (test/mark-svg.js).
 function markPoints() {
   return [{ x: 0, y: 0.9 }, { x: 0.25, y: 0.45 }, { x: 0.5, y: 0.75 }, { x: 0.75, y: 0.25 }, { x: 1, y: 0.05 }]
 }

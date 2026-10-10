@@ -95,9 +95,7 @@ the opening bell, New York's lunch lull, the power hour, the closing bell. Durin
 the close; once trading is over it says the market is closed and names the
 next open; weekends and holidays use a schedule the plugin carries. Times
 are the exchange's own, with its zone named when it is not yours: in New
-York, Nasdaq opens at 09:30 and Tokyo at 09:00 JST. The small
-chart icon at the top right shows the look a click switches to: Stonks'
-cells in smooth, a curve in retro; click it, or press `s`. The hero is the
+York, Nasdaq opens at 09:30 and Tokyo at 09:00 JST. The hero is the
 featured symbol: Yahoo's regular-market quote and its change, with the
 pre-market, after-hours, or overnight print on a compact line under it when
 there is one. A US stock or ETF that Robinhood trades around the clock, its
@@ -231,7 +229,7 @@ and what the mouse does. Every key is in this table:
 
 **Two looks.** Smooth is the default: a big price and a line chart. Retro
 draws the way Omarchy draws its own logo: block digits on a lit grid, pixel
-columns, and pixel sparklines. Both put a bull in the header when the
+columns, and pixel sparklines; `s` switches between them. Both put a bull in the header when the
 featured chart is up and a bear when it is down, at the moment shown, drawn
 as a line in smooth and in pixels in retro, and none on a flat day: a
 scrub or a replay across the close turns one into the other. Click the

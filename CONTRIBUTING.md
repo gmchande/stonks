@@ -223,7 +223,7 @@ run time.
   shell's card is an item in a full-screen surface, so no window resizes.
   An open while open changes nothing. Closing only fades: everything that
   moves stops where it is (`StonksBody.freeze`, `still`): the edge, the
-  chart's draw-in and replay, the live marks, the look icon's step, the
+  chart's draw-in and replay, the live marks, the
   header animal's turn, the breadth rule's ends, a held drag, the rows,
   and the footer's note, which
   outlives its timer. What is shown stays, the chart, figures, and rows as
@@ -311,7 +311,9 @@ run time.
   through the service, and every removal goes through `StonksBody.removeRow`.
 - `Hero.qml`, `HeaderStatus.qml`, `HeroBand.qml`, `AddFooter.qml`,
   `HelpSheet.qml` — shared value-in pieces the body composes. The header
-  starts with the day's animal and ends in the look and `?`. The listing
+  starts with the day's animal and ends in the `?`; the look is `s` and the
+  `?` sheet's line, set once like a theme, so the header carries no button
+  for it, and the status words take the room up to the `?`. The listing
   line names its currency once: a pair's name that ends with it ("Bitcoin
   USD") is not followed by it again (`Figures.listingMeta`). The footer
   says a note in the foreground for a moment, held while the pointer is on
@@ -322,15 +324,6 @@ run time.
   shell", whose click restarts it. Above it, quietly, the body's `hint` for
   the visit, a line of its own that never takes the place of "+ Add a
   symbol" and takes no click.
-- `LookIcon.qml` — the look a click switches to, as a small line chart, the
-  way a button shows what pressing it does (the chart already shows the
-  current look): Stonks' mark (`Cells.markPoints`) in cells (`StonksMark`)
-  in smooth, and as a curve in retro, stepping between them column by
-  column in 200 ms as the look changes, and settled on the other look as a
-  surface opens. A click on it switches the look, as `s` does, and hovering
-  says so: "Switch to retro (s)" or "Switch to smooth (s)", in a tooltip
-  under the header, its right edge on the header's, so it stays inside the
-  card; the shell's own place, above the icon, drew across the card's edge.
 - `BreadthRule.qml` — the rule between the list's name, with a dim TODAY
   after it, and its order, drawn as the list's breadth (`Figures.listBreadth`, the rows' own tones
   counted); cells in retro, counts on hover. Its ends ease only when the
@@ -367,16 +360,15 @@ run time.
   field, and the hint offers Enter only while there are results. Every way
   of taking a result goes through
   `accept`, which takes none for an earlier query.
-- `StonksMark.qml` — Stonks' mark in cells (`Cells.markLevels`): each
-  column's cap lit and its stem faint, climbing, or mirrored to fall on a
-  down day, so the shape carries the direction without colour. The pill's
-  icon form and the look icon's retro cells. At icon size (`solid`, the
-  pill's icon form) each column is one bar at full ink, so it reads beside
-  the bar's glyphs where faint stems scatter into dots; the dip keeps it
-  from reading as a signal meter.
+- `StonksMark.qml` — Stonks' mark in cells (`Cells.markLevels`), the
+  pill's icon form: each column one bar at full ink from its cap to the
+  floor, climbing, or mirrored to fall on a down day, so the shape carries
+  the direction without colour, and it reads beside the bar's glyphs where
+  faint stems scatter into dots; the dip keeps it from reading as a signal
+  meter.
 - `share/stonks.desktop`, `share/grvc.stonks.svg` — the launcher entry and
   its icon, which the README has users copy; do not install them from this
-  repo. The icon is the mark, climbing, its columns solid as at icon size,
+  repo. The icon is the mark, climbing, as the pill draws it,
   in one green that reads on light and dark launchers, written by
   `bun test/mark-svg.js` from `Cells.markLevels`; `test/all.sh` fails when
   the file is not that drawing.
@@ -742,7 +734,7 @@ run time.
   the keys choose a result and the pointer only tints one, so passing over
   results never swaps the hero's preview.
 - Stonks' own controls (the range tokens, the list name, the order word,
-  the look icon, the `?`, the footer, and the list views' actions) take the
+  the `?`, the footer, and the list views' actions) take the
   shell's pressed fill from the moment the button goes down, while it is
   held, as the shell's `Button` does; hover and selection keep their own.
 - Data settings live in `~/.config/omarchy/grvc.stonks.json`; `barStyle`
@@ -777,8 +769,8 @@ run time.
   moves the popup's bottom edge and the footer riding it, easing there.
   The list's header is the caption line's height, never its order word's,
   so no word moves the rows.
-  The header keeps the animal's height in both looks, and the look is one
-  small icon in both, so only the icon changes. The animal is the day's in
+  The header keeps the animal's height in both looks. The animal is the
+  day's in
   both looks, retro's in cells and smooth's drawn, a bull up and a bear
   down at the moment shown; a flat day has none. Its slot keeps its place
   drawn or not, so the status words start after it in both looks, on a flat

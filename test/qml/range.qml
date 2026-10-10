@@ -85,7 +85,7 @@ ShellRoot {
       for (var i = 0; i < item.children.length; i++) collect(item.children[i])
     }
     collect(mark)
-    caps.sort(function(a, b) { return a.parent.x - b.parent.x })
+    caps.sort(function(a, b) { return a.x - b.x })
     if (caps.length < 2) return "no cells"
     var first = caps[0].y
     var last = caps[caps.length - 1].y

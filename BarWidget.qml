@@ -228,14 +228,13 @@ BarWidget {
 
       // The icon form, on either bar: Stonks' mark, the same in both looks,
       // climbing or falling with the day, in its colour, at the size of the
-      // bar's icons, its columns solid so it reads beside their glyphs.
+      // bar's icons.
       StonksMark {
         objectName: "pillMark"
         visible: root.iconOnly
         anchors.verticalCenter: parent.verticalCenter
         falling: !!root.featured && root.featured.tone === "down"
         color: root.trendColor
-        solid: true
         pixel: Math.max(2, Math.round(Style.bar.iconCanvas / 8))
         gap: 1
       }
