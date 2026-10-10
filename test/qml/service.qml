@@ -132,6 +132,14 @@ ShellRoot {
 
   Service { id: service }
   Updates { id: updates }
+  // The service's reads of its data file: a read after a change is its
+  // file watch reading that change back.
+  property int loads: 0
+  property int loadsAtBurst: 0
+  Connections {
+    target: service.testDataFile
+    function onLoaded() { harness.loads++ }
+  }
   // A shell started while the data file can't be read.
   Component { id: secondService; Service {} }
 
@@ -486,16 +494,35 @@ ShellRoot {
           harness.check("the version watch reads the running version from the manifest as it starts",
             updates.runningVersion === harness.manifest.version && updates.newVersion === "",
             updates.runningVersion + "|" + updates.newVersion)
+          // Three range changes in one go, the third back to the first:
+          // each write is still in flight as the next starts, since the
+          // service hears one finished only on a later turn of the event
+          // loop. Quickshell's async write then compared the third against
+          // the cancelled first and skipped it, leaving 3M in the file,
+          // which the file watch read back over the 1W in hand.
+          harness.loadsAtBurst = harness.loads
+          service.setRange("1W")
+          service.setRange("3M")
+          service.setRange("1W")
           harness.go(24)
         })
       } else if (harness.step === 24) {
+        harness.readThen(function(obj) {
+          var readBack = harness.loads > harness.loadsAtBurst
+          var kept = readBack && !!obj && obj.range === "1W" && service.range === "1W"
+          if (!kept && harness.waited < 2000) return
+          harness.check("a change back to a range still being written lands, and the file's read-back keeps it", kept,
+            JSON.stringify({ readBack: readBack, file: obj && obj.range, range: service.range }))
+          harness.go(25)
+        })
+      } else if (harness.step === 25) {
         // Each manifest as a surface's open checks it.
         var c = harness.versionCases[harness.versionAt]
         harness.writeTo(harness.manifestPath, c.body, c.how, function() {
           updates.check()
           harness.check(c.label, updates.newVersion === c.want, updates.newVersion)
           harness.versionAt++
-          if (harness.versionAt < harness.versionCases.length) harness.go(24)
+          if (harness.versionAt < harness.versionCases.length) harness.go(25)
           else harness.finish()
         })
       }
