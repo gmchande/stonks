@@ -600,11 +600,20 @@ ShellRoot {
 
       // In flight at the close: the look icon's step, the rows closing a
       // removal's gap, and the breadth rule's ends. Every frame after the
-      // close is the same picture.
+      // close is the same picture. x moves the cursor to the next row, whose
+      // fill finishes its 60 ms through a close, as any fill does: the close
+      // waits for the rows' own colours to arrive, since a fixed 60 ms on a
+      // busy machine can come before the animation clock has run them.
       watchlist.cursorSymbol = "NVDA"
       keyClick(Qt.Key_X)
       keyClick(Qt.Key_S)
-      wait(60)
+      var filled = function() {
+        return watchlist.displayedSymbols.every(function(symbol) {
+          var row = watchlist.rowItem(symbol)
+          return !row || Qt.colorEqual(row.color, row.fill)
+        })
+      }
+      for (var waited = 0; waited < 1000 && !filled(); waited += 5) wait(5)
       var stepping = icon.cells > 0 && icon.cells < 1
       close()
       grab.source = body
