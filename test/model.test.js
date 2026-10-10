@@ -135,10 +135,12 @@ test("formatting", () => {
   expect(M.compactNumber(52432411)).toBe("52.4M")
   expect(M.compactNumber(1234)).toBe("1K")
   expect(M.compactNumber(2.5e9)).toBe("2.5B")
-  // A figure that rounds up to 1,000 of its unit is one of the next, so a
-  // volume never draws wider than 999.9M.
-  expect([999499, 999500, 999.9e6, 999.96e6, 999.9e9, 999.96e9].map(M.compactNumber))
-    .toEqual(["999K", "1.0M", "999.9M", "1.0B", "999.9B", "1T"])
+  // A figure that rounds up to 1,000 of its unit is one of the next, and
+  // trillions take fewer decimals as they grow, so no count draws wider
+  // than 999.9M.
+  expect([999499, 999500, 999.9e6, 999.96e6, 999.9e9, 999.96e9, 4.9e12, 33.82e12, 99.996e12, 400.11e12, 999.96e12, 12345.6e12]
+    .map(M.compactNumber))
+    .toEqual(["999K", "1.0M", "999.9M", "1.0B", "999.9B", "1T", "4.9T", "33.82T", "100T", "400.1T", "1000T", "12346T"])
 })
 
 test("arrowAngle saturates at five percent", () => {
