@@ -33,6 +33,7 @@ qs_leader=""
 qs_code=0
 qs_session_runtime=${XDG_RUNTIME_DIR:-/run/user/$UID}
 qs_runtime=""
+qs_runs=0
 
 # quickshell_run SECONDS LOG ARGS…: Quickshell ARGS into LOG, stopped after
 # SECONDS. Sets qs_code: Quickshell's exit code, 124 on a timeout, or 128 and
@@ -43,16 +44,27 @@ qs_runtime=""
 # Exit 1 is a harness's own failure, which its FAIL lines already say; any
 # other code, such as the 255 a file that fails to load gives, is an exit,
 # which its log explains: no core to look for. A Quickshell whose log says
-# it saved under the session's runtime folder fails the run too.
+# it saved under the session's runtime folder fails the run too, and one
+# whose runtime folder can't be made is never started.
 quickshell_run() {
   local - secs=$1 log=$2 fd pid sig saved
   set +e
   shift 2
+  # Named before it is made, from the run's mark, so no other run can make
+  # it and an interrupt at any point leaves the stop a name to remove. Under
+  # /tmp, not $TMPDIR: Quickshell's IPC socket inside it must fit a Unix
+  # socket's 107 bytes.
+  qs_runtime=/tmp/qs-${qs_mark#STONKS_RUN=}-$((qs_runs += 1))
+  if ! mkdir -m 700 -- "$qs_runtime" \
+    || ! find "$qs_session_runtime" -mindepth 1 -maxdepth 1 ! -name quickshell -exec ln -s -t "$qs_runtime" {} +; then
+    echo "FAIL the run's runtime folder $qs_runtime could not be made; Quickshell was not started" >> "$log"
+    qs_code=1
+    quickshell_stop
+    return
+  fi
   rm -f "$log.ended"
   mkfifo "$log.ended"
   exec {fd}<> "$log.ended"
-  qs_runtime=$(mktemp -d)
-  find "$qs_session_runtime" -mindepth 1 -maxdepth 1 ! -name quickshell -exec ln -s -t "$qs_runtime" {} +
   set -m
   STONKS_RUN=${qs_mark#STONKS_RUN=} XDG_RUNTIME_DIR=$qs_runtime bash -c '
     log=$1; shift
@@ -115,8 +127,8 @@ quickshell_stop() {
     fi
   fi
   # With nothing of the run left to write in it, its runtime folder goes:
-  # the one mktemp made for it, whose links rm removes, never what they
-  # point to.
+  # the one named for it from its mark, whose links rm removes, never what
+  # they point to.
   [ -z "$qs_runtime" ] || rm -rf -- "$qs_runtime"
   qs_runtime=""
 }

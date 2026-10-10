@@ -8,8 +8,9 @@
 # start, and another run side by side, are left alone. However a run ends,
 # too, it leaves nothing in the session's runtime folder, where the
 # stand-in, as Quickshell does, makes its instance's folder under the
-# XDG_RUNTIME_DIR it is given; its own runtime folder is gone, the
-# session's entries reachable through it while it ran; and a run whose
+# XDG_RUNTIME_DIR it is given; its own runtime folder is gone, an interrupt
+# as it is made included, the session's entries reachable through it while
+# it ran; a run whose folder can't be made never starts; and a run whose
 # Quickshell says it saved in the session's folder fails. The stand-in dies
 # on a real signal with its core dump turned off (prctl PR_SET_DUMPABLE, 0:
 # prctl(2)), so no core is written and no one is notified. Prints FAILED per
@@ -94,6 +95,12 @@ setsid sleep 300 < /dev/null > /dev/null 2>&1 &
 bystander=$!
 
 alive() { kill -0 "$1" 2> /dev/null; }
+# left_folders CASE: the runtime folders CASE's run named, from its mark,
+# that are still there.
+left_folders() {
+  local mark
+  mark=$(cat "$tmp/$1/mark" 2> /dev/null) && [ -n "$mark" ] && compgen -G "/tmp/qs-${mark#STONKS_RUN=}-*"
+}
 # gone CASE: nothing CASE's run started is still running, nothing of it is
 # in the session's runtime folder, and its own runtime folder, through which
 # the session's Wayland entry read, is gone.
@@ -109,13 +116,16 @@ gone() {
   if [ -z "$runtime" ]; then miss "$1: the stand-in never said its runtime folder"
   elif [ "$runtime" != "$XDG_RUNTIME_DIR" ] && [ -e "$runtime" ]; then miss "$1: its runtime folder $runtime is still there"; fi
   [ "$(cat "$dir/wayland" 2> /dev/null)" = socket ] || miss "$1: the session's Wayland entry read '$(cat "$dir/wayland" 2> /dev/null)' from its runtime folder"
+  left_folders "$1" && miss "$1: its runtime folder is still there: $(left_folders "$1")"
 }
 
 # harness CASE MODE SECONDS [LEAVE] [EARLY]: one run in a harness of its
 # own, as lib.sh runs it, in the background in a group of its own (job
 # control, so INT is not ignored): its pid in h, its folder $tmp/CASE. With
 # EARLY, the harness is sent TERM as it is about to record the group's
-# leader, once the stand-in has started its children.
+# leader, once the stand-in has started its children; with EARLY=made, as
+# the run's runtime folder is made and Quickshell not yet started, noting
+# in CASE/made that the folder was there.
 harness() {
   local dir=$tmp/$1
   mkdir -p "$dir"
@@ -125,7 +135,8 @@ harness() {
     echo "$qs_mark" > "$3/mark"
     trap quickshell_exit EXIT; trap "exit 130" INT; trap "exit 143" TERM
     early() { local i; for i in $(seq 50); do [ -s "$STANDIN_DIR/left" ] && break; sleep 0.1; done; kill -TERM $$; }
-    if [ -n "$EARLY" ]; then set -T; trap "[[ \$BASH_COMMAND == qs_leader=* ]] && early" DEBUG; fi
+    if [ "$EARLY" = made ]; then set -T; trap "[[ \$BASH_COMMAND == mkfifo* ]] && { [ -d \"\$qs_runtime\" ] && echo yes > \"\$STANDIN_DIR/made\"; kill -TERM \$\$; }" DEBUG
+    elif [ -n "$EARLY" ]; then set -T; trap "[[ \$BASH_COMMAND == qs_leader=* ]] && early" DEBUG; fi
     quickshell_run "$2" "$3/log" -p nowhere
     echo "$qs_code" > "$3/code"' _ "$here" "$3" "$dir" < /dev/null > "$dir/out" 2>&1 &
   h=$!
@@ -190,6 +201,24 @@ ran "$h" pass-saved
 grep -qxF "FAIL Quickshell wrote in the session's runtime folder: \"$XDG_RUNTIME_DIR/quickshell/by-id/$(cat "$tmp/pass-saved/pid" 2> /dev/null)/log.qslog\"" "$tmp/pass-saved/log" \
   || miss "pass-saved: no FAIL line naming where it saved: $(cat "$tmp/pass-saved/log")"
 gone pass-saved
+
+# A session runtime folder that isn't there, so the run's can't link it:
+# Quickshell is never started (with no folder of its own it would fall back
+# on the session's), and the run fails saying so.
+XDG_RUNTIME_DIR=$tmp/missing harness no-session pass 20
+ran "$h" no-session
+[ "$code" = 1 ] || miss "no-session: code $code, not 1"
+[ -e "$tmp/no-session/pid" ] && miss "no-session: Quickshell was started"
+grep -q "^FAIL the run's runtime folder .* could not be made; Quickshell was not started$" "$tmp/no-session/log" \
+  || miss "no-session: no FAIL line saying why: $(cat "$tmp/no-session/log" 2> /dev/null)"
+left_folders no-session && miss "no-session: its runtime folder is still there: $(left_folders no-session)"
+
+# TERM once the run's runtime folder is made, before Quickshell starts: the
+# folder goes all the same.
+harness made hang 60 "" made
+wait "$h" 2> /dev/null
+[ -s "$tmp/made/made" ] || miss "made: the TERM never came with the folder made"
+left_folders made && miss "made: its runtime folder is still there: $(left_folders made)"
 
 # An interrupt of a harness: INT as a terminal sends it, TERM as test/all.sh
 # does, each to the harness's group, mid-run; and TERM the moment
