@@ -847,28 +847,53 @@ ShellRoot {
           [afterWheel, afterKey, afterMove].every(function(r) { return /^true /.test(r) }),
           [afterWheel, afterKey, afterMove].join(" | "))
 
-        // A double-click on a view's DONE, its second press landing on a row
-        // as the rows come back, does nothing there, even soon after a row
-        // click and the wheel: the pair's first press was the view's, not the
-        // list's. From rows-review: the second press featured the row.
-        body.watchlist.contentY = 0
-        wait(50)
-        stub.featuredSymbol = body.watchlist.displayedSymbols[5]
-        var fourth = body.watchlist.displayedSymbols[4]
-        var fourthY = 4 * pitch + 20
-        mouseMove(body.watchlist, 12, fourthY - 2)
-        mouseMove(body.watchlist, 12, fourthY)
-        mouseClick(body.watchlist, 12, fourthY)
-        mouseWheel(body.watchlist, 12, fourthY, 0, -120, Qt.NoModifier)
-        body.openManageLists()
-        var doneButton = root.find(body, "manageDone")
-        var doneAt = doneButton.mapToItem(body, doneButton.width / 2, doneButton.height / 2)
-        mouseDoubleClickSequence(body, doneAt.x, doneAt.y)
-        wait(300)
-        root.check("a double-click on a view's DONE soon after a row click and the wheel features no row under it",
-          !body.managingLists && stub.featuredSymbol === fourth, body.managingLists + "|" + stub.featuredSymbol + " for " + fourth)
-        root.setFixtureWatchlist()
-        wait(100)
+        // A double-click whose first press is a view's, its second landing on
+        // a row, does nothing there, even soon after a row click and the
+        // wheel, or with the wheel between its presses: on Manage lists' DONE
+        // as the rows come back, and outside the list menu, which dismisses
+        // it over rows that stay. From rows-review: the second press featured
+        // the row under it.
+        var throughView = function(open, pressAt, closedSignal, wheelBetween) {
+          body.watchlist.contentY = 0
+          wait(50)
+          stub.featuredSymbol = body.watchlist.displayedSymbols[5]
+          var row = body.watchlist.displayedSymbols[4]
+          var rowY = 4 * pitch + 20
+          mouseMove(body.watchlist, 12, rowY - 2)
+          mouseMove(body.watchlist, 12, rowY)
+          mouseClick(body.watchlist, 12, rowY)
+          if (!wheelBetween) mouseWheel(body.watchlist, 12, rowY, 0, -120, Qt.NoModifier)
+          open()
+          wait(100)
+          var at = pressAt()
+          var once = function() {
+            closedSignal.disconnect(once)
+            mouseWheel(body, at.x, at.y, 0, -120, Qt.NoModifier)
+          }
+          if (wheelBetween) closedSignal.connect(once)
+          mouseDoubleClickSequence(body, at.x, at.y)
+          wait(300)
+          var result = (stub.featuredSymbol === row && !body.managingLists && !body.listMenuOpen) + " " + stub.featuredSymbol + " for " + row
+          root.setFixtureWatchlist()
+          wait(100)
+          return result
+        }
+        var onDone = function() {
+          var done = root.find(body, "manageDone")
+          return done.mapToItem(body, done.width / 2, done.height / 2)
+        }
+        var offMenu = function() {
+          var first = body.watchlist.rowItem(body.watchlist.displayedSymbols[0])
+          return first.mapToItem(body, first.width - 30, first.height / 2)
+        }
+        var views = [
+          throughView(function() { body.openManageLists() }, onDone, body.managingListsChanged, false),
+          throughView(function() { body.openManageLists() }, onDone, body.managingListsChanged, true),
+          throughView(function() { body.openListMenu() }, offMenu, body.listMenuOpenChanged, false),
+          throughView(function() { body.openListMenu() }, offMenu, body.listMenuOpenChanged, true)
+        ]
+        root.check("a double-click that begins on a view, Manage lists' DONE or off the list menu, features no row under its second press",
+          views.every(function(v) { return /^true /.test(v) }), views.join(" | "))
 
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,

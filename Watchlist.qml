@@ -337,6 +337,7 @@ Flickable {
   }
   function forgetClicks() {
     lastClickTime = 0
+    rowClickAt = 0
     clickEndedAt = 0
   }
   onVisibleChanged: forgetClicks()

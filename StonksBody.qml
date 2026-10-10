@@ -598,9 +598,12 @@ Item {
     previewSymbol = s
   }
 
+  // The menu lies over rows that stay visible: the rows forget their last
+  // click, so a press that dismisses it never pairs with one before.
   function openListMenu() {
     closeViews()
     showingHelp = false
+    watchlist.forgetClicks()
     listMenuOpen = true
   }
 
