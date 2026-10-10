@@ -202,6 +202,9 @@ ShellRoot {
   // Hold MSFT's history answer back, and let it go (see the fake curl).
   Process { id: holdMsft; command: ["touch", Quickshell.env("STONKS_FAKE_STATE") + "/MSFT.history.hold"] }
   Process { id: releaseMsft; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/MSFT.history.hold"] }
+  // LATE's quotes fail and answer again (see the fake curl).
+  Process { id: lateDown; command: ["touch", Quickshell.env("STONKS_FAKE_STATE") + "/LATE.down"] }
+  Process { id: lateUp; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/LATE.down"] }
 
   Process {
     id: catProc
@@ -962,6 +965,62 @@ ShellRoot {
       harness.check("hovering a pill with a failed first fetch says so on every form, and the text form says only that",
         warningTips[0] === 'text "REFRESH FAILED"' && warningTips.slice(1).every(function(t) { return /· REFRESH FAILED"$/.test(t) }),
         warningTips.join(" | "))
+
+      // A warning that ends while the pointer stays on the pill leaves no
+      // bubble naming it: the text pill's goes, and the icon's loses the
+      // warning's words. The bar keeps one bubble, as the shell's does: a
+      // show replaces it, an empty one clears it, a hide takes it away. LATE
+      // fails while LATE.down exists (the fake curl).
+      var bubble = ""
+      var lateEntryAged = function() {
+        var entries = Object.assign({}, service.testFeed.entries)
+        entries.LATE = Object.assign({}, entries.LATE, { answeredAt: entries.LATE.answeredAt - 20 })
+        service.testFeed.entries = entries
+      }
+      var settingsBeforeLate = pill.settings
+      var warnsThenLands = function(form) {
+        if (!pill.warns) {
+          lateDown.running = true
+          tryVerify(function() { return !lateDown.running }, 2000)
+          lateEntryAged()
+          service.refresh()
+          tryVerify(function() { return pill.warns }, 10000)
+        }
+        pill.settings = Object.assign({}, settingsBeforeLate, { barStyle: form })
+        mouseMove(pill, pill.width / 2, -5)
+        wait(20)
+        barApi._showTooltip = function(target, text) { bubble = text }
+        barApi._hideTooltip = function(target) { bubble = "" }
+        mouseMove(pill, pill.width / 2, pill.height / 2)
+        wait(20)
+        var warned = bubble
+        lateUp.running = true
+        tryVerify(function() { return !lateUp.running }, 2000)
+        lateEntryAged()
+        service.refresh()
+        tryVerify(function() { return !pill.warns }, 10000)
+        wait(20)
+        var landed = bubble
+        mouseMove(pill, pill.width / 2, -5)
+        wait(20)
+        barApi._showTooltip = null
+        barApi._hideTooltip = null
+        return [form, JSON.stringify(warned), JSON.stringify(landed)]
+      }
+      lateDown.running = true
+      tryVerify(function() { return !lateDown.running }, 2000)
+      service.addSymbol("LATE")
+      service.feature("LATE")
+      tryVerify(function() { return pill.warns }, 10000)
+      var textLanding = warnsThenLands("text")
+      var iconLanding = warnsThenLands("icon")
+      pill.settings = settingsBeforeLate
+      service.feature("FAIL")
+      service.removeSymbol("LATE")
+      harness.check("an answer landing under the pointer takes the warning out of the bubble: the text pill's goes, the icon's keeps the rest",
+        textLanding[1] === '"REFRESH FAILED"' && textLanding[2] === '""'
+          && /^"LATE .* · REFRESH FAILED · AS OF /.test(iconLanding[1]) && /^"LATE /.test(iconLanding[2]) && iconLanding[2].indexOf("REFRESH") < 0,
+        textLanding.join(" ") + " | " + iconLanding.join(" "))
 
       // While a chart loads, the hero keeps what was on screen, chart,
       // figures, and info lines alike, under "Loading", and the new chart
