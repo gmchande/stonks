@@ -255,6 +255,12 @@ Item {
   readonly property int searchHeight: margins * 2 + header.height + heroBand.implicitHeight
     + bandGap + listGap + search.desiredHeight
   readonly property int wholeListHeight: wholeRowsHeight(height - chromeHeight)
+  // The most height the surface gives the body, as the popup's card does
+  // when it fits the rows; 0 where the body's height is its own (the
+  // window). The list's sight is its rows' view at that height, whatever
+  // the card has shrunk to for the key sheet or a view.
+  property int rowsRoom: 0
+  readonly property int rowsSightHeight: rowsRoom > 0 ? wholeRowsHeight(rowsRoom - chromeHeight) : wholeListHeight
   readonly property int listMenuTop: margins + header.height + bandGap + heroBand.implicitHeight + Style.space(4)
   // The menu ends one gap above the footer, which stays in sight under it.
   readonly property int listMenuBottom: listMenuTop + listMenu.contentHeight + bandGap + footer.height + margins
@@ -800,6 +806,7 @@ Item {
     anchors.rightMargin: root.margins
     anchors.topMargin: root.listGap
     height: root.wholeListHeight
+    sightHeight: root.rowsSightHeight
     visible: root.rowsShown
     view: root.view
     quotes: root.quotes

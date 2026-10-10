@@ -288,11 +288,12 @@ run time.
   views follow the same rule. It is always on a row in sight (`cursorRow`):
   a cursor of your own while any of its row is in sight; without one (every
   open clears it, `reopen`; on another list), the featured row when that is
-  in sight, else the first whole row in sight. The scrollbar moving your
-  cursor out of sight, or the rows changing under it, lets it go; the rows
-  hidden behind the key sheet or a view do not, though the popup's card,
-  and the list with it, shrinks to them: the cursor stays, a key acts on
-  it, and it is judged again a turn after the rows come back; removing
+  in sight, else the first whole row in sight. Sight is the rows' own view,
+  as it is while they show (`Watchlist.sightHeight`, from the popup's room
+  for its rows, `StonksBody.rowsRoom`), so the popup's card shrinking to the
+  key sheet or a view, the list with it, is no departure. The surface made
+  shorter, the scrollbar, a removal, or a sort taking your cursor's row out
+  of that view lets the cursor go, the rows hidden or not; removing
   the cursor's row (`x`, Delete, Backspace, or a right- or middle-click,
   which puts the cursor there first) hands the cursor to the row that
   takes its place, the next one, or the one before when it was the last

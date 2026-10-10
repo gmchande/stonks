@@ -28,10 +28,11 @@ Panel {
   readonly property int heightCap: panel.verticalContentInset + body.chromeHeight
     + maxRows * body.rowPitch - body.rowGap
   // The card's height for what the body shows: whole rows up to the cap, so
-  // the footer ends the popup with no gap, or a view's own height.
-  readonly property int fittedCardHeight: panel.fittedContentHeight(body.fittedHeight(
-    Math.min(root.heightCap, panel.availableCardHeight > 0 ? panel.availableCardHeight : root.heightCap)
-      - panel.verticalContentInset), root.heightCap)
+  // the footer ends the popup with no gap, or a view's own height. The
+  // body's room is the most the card gives it.
+  readonly property int bodyRoom: Math.min(root.heightCap, panel.availableCardHeight > 0 ? panel.availableCardHeight : root.heightCap)
+    - panel.verticalContentInset
+  readonly property int fittedCardHeight: panel.fittedContentHeight(body.fittedHeight(root.bodyRoom), root.heightCap)
   // While the popup is open its edge eases to that height, so a view that
   // changes it moves the edge instead of jumping it; the body lays out at
   // the new height at once and the card's edge reveals or covers it, the
@@ -191,6 +192,9 @@ Panel {
         anchors.right: parent.right
         anchors.top: parent.top
         height: root.fittedCardHeight - panel.verticalContentInset
+        // The rows' room, so the list judges its sight by the rows' view
+        // while the card has shrunk to the key sheet or a view.
+        rowsRoom: root.bodyRoom
         // The card's edge as it eases: the footer and the field ride it.
         edge: Math.round(root.cardHeight) - panel.verticalContentInset
         service: root.service

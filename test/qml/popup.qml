@@ -739,6 +739,27 @@ ShellRoot {
           var lastVisible = list.rowItem(list.displayedSymbols[Math.round(list.contentY / list.rowPitch) + 5])
           test.check("the capped panel's last visible row is whole",
             lastVisible && lastVisible.y + lastVisible.height <= list.contentY + list.height)
+          // Under the key sheet, a sort that carries the cursor's row below
+          // the rows' view lets the cursor go, though the card has shrunk to
+          // the sheet: the rows' view is what counts. From Grok's review of
+          // #24: the hidden rows kept the cursor, so x, Enter, or m acted on
+          // a row out of sight.
+          list.contentY = 0
+          var inView = Math.floor((list.height + list.rowGap) / list.rowPitch)
+          var sortedPct = Settings.sortedSymbols(service.symbols, service.quotes, "pct", false)
+          var carriedRow = list.displayedSymbols.filter(function(s, i) {
+            return i < inView - 1 && sortedPct.indexOf(s) > inView + 1
+          })[0]
+          list.select(carriedRow)
+          panel.testKeyCatcher.textKey("?")
+          var sheetSight = list.height
+          service.setOrder("pct")
+          var afterSortUnder = [list.cursorSymbol, list.cursorRow]
+          service.setOrder("manual")
+          panel.testKeyCatcher.textKey("?")
+          test.check("in the popup, a sort under the key sheet that carries the cursor's row below the rows' view lets it go",
+            carriedRow !== undefined && sheetSight < list.rowPitch && afterSortUnder[0] === "" && afterSortUnder[1] !== carriedRow,
+            carriedRow + " | list under the sheet " + sheetSight + " | " + afterSortUnder.join(","))
           panel.testBody.featureSymbol("MU")
           // The popup's own key route: W and m reach the list views through the
           // real catcher, which then stands aside so j, x, and esc reach the view.
