@@ -283,16 +283,22 @@ function extendedPrint(quote, latest) {
   return phase === "reg" ? null : { t: last.t, p: last.p, phase: phase }
 }
 
-// Price at or just before `t`. Before the first point, the previous close.
-function priceAt(quote, t) {
+// What a moment `t` of the day reads, shaped as the headline is: the price
+// at or just before it, at `t`; before the first print, the previous close.
+// Once Yahoo's quote is the regular session's close, the session's last
+// print reads that close at its own time (`close`): the S&P 500's last bar
+// is 15:55's, never its close, and Tokyo's 15:20's.
+function readingAt(quote, t) {
   var pts = quote.points
-  if (!pts.length || t < pts[0].t) return quote.prevClose
-  var price = pts[0].p
-  for (var i = 0; i < pts.length; i++) {
-    if (pts[i].t > t) break
-    price = pts[i].p
-  }
-  return price
+  if (!pts.length || t < pts[0].t) return { price: quote.prevClose, t: t, close: false }
+  var k = 0
+  while (k + 1 < pts.length && pts[k + 1].t <= t) k++
+  var head = headlineQuote(quote)
+  var reg = quote.session.regular
+  if (!quote.crypto && head && head.source === "quote" && reg && head.t >= reg.end
+      && pointSession(quote, pts[k]) === "reg" && (k + 1 === pts.length || pointSession(quote, pts[k + 1]) !== "reg"))
+    return { price: head.price, t: head.t, close: true }
+  return { price: pts[k].p, t: t, close: false }
 }
 
 function change(quote, priceNow, mode) {

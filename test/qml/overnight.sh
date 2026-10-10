@@ -6,7 +6,9 @@
 # symbol in All and of one not yet added; the overnight line under the price
 # and its dimming; a scrub of the night leaving the rows on now; none for a
 # symbol that has not traded tonight, an index, or a cryptocurrency, none at
-# the weekend; a failed answer asked again; the first live night's lone
+# the weekend; a scrub to the day's end after the close reading the close,
+# an index's and a stock's, and Tokyo's row on its close while it follows a
+# Nasdaq scrub; a failed answer asked again; the first live night's lone
 # print, drawn and scrubbed in both looks, and its line on 1M at rest and
 # scrubbed; a night held open across midnight, the chart staying on
 # Tuesday until Wednesday's first print, then measured from Tuesday's close

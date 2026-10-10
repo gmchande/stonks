@@ -433,6 +433,33 @@ ShellRoot {
       harness.check("a cryptocurrency has no overnight: never asked for, and no line",
         harness.strip().indexOf("OVERNIGHT") < 0 && harness.asked() === "NBIS,RVII,SNOW", harness.strip() + " | asked " + harness.asked())
 
+      // After the close, a scrub to the day's end reads the close the hero
+      // shows at rest, at its time; the after-hours reads its own prints.
+      // On dev, ^GSPC's right edge read "At 15:55" at 7,668.82, its last
+      // bar, and SNOW's last regular print 341.89. Found by the PM: "AT
+      // 15:55 · CLOSING BELL" at 7,811.09 against a 7,811.54 close.
+      featureShown("^GSPC")
+      var indexRest = body.featured.priceText
+      scrubAt(1)
+      var indexEnd = body.headerText + " | " + body.featured.priceText
+      endScrub()
+      featureShown("SNOW")
+      var snowRest = body.featured.priceText
+      var snow = body.featuredDay
+      var bell = snow.points.findIndex(function(p) { return p.t >= snow.session.regular.end })
+      var readAt = function(k) {
+        body.motion.scrubT = snow.points[k].t
+        var read = body.headerText + " | " + body.featured.priceText
+        endScrub()
+        return read
+      }
+      var snowClose = readAt(bell - 1)
+      var snowAfter = readAt(bell)
+      harness.check("Saturday: a scrub to the index's right edge, or to a stock's last regular print, reads the close at 16:00; its after-hours reads its own print",
+        indexEnd === "At 16:00 · Closing bell | " + indexRest && snowClose === "At 16:00 · Closing bell | " + snowRest
+          && snowAfter === "At 16:00 · After hours | " + Format.money(snow.points[bell].p, snow.priceDigits) && snowAfter !== snowClose,
+        indexEnd + " ; " + snowClose + " ; " + snowAfter + " | at rest " + indexRest + ", " + snowRest)
+
       // Monday 5 October, 00:36: the first live night, saved as it was. ET
       // last traded at 22:40 on Sunday, so its chart stays on Friday, never
       // blank, and the line under the price names the night. TLN traded at
@@ -798,6 +825,17 @@ ShellRoot {
       harness.check("for a reader in New York, Tokyo's next open names JST and a Nasdaq scrub names no zone",
         tokyoHeader === "Closed · opens Thu 09:00 JST" && /^At \d\d:\d\d · /.test(nasdaqScrub) && nasdaqScrub.indexOf("EDT") < 0,
         tokyoHeader + " | " + nasdaqScrub)
+      // A non-US row following a scrub reads its own close once its session
+      // has closed, as it does at rest: Tokyo's last bar is 15:20 at 2,908,
+      // its close 2,900.5. Found by the PM: Toyota read 2,911.50 during a
+      // scrub against 2,910.50 at rest.
+      var tokyoRow = body.watchlist.rowItem("7203.T")
+      var tokyoRest = tokyoRow.view.priceText
+      scrubAt(0.5)
+      var tokyoScrubbed = tokyoRow.view.priceText + ", following " + (body.watchlistScrubShown !== 0)
+      endScrub()
+      harness.check("a scrub inside Nasdaq's day, after Tokyo's close, leaves Tokyo's row on its close",
+        tokyoScrubbed === tokyoRest + ", following true", tokyoScrubbed + " against " + tokyoRest + " at rest")
 
       harness.finish()
     }
