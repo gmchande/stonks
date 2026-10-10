@@ -19,7 +19,8 @@ run time.
 ## Run it
 
 - Run your checkout as the plugin: clone it to
-  `~/.config/omarchy/plugins/grvc.stonks` (README, Install by hand).
+  `~/.config/omarchy/plugins/grvc.stonks`
+  (`git clone https://github.com/gmchande/stonks.git ~/.config/omarchy/plugins/grvc.stonks`).
   After a change, restart the shell (`omarchy restart shell`). Hot reload
   is not enough: `Plugin.qml` is `keepLoaded`, and a reload can leave the
   previous window alive and answering IPC with stale code.
@@ -512,6 +513,14 @@ run time.
   plugin worktree. `test/tophat.sh self-check` runs anywhere.
 - `test/procs.sh` — process groups and run marks, which the tophat and the
   Quickshell runs (`test/qml/quickshell.sh`) share.
+- `media/`, `test/qml/readme.sh`, `test/capture-demo.sh` — the README's
+  pictures and how they are made. `test/capture-demo.sh` saves the demo
+  watchlist's answers at this moment into the saved answers
+  (`overnight/demo-<date>-<time>`, New York time), and `readme.sh` renders
+  the real popup, window, and pill from the newest capture into `media/`,
+  at twice the scale in Tokyo Night, as palette PNGs. The same capture
+  renders the same bytes, so a picture changes in git only when the code
+  or the capture does. `test/all.sh` renders them into a scratch folder.
 - `test/hooks/post-checkout` — copies the main checkout's local
   `AGENTS.md` into a new worktree (Agents).
 
@@ -972,10 +981,14 @@ run time.
 A maintainer releases from `dev`. The update notice keys on the version, so
 every release bumps it, and nothing reaches `main` without one.
 
-1. Bump `manifest.json`'s version in a release commit on `dev`.
-2. Fast-forward `main` to it: `git push origin dev:main`.
-3. Tag it (`vX.Y.Z`) and publish release notes.
-4. File the Omarchy plugin marketplace's verify form with `main`'s new
+1. If the README's pictures should change, capture the demo watchlist
+   mid-session (`test/capture-demo.sh`, committed in the saved answers),
+   render them (`test/qml/readme.sh`), and commit `media/`. Every clone
+   carries every version of them, so they change only at a release.
+2. Bump `manifest.json`'s version in a release commit on `dev`.
+3. Fast-forward `main` to it: `git push origin dev:main`.
+4. Tag it (`vX.Y.Z`) and publish release notes.
+5. File the Omarchy plugin marketplace's verify form with `main`'s new
    commit; until then the listing says Unverified.
 
 ## Agents
