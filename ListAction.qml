@@ -22,6 +22,7 @@ Text {
   font.letterSpacing: 1
 
   Rectangle {
+    objectName: "actionFill"
     z: -1
     anchors.centerIn: parent
     width: parent.implicitWidth + Style.space(12)

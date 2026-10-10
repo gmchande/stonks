@@ -188,10 +188,13 @@ Item {
     }
   }
 
+  // Inset by its fill's margin, so the pressed fill ends on the header's
+  // edge: the popup clips anything past it.
   Text {
     id: helpMark
     objectName: "helpMark"
     anchors.right: parent.right
+    anchors.rightMargin: Style.space(6)
     anchors.verticalCenter: parent.verticalCenter
     textFormat: Text.PlainText
     text: "?"

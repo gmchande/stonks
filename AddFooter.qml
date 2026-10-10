@@ -69,6 +69,7 @@ Item {
   }
 
   Rectangle {
+    objectName: "footerFill"
     anchors.fill: parent
     anchors.topMargin: root.hintHeight + Style.space(6)
     radius: root.retro ? 0 : Style.cornerRadius
