@@ -797,7 +797,8 @@ run time.
   that trades for a listing Robinhood trades all day; a cryptocurrency
   never sleeps, and a scrub, which reads a moment the market traded, wakes
   it. Only the clock closing the market while you watch moves it (the
-  body's `bell`, the same quote awake a second before): the eyes close
+  body's `bell`, the same quote awake five seconds before, so a late tick
+  still rings it): the eyes close
   over 320 ms, eased in smooth and in two steps in retro, the "z" coming
   with them. A wake, a scrub let go, a first quote landing, a symbol,
   range, list, or look change, and an open change it at once. Nothing

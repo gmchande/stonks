@@ -609,16 +609,19 @@ ShellRoot {
         service.now = close - 60
         tryVerify(function() { return !body.animal.asleep && header.closing === 0 }, 2000)
       }
+      // Retro's clock skips the closing second, as a late tick does.
       var bells = ["smooth", "retro"].map(function(style) {
         look(style)
         awake()
-        var bell = run("sleep-bell-" + style, style === "smooth" ? "turn:320" : "steps:320", function() { service.now = close })
+        var bell = run("sleep-bell-" + style, style === "smooth" ? "turn:320" : "steps:320", function() {
+          service.now = style === "smooth" ? close : close + 2
+        })
         return style + ": " + (bell.ok && body.animal.asleep ? "ok" : "not ok") + ", " + bell.detail
       })
-      harness.check("the clock closing the market closes the animal's eyes over 320 ms, smoothly in smooth and in two steps in retro — "
+      harness.check("the clock closing the market closes the animal's eyes over 320 ms, smoothly in smooth and in two steps in retro, whose clock skips the closing second — "
         + bells.join(" | "), bells.every(function(b) { return /^\w+: ok, /.test(b) }))
       look("smooth")
-      // A minute after the close, past the bell's own second, a scrub on
+      // A minute after the close, past the bell's few seconds, a scrub on
       // the same side of the close, so the animal reads a bear on both
       // sides of letting go, and no turn crossfades.
       service.now = close + 60
