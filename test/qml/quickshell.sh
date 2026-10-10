@@ -19,10 +19,20 @@
 # known to be the run's until its last member is stopped, a child that
 # cleared its environment included, and its number can't have passed to
 # another group.
+#
+# Each run has a runtime folder of its own, which goes with the run, so a
+# test's Quickshell leaves nothing in the session's: Quickshell 0.3.1 puts
+# each instance's folder and its links (by-id, by-pid, by-shell, by-path,
+# vfs) under $XDG_RUNTIME_DIR/quickshell, and nothing removes them
+# (src/core/paths.cpp, baseRunDir, which reads XDG_RUNTIME_DIR alone). The
+# run's folder links every entry of the session's but quickshell, so
+# Wayland, Hyprland, the bus, and the rest answer as before.
 source "$(dirname "${BASH_SOURCE[0]}")/../procs.sh"
 qs_mark="STONKS_RUN=$$-$(date +%s%N)"
 qs_leader=""
 qs_code=0
+qs_session_runtime=${XDG_RUNTIME_DIR:-/run/user/$UID}
+qs_runtime=""
 
 # quickshell_run SECONDS LOG ARGS…: Quickshell ARGS into LOG, stopped after
 # SECONDS. Sets qs_code: Quickshell's exit code, 124 on a timeout, or 128 and
@@ -32,16 +42,32 @@ qs_code=0
 # that left the group. A crash is a code over 128 whose rest names a signal.
 # Exit 1 is a harness's own failure, which its FAIL lines already say; any
 # other code, such as the 255 a file that fails to load gives, is an exit,
-# which its log explains: no core to look for.
+# which its log explains: no core to look for. A Quickshell whose log says
+# it saved under the session's runtime folder fails the run too, and one
+# whose runtime folder can't be made is never started.
 quickshell_run() {
-  local - secs=$1 log=$2 fd pid sig
+  local - secs=$1 log=$2 fd pid sig saved
   set +e
   shift 2
+  # Under /tmp, not $TMPDIR, and short: the sockets Quickshell reaches
+  # through it must fit a Unix socket's 107 bytes, Hyprland's
+  # hypr/<signature>/.socket2.sock the longest, as they do under
+  # /run/user/<uid>. mktemp ignores INT and TERM, so an interrupt can't end
+  # it between making the folder and handing over its name: the stop
+  # always has the name of a folder this run made.
+  qs_runtime=$(trap '' INT TERM; mktemp -d /tmp/qs.XXXXXX)
+  if [ -z "$qs_runtime" ] \
+    || ! find "$qs_session_runtime" -mindepth 1 -maxdepth 1 ! -name quickshell -exec ln -s -t "$qs_runtime" {} +; then
+    echo "FAIL the run's runtime folder ${qs_runtime:-in /tmp} could not be made; Quickshell was not started" >> "$log"
+    qs_code=1
+    quickshell_stop
+    return
+  fi
   rm -f "$log.ended"
   mkfifo "$log.ended"
   exec {fd}<> "$log.ended"
   set -m
-  STONKS_RUN=${qs_mark#STONKS_RUN=} bash -c '
+  STONKS_RUN=${qs_mark#STONKS_RUN=} XDG_RUNTIME_DIR=$qs_runtime bash -c '
     log=$1; shift
     QS_DISABLE_CRASH_HANDLER=1 quickshell "$@" > "$log" 2>&1 < /dev/null &
     trap "" TERM
@@ -62,6 +88,11 @@ quickshell_run() {
   else
     qs_code=124
     echo "FAIL Quickshell timed out after $secs s" >> "$log"
+  fi
+  saved=$(grep -o -m 1 'Saving logs to "[^"]*"' "$log")
+  if [[ $saved == "Saving logs to \"$qs_session_runtime/"* ]]; then
+    echo "FAIL Quickshell wrote in the session's runtime folder: ${saved#Saving logs to }" >> "$log"
+    (( qs_code != 0 )) || qs_code=1
   fi
   quickshell_stop "$log"
   exec {fd}<&-
@@ -87,14 +118,20 @@ quickshell_stop() {
   fi
   qs_leader=""
   left=$(marked "$qs_mark")
-  [ -n "$left" ] || return 0
-  kill -TERM $(cut -d' ' -f1 <<< "$left") 2> /dev/null
-  sleep 0.2
-  kill -KILL $(marked "$qs_mark" | cut -d' ' -f1) 2> /dev/null
-  if [ -n "${1:-}" ]; then
-    sed 's/^/FAIL a process Quickshell started left its group and outlived it (stopped): /' <<< "$left" >> "$1"
-    (( qs_code != 0 )) || qs_code=1
+  if [ -n "$left" ]; then
+    kill -TERM $(cut -d' ' -f1 <<< "$left") 2> /dev/null
+    sleep 0.2
+    kill -KILL $(marked "$qs_mark" | cut -d' ' -f1) 2> /dev/null
+    if [ -n "${1:-}" ]; then
+      sed 's/^/FAIL a process Quickshell started left its group and outlived it (stopped): /' <<< "$left" >> "$1"
+      (( qs_code != 0 )) || qs_code=1
+    fi
   fi
+  # With nothing of the run left to write in it, its runtime folder goes:
+  # the one mktemp made for it, whose links rm removes, never what they
+  # point to.
+  [ -z "$qs_runtime" ] || rm -rf -- "$qs_runtime"
+  qs_runtime=""
 }
 
 # quickshell_exit: what a script's EXIT trap runs. A second interrupt during
