@@ -594,6 +594,9 @@ ShellRoot {
       }
       service.setRange("1D")
       service.feature("AAPL")
+      // From retro, so s turns to smooth, whose rule draws the eased ends:
+      // retro's cells draw the breadth itself, and the ease never shows.
+      service.persist({ style: "retro" })
       rest()
       mouseMove(body, 1, 1)
       keys.forceActiveFocus()
