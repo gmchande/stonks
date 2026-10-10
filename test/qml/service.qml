@@ -276,7 +276,10 @@ ShellRoot {
           var ok = harness.complete(obj) && obj.changeMode === "abs"
           if (!ok && harness.waited < 2000) return
           harness.check("one persist leaves a complete file", ok, JSON.stringify(obj))
-          harness.writeThen(harness.bodyFrom({ symbols: ["AAPL", "MSFT"], featured: "MSFT" }), function() {
+          // An older build's order by the amount, reversed on All and not on
+          // a named list: each reads as % change, its direction kept.
+          harness.writeThen(harness.bodyFrom({ symbols: ["AAPL", "MSFT"], featured: "MSFT", order: "abs", reversed: true,
+            lists: [{ name: "Yen", symbols: ["MSFT"], order: "abs" }] }), function() {
             harness.go(4)
           })
         })
@@ -286,6 +289,12 @@ ShellRoot {
         if (!over && harness.waited < 2000) return
         harness.check("overwrite reaches the service", over,
           JSON.stringify({ symbols: service.symbols, featured: service.featuredSymbol }))
+        var saved = service.dataSettings
+        var yen = saved.lists[0] || {}
+        harness.check("a list saved in $ CHANGE order reads as % change, its direction and its symbols kept",
+          saved.order === "pct" && saved.reversed === true && saved.lists.length === 1
+            && yen.name === "Yen" && yen.order === "pct" && yen.reversed === false && harness.sameSymbols(yen.symbols, ["MSFT"]),
+          JSON.stringify({ order: saved.order, reversed: saved.reversed, lists: saved.lists }))
         harness.renameThen(harness.bodyFrom({ style: "retro" }), function() {
           harness.go(5)
         })

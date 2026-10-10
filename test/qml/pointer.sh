@@ -3,7 +3,8 @@
 # in one offscreen window. No surface is added to the running shell.
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 plugin_tree pointer.qml
+frame_tools
 export QT_QPA_PLATFORM=offscreen
 export STONKS_WATCHLIST_FIXTURE="$STONKS_FIXTURES/watchlist-22.json"
-run_qs 50
+run_qs 80
 finish "POINTER DONE"

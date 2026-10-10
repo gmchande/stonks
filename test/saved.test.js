@@ -675,10 +675,10 @@ test("sorting ranks the rows as a view over the manual list", () => {
   const tie = { FL2: { ...quotes.FL, symbol: "FL2" }, FL: quotes.FL }
   expect(M.sortedSymbols(["FL2", "FL"], tie, "pct")).toEqual(["FL2", "FL"])
   expect(M.sortedSymbols(["FL2", "FL"], tie, "pct", true)).toEqual(["FL2", "FL"])
-  // Lucid is up 10%, NVIDIA 2%: by percent Lucid leads, by amount NVIDIA.
+  // Lucid is up 10%, NVIDIA 2%: by percent Lucid leads, though NVIDIA's
+  // amount is larger.
   const pair = { LCID: q("LCID", "Lucid", 10, 11), NVDA: q("NVDA", "NVIDIA", 180, 183.6) }
   expect(M.sortedSymbols(["LCID", "NVDA"], pair, "pct")).toEqual(["LCID", "NVDA"])
-  expect(M.sortedSymbols(["LCID", "NVDA"], pair, "abs")).toEqual(["NVDA", "LCID"])
 })
 
 test("parseSearch keeps tradable results with names and readable exchanges", () => {

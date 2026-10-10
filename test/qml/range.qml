@@ -202,6 +202,9 @@ ShellRoot {
   // Hold MSFT's history answer back, and let it go (see the fake curl).
   Process { id: holdMsft; command: ["touch", Quickshell.env("STONKS_FAKE_STATE") + "/MSFT.history.hold"] }
   Process { id: releaseMsft; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/MSFT.history.hold"] }
+  // LATE's quotes fail and answer again (see the fake curl).
+  Process { id: lateDown; command: ["touch", Quickshell.env("STONKS_FAKE_STATE") + "/LATE.down"] }
+  Process { id: lateUp; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/LATE.down"] }
 
   Process {
     id: catProc
@@ -223,6 +226,36 @@ ShellRoot {
     function within(ms, fn) {
       for (var t = 0; t < ms && !fn(); t += 50) wait(50)
       return fn()
+    }
+
+    // What hovering the pill hands the bar to show, as the shell's bar
+    // receives it, "" for nothing: the pointer comes in from off the pill,
+    // and leaves again. A test middle-click leaves this window's pointer
+    // stuck over the pill, so every hover here comes before the first.
+    function hoverTip() {
+      var shown = null
+      mouseMove(pill, pill.width / 2, -5)
+      wait(20)
+      barApi._showTooltip = function(target, text) { shown = text }
+      mouseMove(pill, pill.width / 2, pill.height / 2)
+      wait(20)
+      barApi._showTooltip = null
+      mouseMove(pill, pill.width / 2, -5)
+      wait(20)
+      return shown
+    }
+
+    // The hover of each form, as "form tip", the form set as a
+    // middle-click sets it.
+    function hoverEveryForm() {
+      var before = pill.settings
+      var tips = ["text", "sparkline", "arrow", "icon"].map(function(form) {
+        pill.settings = Object.assign({}, before, { barStyle: form })
+        wait(20)
+        return form + " " + JSON.stringify(hoverTip())
+      })
+      pill.settings = before
+      return tips
     }
 
     // The pill in every bar style, cycled by middle-clicks until it comes
@@ -909,6 +942,14 @@ ShellRoot {
       service.removeSymbol("NOPE")
       app.close()
 
+      // The text pill shows its words already, so its hover is quiet; the
+      // other forms name what they don't show.
+      var company = service.quotes[service.featuredSymbol].name
+      var quietTips = hoverEveryForm()
+      harness.check("the text pill's hover says nothing, and the sparkline's, the arrow's, and the icon's name the company",
+        quietTips[0] === 'text ""' && quietTips.slice(1).every(function(t) { return t.indexOf(company + " · ") >= 0 && t.indexOf("!") < 0 }),
+        company + ": " + quietTips.join(" | "))
+
       // A featured symbol whose first fetch is out is only on its way; once
       // that fetch has failed, the pill says so.
       service.addSymbol("FAIL")
@@ -918,6 +959,96 @@ ShellRoot {
         service.featuredSymbol === "FAIL" && pillChange.text === "…", service.featuredSymbol + "|" + pillChange.text)
       harness.check("the pill says no data when the first fetch failed",
         within(10000, function() { return pillChange.text === "! no data" }), pillChange.text)
+      // The "!" names itself on hover on every form, the text's included,
+      // in the popup's words; the text's says nothing else.
+      var warningTips = hoverEveryForm()
+      harness.check("hovering a pill with a failed first fetch says so on every form, and the text form says only that",
+        warningTips[0] === 'text "REFRESH FAILED"' && warningTips.slice(1).every(function(t) { return /· REFRESH FAILED"$/.test(t) }),
+        warningTips.join(" | "))
+
+      // A warning that ends while the pointer stays on the pill leaves no
+      // bubble naming it: the text pill's goes, and the icon's loses the
+      // warning's words. The bar keeps one bubble, as the shell's does: a
+      // show replaces it, an empty one clears it, a hide takes it away. LATE
+      // fails while LATE.down exists (the fake curl).
+      var bubble = ""
+      var lateEntryAged = function() {
+        var entries = Object.assign({}, service.testFeed.entries)
+        entries.LATE = Object.assign({}, entries.LATE, { answeredAt: entries.LATE.answeredAt - 20 })
+        service.testFeed.entries = entries
+      }
+      var settingsBeforeLate = pill.settings
+      var warnsThenLands = function(form) {
+        if (!pill.warns) {
+          lateDown.running = true
+          tryVerify(function() { return !lateDown.running }, 2000)
+          lateEntryAged()
+          service.refresh()
+          tryVerify(function() { return pill.warns }, 10000)
+        }
+        pill.settings = Object.assign({}, settingsBeforeLate, { barStyle: form })
+        mouseMove(pill, pill.width / 2, -5)
+        wait(20)
+        barApi._showTooltip = function(target, text) { bubble = text }
+        barApi._hideTooltip = function(target) { bubble = "" }
+        mouseMove(pill, pill.width / 2, pill.height / 2)
+        wait(20)
+        var warned = bubble
+        lateUp.running = true
+        tryVerify(function() { return !lateUp.running }, 2000)
+        lateEntryAged()
+        service.refresh()
+        tryVerify(function() { return !pill.warns }, 10000)
+        wait(20)
+        var landed = bubble
+        mouseMove(pill, pill.width / 2, -5)
+        wait(20)
+        barApi._showTooltip = null
+        barApi._hideTooltip = null
+        return [form, JSON.stringify(warned), JSON.stringify(landed)]
+      }
+      lateDown.running = true
+      tryVerify(function() { return !lateDown.running }, 2000)
+      service.addSymbol("LATE")
+      service.feature("LATE")
+      tryVerify(function() { return pill.warns }, 10000)
+      var textLanding = warnsThenLands("text")
+      var iconLanding = warnsThenLands("icon")
+      // A quote landing under a resting pointer, with no warning involved,
+      // leaves the bubble as it opened: its figures stay, and it never
+      // blinks, though the pill's words have moved on.
+      pill.settings = Object.assign({}, settingsBeforeLate, { barStyle: "icon" })
+      var widget = null
+      for (var wc = 0; wc < pill.children.length; wc++) if (pill.children[wc].tooltipText !== undefined) widget = pill.children[wc]
+      var shows = 0
+      mouseMove(pill, pill.width / 2, -5)
+      wait(20)
+      barApi._showTooltip = function(target, text) { shows++; bubble = text }
+      barApi._hideTooltip = function(target) { bubble = "" }
+      mouseMove(pill, pill.width / 2, pill.height / 2)
+      wait(20)
+      var opened = bubble
+      var quotesBeforeRest = service.testFeed.quotes
+      var risen = Object.assign({}, quotesBeforeRest)
+      risen.LATE = Object.assign({}, risen.LATE, { price: risen.LATE.price + 10 })
+      service.testFeed.quotes = risen
+      wait(100)
+      var resting = [shows, JSON.stringify(opened), JSON.stringify(bubble), JSON.stringify(widget.tooltipText), pill.warns]
+      mouseMove(pill, pill.width / 2, -5)
+      wait(20)
+      barApi._showTooltip = null
+      barApi._hideTooltip = null
+      service.testFeed.quotes = quotesBeforeRest
+      harness.check("a quote landing under a resting pointer, with no warning, leaves the bubble as it opened",
+        resting[0] === 1 && /^"LATE /.test(resting[1]) && resting[2] === resting[1] && resting[3] !== resting[1] && resting[4] === false,
+        resting.join(" | "))
+      pill.settings = settingsBeforeLate
+      service.feature("FAIL")
+      service.removeSymbol("LATE")
+      harness.check("an answer landing under the pointer takes the warning out of the bubble: the text pill's goes, the icon's keeps the rest",
+        textLanding[1] === '"REFRESH FAILED"' && textLanding[2] === '""'
+          && /^"LATE .* · REFRESH FAILED · AS OF /.test(iconLanding[1]) && /^"LATE /.test(iconLanding[2]) && iconLanding[2].indexOf("REFRESH") < 0,
+        textLanding.join(" ") + " | " + iconLanding.join(" "))
 
       // While a chart loads, the hero keeps what was on screen, chart,
       // figures, and info lines alike, under "Loading", and the new chart

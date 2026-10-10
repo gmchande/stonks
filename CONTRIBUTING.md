@@ -174,8 +174,16 @@ run time.
   form: sparkline, arrow, text (the symbol, the row's price, and the change
   on a horizontal bar; no room for the price on a vertical one), and icon,
   Stonks' mark (`StonksMark`) alone in one icon slot on either bar, whose
-  hover names the symbol and its change, a
-  warning's "!" too. It reads its section from the bar's layout
+  hover names the symbol and its change. The sparkline's and the arrow's
+  hover names the company and the phase; the text's, which shows its words
+  already, says nothing. While a warning's "!" shows, every form's hover
+  says what it means, in the popup's words (`Figures.freshnessText`). The
+  shell copies a hover's words only as the pointer enters, so while it
+  stays a warning that starts, ends, or changes its words goes to the bar
+  again: an answer that lands takes the warning out of the bubble, and the
+  text form's bubble with it. A new figure alone leaves an open bubble as
+  it opened, so a resting pointer sees no blink. It
+  reads its section from the bar's layout
   (`bar.layoutConfig`): in the right section its form is `barStyleRight`,
   the icon until a middle-click there writes one, and elsewhere `barStyle`.
   Its right-click asks the window's host to toggle the window.
@@ -665,14 +673,21 @@ run time.
   has its own order and direction: `o` steps to the next order in its own
   direction, and `O` (or a Shift-click on the order word) reverses a sorted
   one; manual has none. The order word's arrow says which way the values
-  run down the list. The change mode sets the day's change only, so the
-  hero's change is a click target only while it shows the day's.
+  run down the list. Changes sort by percent only: Stonks converts no
+  currency, so an amount would rank yen against dollars, and an order saved
+  as the amount (`"abs"`) reads as % change. The change mode sets the day's
+  change only, so the hero's change is a click target only while it shows
+  the day's.
 - A key-hint row shows its view's most-used keys.
 - Row states each have their own mark: the featured row the selected fill,
   the keyboard cursor a bar down the left edge, the pointer a faint tint.
   In the list menu the keyboard's row takes the fill and the pointer's row
   a tint and the shell's outline, which reads on an opaque ground where a
   tint alone may not.
+- Stonks' own controls (the range tokens, the list name, the order word,
+  the look icon, the `?`, the footer, and the list views' actions) take the
+  shell's pressed fill from the moment the button goes down, while it is
+  held, as the shell's `Button` does; hover and selection keep their own.
 - Data settings live in `~/.config/omarchy/grvc.stonks.json`; `barStyle`
   and `barStyleRight` stay on the bar entry and are written through `updateEntryInline`. All (`symbols`
   and `order`, the version-1 keys, so an older build reads the same All, and
@@ -711,8 +726,8 @@ run time.
   down at the moment shown; a flat day has none. Its slot keeps its place
   drawn or not, so the status words start after it in both looks, on a flat
   day, and while a symbol's first quote is out. On a turn of the same chart
-  (a scrub or a replay across the close, a live day crossing it, a
-  Shift-click's cycle) smooth's crossfades in 160 ms OutCubic, from where a
+  (a scrub or a replay across the close, a live day crossing it)
+  smooth's crossfades in 160 ms OutCubic, from where a
   turn under way left it; a symbol, range, list, or look change, a failed
   range's retry landing, or an open, changes it at once, and retro's cells
   always change at once.

@@ -13,6 +13,8 @@
 #   FLAKY        fails twice, then answers like AAPL (retry and recovery)
 #   ONCE         answers the first time, then fails (failure with cached data)
 #   BLIP         answers the first time, fails twice, then answers again
+#   LATE         fails while STONKS_FAKE_STATE/LATE.down exists, else answers
+#                like AAPL (a warning that ends when an answer lands)
 #   SLOW         waits a second, then answers like AAPL (its 1W history: NBIS's week)
 #   STRAY        answers the saved NBIS day with one dropped bucket
 #   DOWN         answers the saved NBIS day, which fell 1.56%; its history is
@@ -231,6 +233,7 @@ serve() {
     FLAKY) [ "$calls" -le 2 ] && exit 22; answer ;;
     ONCE) [ "$calls" -ge 2 ] && exit 22; answer ;;
     BLIP) [ "$calls" -eq 2 ] || [ "$calls" -eq 3 ] && exit 22; answer ;;
+    LATE) [ -e "$state/LATE.down" ] && exit 22; answer ;;
     SLOW) sleep 1; answer ;;
     STRAY|DOWN) stamp < "$fixtures/nbis-2026-09-11-day-prepost.json" ;;
     FLAT) answer | sed 's/"chartPreviousClose":316.85/"chartPreviousClose":325.13/' ;;

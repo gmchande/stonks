@@ -37,7 +37,6 @@ Item {
   signal styleRequested(string style)
   signal helpRequested()
   signal replayRequested()
-  signal spriteCycled()
 
   // At rest as a surface opens: the icon on the look, the animal on what
   // it reads.
@@ -117,10 +116,7 @@ Item {
       anchors.fill: parent
       enabled: root.kind !== ""
       cursorShape: Qt.PointingHandCursor
-      onClicked: function(mouse) {
-        if (mouse.modifiers & Qt.ShiftModifier) root.spriteCycled()
-        else root.replayRequested()
-      }
+      onClicked: root.replayRequested()
     }
   }
 
@@ -146,7 +142,8 @@ Item {
 
   // The look a click switches to, as s does, about a word tall: the chart
   // already shows the current one. The target is the header's full height,
-  // so a click above or below the icon still lands.
+  // so a click above or below the icon still lands. Like the `?`, it hovers
+  // in brighter ink, and takes the pressed fill while the button is down.
   LookIcon {
     id: lookIcon
     objectName: "lookIcon"
@@ -156,6 +153,16 @@ Item {
     retro: root.retro
     still: root.still
     color: lookMouse.containsMouse ? root.foreground : root.dim
+
+    Rectangle {
+      objectName: "lookFill"
+      z: -1
+      anchors.centerIn: parent
+      width: parent.width + Style.space(12)
+      height: parent.height + Style.space(6)
+      radius: root.retro ? 0 : Style.cornerRadius
+      color: lookMouse.pressed ? Style.pressedFillFor(root.foreground, Color.accent) : "transparent"
+    }
 
     MouseArea {
       id: lookMouse
@@ -181,10 +188,13 @@ Item {
     }
   }
 
+  // Inset by its fill's margin, so the pressed fill ends on the header's
+  // edge: the popup clips anything past it.
   Text {
     id: helpMark
     objectName: "helpMark"
     anchors.right: parent.right
+    anchors.rightMargin: Style.space(6)
     anchors.verticalCenter: parent.verticalCenter
     textFormat: Text.PlainText
     text: "?"
@@ -193,6 +203,15 @@ Item {
     font.pixelSize: Style.font.caption
     font.bold: true
     Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    Rectangle {
+      objectName: "helpFill"
+      z: -1
+      anchors.centerIn: parent
+      width: parent.implicitWidth + Style.space(12)
+      height: parent.implicitHeight + Style.space(4)
+      radius: root.retro ? 0 : Style.cornerRadius
+      color: helpMouse.pressed ? Style.pressedFillFor(root.foreground, Color.accent) : "transparent"
+    }
     MouseArea {
       id: helpMouse
       anchors.horizontalCenter: parent.horizontalCenter
