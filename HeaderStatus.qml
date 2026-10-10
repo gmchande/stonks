@@ -168,9 +168,13 @@ Item {
       cursorShape: Qt.PointingHandCursor
       onClicked: root.styleRequested(root.retro ? "smooth" : "retro")
 
+      // Under the header, its right edge on the header's: inside the card,
+      // which the shell's place above the icon crossed.
       PanelToolTip {
         objectName: "lookTip"
         visible: lookMouse.containsMouse
+        x: root.width - lookIcon.x - lookMouse.x - width
+        y: lookMouse.height + Style.space(4)
         text: root.retro ? "Switch to smooth (s)" : "Switch to retro (s)"
         fontFamily: root.fontFamily
       }

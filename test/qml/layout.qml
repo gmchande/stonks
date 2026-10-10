@@ -849,6 +849,29 @@ ShellRoot {
         stub.retro = false
         wait(50)
 
+        // The look icon's tooltip shows inside the card, in both looks.
+        // Found in the first run: it drew across the card's top edge.
+        var toggle = find(body, "lookToggle")
+        // A popup is no child item: it is among the toggle's data.
+        var tip = null
+        for (var d = 0; d < toggle.data.length; d++) if (toggle.data[d].objectName === "lookTip") tip = toggle.data[d]
+        var inside = []
+        ;[false, true].forEach(function(retro) {
+          stub.retro = retro
+          mouseMove(toggle, toggle.width / 2, toggle.height / 2)
+          for (var t = 0; t < 2000 && !tip.opened; t += 20) wait(20)
+          var a = tip.background.mapToItem(body, 0, 0)
+          var b = tip.background.mapToItem(body, tip.background.width, tip.background.height)
+          inside.push(tip.opened && a.x >= 0 && a.y >= 0 && b.x <= body.width && b.y <= body.height)
+          inside.push([Math.round(a.x), Math.round(a.y), Math.round(b.x), Math.round(b.y)].join(" "))
+          mouseMove(body, body.width / 2, 20)
+          for (t = 0; t < 2000 && tip.visible; t += 20) wait(20)
+        })
+        root.check("the look icon's tooltip shows inside the card, smooth and retro",
+          inside[0] === true && inside[2] === true, inside.join(" | ") + " in " + body.width + "x" + body.height)
+        stub.retro = false
+        wait(50)
+
         // A new order is a new arrangement: every row takes its place at once.
         // Found live: o slid every row through the others for 110 ms.
         var placed = function() {
