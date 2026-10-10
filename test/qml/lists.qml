@@ -545,7 +545,7 @@ ShellRoot {
       var allAt = center(choices[0])
       // The pointer comes in as a hand's does, over more than one place: the
       // first place it is seen at in the menu is where it starts.
-      mouseMove(body2, allAt.x, allAt.y - 2)
+      mouseMove(body2, allAt.x, allAt.y - 6)
       mouseMove(body2, allAt.x, allAt.y)
       wait(100)
       grab("menu-hover")
@@ -656,12 +656,17 @@ ShellRoot {
         spotSymbol = symbol
       })
       // The pointer comes to the row by moving, as a hand's does.
-      mouseMove(body2, spot.x, spot.y - 2)
+      mouseMove(body2, spot.x, spot.y - 6)
       mouseMove(body2, spot.x, spot.y)
       wait(50)
       keys.forceActiveFocus()
       keyClick(Qt.Key_M)
       wait(150)
+      // The compositor reports the resting pointer again, a pixel off: still
+      // no move. From Grok's review of #19: a list view's pointer had never
+      // seen the pointer, so that report moved its cursor onto All.
+      mouseMove(body2, spot.x, spot.y + 1)
+      wait(50)
       var energy = function() {
         return service.dataSettings.lists.filter(function(l) { return l.name === "Energy" })[0].symbols
       }
@@ -687,6 +692,8 @@ ShellRoot {
       keys.forceActiveFocus()
       keyClick(Qt.Key_W)
       wait(100)
+      mouseMove(body2, menuAllAt.x, menuAllAt.y + 1)
+      wait(50)
       var menuOpenedOn = menu.cursor
       keyClick(Qt.Key_Return)
       wait(100)
@@ -700,6 +707,8 @@ ShellRoot {
       keys.forceActiveFocus()
       keyClick("W")
       wait(100)
+      mouseMove(body2, manageAllAt.x, manageAllAt.y + 1)
+      wait(50)
       var manageOpenedOn = manageView.cursor
       keyClick(Qt.Key_Return)
       wait(50)

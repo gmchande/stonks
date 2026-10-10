@@ -278,12 +278,17 @@ run time.
   name the row that will rest under the pointer. Only a real move within
   the rows counts (`RowPointer.qml`): the first place the pointer is seen
   at, as it comes in or as a view opens or shows again under it, is only
-  where it starts, so a view keeps the cursor it opened on; and rows gliding
-  under a still pointer, as a key scrolls them, never hand it the cursor.
-  The list views follow the same rule. It is always on a row in
-  sight (`cursorRow`): a cursor of your own while any of its row is in
-  sight; without one (on open, on another list), the featured row when that
-  is in sight, else the first whole row in sight. The scrollbar moving your
+  where it starts, so a view keeps the cursor it opened on. As the rows show
+  again (from behind the key sheet or a view), the surface opens, or a list
+  view opens, the pointer rests where it is first seen after, and reports
+  within 2 px of that place are that resting pointer (`RowPointer.rest`):
+  the compositor can report it again a pixel off as the view comes back.
+  Any farther report is a hand's move and counts. And rows gliding under a
+  still pointer, as a key scrolls them, never hand it the cursor. The list
+  views follow the same rule. It is always on a row in sight (`cursorRow`):
+  a cursor of your own while any of its row is in sight; without one (every
+  open clears it, `reopen`; on another list), the featured row when that is
+  in sight, else the first whole row in sight. The scrollbar moving your
   cursor out of sight, or the rows changing under it, lets it go; removing
   the cursor's row (`x`, Delete, Backspace, or a right- or middle-click,
   which puts the cursor there first) hands the cursor to the row that

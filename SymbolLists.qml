@@ -47,6 +47,7 @@ FocusScope {
   onActiveChanged: {
     if (active) {
       reset()
+      pointer.rest()
       opening.restart()
       Qt.callLater(function() { if (root.active) root.forceActiveFocus() })
     } else {

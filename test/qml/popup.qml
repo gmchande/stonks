@@ -309,7 +309,6 @@ ShellRoot {
       panel.testKeyCatcher.moveRequested(0, 1)
       test.check("in the popup, a over the key sheet opens search alone, and a row key shows the rows",
         searchAlone && !panel.testBody.showingHelp, searchAlone + "|" + panel.testBody.showingHelp)
-      panel.testBody.watchlist.cursorSymbol = ""
       panel.testBody.showingHelp = true
       panel.testBody.motion.scrubT = 123
       panel.close()

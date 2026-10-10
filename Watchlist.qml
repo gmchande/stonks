@@ -340,7 +340,12 @@ Flickable {
     rowClickAt = 0
     clickEndedAt = 0
   }
-  onVisibleChanged: forgetClicks()
+  // The rows shown again, behind a view or the key sheet before: the pointer
+  // resting over them is no move (RowPointer.rest).
+  onVisibleChanged: {
+    forgetClicks()
+    if (visible) listHover.rest()
+  }
 
   // Whether row `index` is whole in the list's view with it scrolled to
   // `top`. The card's edge easing past the foot is left out: the cursor
@@ -586,11 +591,14 @@ Flickable {
   }
   onSortHeldChanged: if (!sortHeld && surfaceOpen) applyShown()
 
-  // As the surface opens: the rows in the service's order, at rest, and no
-  // Shift+wheel move left half made.
+  // As the surface opens: the rows in the service's order, at rest, no
+  // Shift+wheel move left half made, and no cursor of the last visit's, so
+  // it rests on the featured row until you point or press a key.
   function reopen() {
     wheelMoving = ""
+    cursorSymbol = ""
     forgetClicks()
+    listHover.rest()
     layOut()
   }
   Component.onCompleted: {

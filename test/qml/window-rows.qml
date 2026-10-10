@@ -703,6 +703,62 @@ ShellRoot {
       var watchlist = body.watchlist
       var keys = app.testKeyCatcher
 
+      // A reopened window's cursor rests on the featured row, not where the
+      // last visit left it. Found in the live check of #9: the bar stayed on
+      // the last visit's row, so Enter, Space, x, and m acted on it.
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_Down)
+      wait(50)
+      var leftOn = watchlist.cursorRow
+      app.close()
+      wait(200)
+      app.open("{}")
+      wait(200)
+      // The pointer moved while the window was closed: the compositor
+      // reports it where it now rests, over another row, then again a pixel
+      // off. Neither is a move. From Grok's review of #19: the second moved
+      // the cursor onto that row.
+      var restingOn = watchlist.displayedSymbols.filter(function(s) { return s !== service.featuredSymbol })[0]
+      var restRow = watchlist.rowItem(restingOn)
+      mouseMove(restRow, restRow.width / 2 + 30, restRow.height / 2)
+      mouseMove(restRow, restRow.width / 2 + 30, restRow.height / 2 + 1)
+      wait(50)
+      harness.check("a reopened window's cursor rests on the featured row, not the last visit's, nor under a pointer reported again",
+        leftOn !== service.featuredSymbol && watchlist.cursorRow === service.featuredSymbol,
+        leftOn + " -> " + watchlist.cursorRow + " for " + service.featuredSymbol + ", pointer on " + restingOn)
+
+      // The key sheet showing and going again under a resting pointer moves
+      // no cursor: the rows come back with the cursor the keys left, closed
+      // by ? and by Escape. Found in the live check of #9: the cursor came
+      // back on the row under the still pointer.
+      var sheetRound = function(closeKey) {
+        var first = watchlist.rowItem(watchlist.displayedSymbols[0])
+        // The pointer comes onto the first row from the second, as a hand's
+        // does, which puts the cursor there.
+        mouseMove(first, first.width / 2, first.height / 2 + watchlist.rowPitch)
+        mouseMove(first, first.width / 2, first.height / 2)
+        wait(50)
+        keys.forceActiveFocus()
+        keyClick(Qt.Key_Down)
+        wait(50)
+        var keyed = watchlist.cursorRow
+        keyClick(Qt.Key_Question, Qt.ShiftModifier)
+        wait(100)
+        var opened = body.showingHelp
+        keyClick(closeKey === "?" ? Qt.Key_Question : Qt.Key_Escape, closeKey === "?" ? Qt.ShiftModifier : Qt.NoModifier)
+        wait(200)
+        // The compositor reports the resting pointer again as the rows come
+        // back, a pixel off its last report: a resting hand, no move.
+        mouseMove(first, first.width / 2, first.height / 2 + 1)
+        wait(50)
+        return (opened && !body.showingHelp && keyed === watchlist.displayedSymbols[1] && watchlist.cursorRow === keyed)
+          + " " + keyed + " -> " + watchlist.cursorRow
+      }
+      var byQuestion = sheetRound("?")
+      var byEscape = sheetRound("Escape")
+      harness.check("the key sheet closing under a resting pointer leaves the cursor where the keys put it, by ? and by Escape",
+        /^true /.test(byQuestion) && /^true /.test(byEscape), byQuestion + " | " + byEscape)
+
       var removedRow = watchlist.rowItem("MSFT")
       mouseClick(removedRow, removedRow.width / 2, removedRow.height / 2, Qt.MiddleButton)
       wait(100)

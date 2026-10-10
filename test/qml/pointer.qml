@@ -537,7 +537,7 @@ ShellRoot {
         body.watchlist.contentY = 0
         // The pointer comes in as a hand's does, over more than one place:
         // the first place it is seen at in a list is where it starts.
-        mouseMove(body.watchlist, 12, body.watchlist.rowPitch + 10)
+        mouseMove(body.watchlist, 12, body.watchlist.rowPitch + 6)
         mouseMove(body.watchlist, 12, body.watchlist.rowPitch + 12)
         wait(50)
         var removed = body.watchlist.displayedSymbols[1]
@@ -758,7 +758,7 @@ ShellRoot {
         body.watchlist.followBy(17)
         var partRow = body.watchlist.displayedSymbols[1]
         var partY = pitch + 2 - 17
-        mouseMove(body.watchlist, 12, partY - 2)
+        mouseMove(body.watchlist, 12, partY - 6)
         mouseMove(body.watchlist, 12, partY)
         mouseClick(body.watchlist, 12, partY)
         wait(200)
@@ -777,7 +777,7 @@ ShellRoot {
         body.watchlist.followBy(17)
         var shownBefore = body.watchlist.displayedSymbols.slice()
         var thirdY = 2 * pitch + 20 - 17
-        mouseMove(body.watchlist, 12, thirdY - 2)
+        mouseMove(body.watchlist, 12, thirdY - 6)
         mouseMove(body.watchlist, 12, thirdY)
         mouseClick(body.watchlist, 12, thirdY, Qt.RightButton)
         wait(200)
@@ -806,7 +806,7 @@ ShellRoot {
           stub.featuredSymbol = body.watchlist.displayedSymbols[5]
           var target = body.watchlist.displayedSymbols[2]
           var y = 2 * pitch + 20
-          mouseMove(body.watchlist, 12, y - 2)
+          mouseMove(body.watchlist, 12, y - 6)
           mouseMove(body.watchlist, 12, y)
           var once = function() {
             stub.featuredSymbolChanged.disconnect(once)
@@ -830,7 +830,7 @@ ShellRoot {
         stub.featuredSymbol = body.watchlist.displayedSymbols[5]
         var takenPlace = body.watchlist.displayedSymbols[3]
         var moveY = 2 * pitch + 20
-        mouseMove(body.watchlist, 12, moveY - 2)
+        mouseMove(body.watchlist, 12, moveY - 6)
         mouseMove(body.watchlist, 12, moveY)
         mouseClick(body.watchlist, 12, moveY)
         body.moveSelected(1)
@@ -857,7 +857,7 @@ ShellRoot {
           stub.featuredSymbol = body.watchlist.displayedSymbols[5]
           var row = body.watchlist.displayedSymbols[4]
           var rowY = 4 * pitch + 20
-          mouseMove(body.watchlist, 12, rowY - 2)
+          mouseMove(body.watchlist, 12, rowY - 6)
           mouseMove(body.watchlist, 12, rowY)
           mouseClick(body.watchlist, 12, rowY)
           if (!wheelBetween) mouseWheel(body.watchlist, 12, rowY, 0, -120, Qt.NoModifier)
@@ -892,6 +892,79 @@ ShellRoot {
         ]
         root.check("a double-click that begins on a view, Manage lists' DONE or off the list menu, features no row under its second press",
           views.every(function(v) { return /^true /.test(v) }), views.join(" | "))
+
+        // The key sheet closing over a resting pointer leaves the cursor
+        // where the keys put it, on the body the popup and the window share,
+        // though the pointer is reported again, a pixel off, as the rows come
+        // back; a hand that then moves to another row still takes it. Found
+        // in the live check of #9: the cursor came back on the row under the
+        // still pointer.
+        body.watchlist.contentY = 0
+        wait(50)
+        var sheetFirst = body.watchlist.rowItem(body.watchlist.displayedSymbols[0])
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2 + pitch)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2)
+        wait(50)
+        body.moveCursor(1)
+        wait(50)
+        var sheetKeyed = body.watchlist.cursorRow
+        body.toggleHelp()
+        wait(100)
+        body.toggleHelp()
+        wait(200)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2 + 1)
+        wait(50)
+        var sheetKept = body.watchlist.cursorRow
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2 + 2 * pitch)
+        wait(50)
+        root.check("the key sheet closing over a resting pointer leaves the cursor the keys put, and a hand's move takes it after",
+          sheetKeyed === body.watchlist.displayedSymbols[1] && sheetKept === sheetKeyed
+            && body.watchlist.cursorRow === body.watchlist.displayedSymbols[2],
+          sheetKeyed + " -> " + sheetKept + " -> " + body.watchlist.cursorRow)
+
+        // The rows coming back from behind a view, under a pointer that
+        // moved while the view was open: the first report is where it rests,
+        // and one a pixel off is no move. From Grok's review of #19: only a
+        // pointer near where the rows last saw it rested, so that report
+        // moved the cursor.
+        body.watchlist.contentY = 0
+        wait(50)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2 + pitch)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2)
+        wait(50)
+        body.moveCursor(1)
+        wait(50)
+        var viewKeyed = body.watchlist.cursorRow
+        body.openManageLists()
+        wait(100)
+        mouseMove(sheetFirst, sheetFirst.width / 2 - 20, sheetFirst.height / 2 + 3 * pitch)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2 + 3 * pitch)
+        wait(50)
+        body.closeListViews()
+        wait(200)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height / 2 + 3 * pitch + 1)
+        wait(50)
+        var viewKept = body.watchlist.cursorRow
+        // And a small real move after the rows come back counts: from the
+        // last few pixels of a row, a few pixels onto the next one take the
+        // cursor. Grok found the drag distance's 8 px left it behind.
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height + 20)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height - 3)
+        wait(50)
+        body.moveCursor(1)
+        body.moveCursor(1)
+        wait(50)
+        var smallKeyed = body.watchlist.cursorRow
+        body.toggleHelp()
+        wait(100)
+        body.toggleHelp()
+        wait(200)
+        mouseMove(sheetFirst, sheetFirst.width / 2, sheetFirst.height + 3)
+        wait(50)
+        root.check("rows back from behind a view keep the cursor under a pointer moved meanwhile, and a few pixels onto the next row take it",
+          viewKept === viewKeyed && viewKeyed === body.watchlist.displayedSymbols[1]
+            && smallKeyed === body.watchlist.displayedSymbols[2] && body.watchlist.cursorRow === body.watchlist.displayedSymbols[1],
+          viewKeyed + " -> " + viewKept + " | " + smallKeyed + " -> " + body.watchlist.cursorRow)
 
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,
@@ -940,7 +1013,7 @@ ShellRoot {
         wl.contentY = 0
         wait(50)
         var third = wl.rowItem(wl.displayedSymbols[2])
-        mouseMove(third, third.width / 2, third.height / 2 - 2)
+        mouseMove(third, third.width / 2, third.height / 2 - 6)
         mouseMove(third, third.width / 2, third.height / 2)
         wait(100)
         var onThird = [wl.cursorRow === wl.displayedSymbols[2]].concat(misdrawn())
@@ -1381,7 +1454,7 @@ ShellRoot {
           var view = root.find(body, viewName)
           var rows = root.findAll(view, rowName)
           var at = rows[1].mapToItem(body, rows[1].width / 2, rows[1].height / 2)
-          mouseMove(body, at.x, at.y - 2)
+          mouseMove(body, at.x, at.y - 6)
           mouseMove(body, at.x, at.y)
           wait(50)
           var pointed = view.cursor
@@ -1435,12 +1508,12 @@ ShellRoot {
           var rows = root.findAll(view, v[3])
           var onTwo = rows[2].mapToItem(body, rows[2].width / 2, rows[2].height / 2)
           var onAll = rows[0].mapToItem(body, rows[0].width / 2, rows[0].height / 2)
-          mouseMove(body, onTwo.x, onTwo.y - 2)
+          mouseMove(body, onTwo.x, onTwo.y - 6)
           mouseMove(body, onTwo.x, onTwo.y)
           wait(50)
           var before = view.cursor
           body.surfaceOpen = false
-          mouseMove(body, onAll.x, onAll.y - 2)
+          mouseMove(body, onAll.x, onAll.y - 6)
           mouseMove(body, onAll.x, onAll.y)
           wait(50)
           var after = view.cursor

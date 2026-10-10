@@ -49,6 +49,7 @@ FocusScope {
   onActiveChanged: {
     if (active) {
       reset()
+      pointer.rest()
       Qt.callLater(function() { if (root.active && !root.renaming) root.forceActiveFocus() })
     } else {
       nameField.focus = false
