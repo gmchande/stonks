@@ -70,7 +70,6 @@ Item {
   property bool managingLists: false
   // The symbol whose lists the checklist shows; "" while it is closed.
   property string listsSymbol: ""
-  property int spriteOverride: 0
   // A short word in the footer's place, for a moment, held while the pointer
   // is on it: why a key did nothing, or what a removal took, which a click
   // on it puts back (`offered`).
@@ -213,9 +212,9 @@ Item {
     && !scrubT && featuredFreshness.live
   // The header's animal, in both looks: the direction of the moment shown
   // against the baseline, a bull up and a bear down, and none on a flat day
-  // (`dayTone`) or before a direction is known; Shift-click's choice first.
-  readonly property string animalKind: spriteOverride === 1 ? "bull" : spriteOverride === 2 ? "bear"
-    : !featured || featured.dayTone === "flat" ? "" : featured.dayTone === "up" ? "bull" : "bear"
+  // (`dayTone`) or before a direction is known.
+  readonly property string animalKind: !featured || featured.dayTone === "flat" ? ""
+    : featured.dayTone === "up" ? "bull" : "bear"
   // What it reads, the chart as the motion tells charts apart (a failed
   // range's stand-in day is another chart than its history), the list, and
   // the look: a change of it is no turn, so the animal changes at once.
@@ -358,7 +357,6 @@ Item {
     showingHelp = false
     if (service) service.reverseOrder()
   }
-  function cycleSprite() { spriteOverride = (spriteOverride + 1) % 3 }
 
   // A row by its place in the list as it is on screen, as 1 to 9 feature
   // them: while the pointer holds the rows, that is not the service's order.
@@ -728,7 +726,6 @@ Item {
     onStyleRequested: function(v) { root.setStyle(v) }
     onHelpRequested: root.toggleHelp()
     onReplayRequested: root.replay(false)
-    onSpriteCycled: root.cycleSprite()
   }
 
   HeroBand {

@@ -37,7 +37,6 @@ Item {
   signal styleRequested(string style)
   signal helpRequested()
   signal replayRequested()
-  signal spriteCycled()
 
   // At rest as a surface opens: the icon on the look, the animal on what
   // it reads.
@@ -117,10 +116,7 @@ Item {
       anchors.fill: parent
       enabled: root.kind !== ""
       cursorShape: Qt.PointingHandCursor
-      onClicked: function(mouse) {
-        if (mouse.modifiers & Qt.ShiftModifier) root.spriteCycled()
-        else root.replayRequested()
-      }
+      onClicked: root.replayRequested()
     }
   }
 
