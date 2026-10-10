@@ -225,18 +225,20 @@ function historyStatsDateText(t, gmtoffset, withYear, interval) {
 }
 
 // The widest date historyStatsDateText writes for these bars: a two-digit
-// day, and the year where it takes one.
-function historyStatsDateWidest(withYear, interval) {
+// day, and always the year, which a period takes once it crosses one.
+function historyStatsDateWidest(interval) {
   var coarse = interval === "1wk" || interval === "1mo" || interval === "3mo"
-  return coarse ? "MMM 88" : "88 MMM" + (withYear ? " 88" : "")
+  return coarse ? "MMM 88" : "88 MMM 88"
 }
 
 // The info block's first line on a range, in the day line's shape
 // (`Figures.dayLine`): the range, its low and high with the price's place
 // between them, then what only it says: when a listing younger than its
-// range began, how few bars a sparse answer has, and the dates of its low
-// and high. `digits` is the listing's price decimals (`Quote.priceDigits`);
-// `price` the headline, else the last bar's close.
+// range began, the dates of its low and high, and how few bars a young
+// listing's sparse answer has. The bars' slot is kept while the listing is
+// younger than its range, so the eighth bar empties it and moves nothing.
+// `digits` is the listing's price decimals (`Quote.priceDigits`); `price`
+// the headline, else the last bar's close.
 function rangeLine(history, stats, digits, price) {
   stats = stats || periodStats(history)
   if (!history || !stats || !stats.coverage) return null
@@ -245,13 +247,14 @@ function rangeLine(history, stats, digits, price) {
   var range = Format.infoRange(stats.low ? stats.low.p : null, stats.high ? stats.high.p : null,
     Format.isFiniteNumber(price) ? price : stats.last, digits)
   var dated = function(point) { return point ? historyStatsDateText(point.t, history.gmtoffset, years, history.interval) : "" }
-  var widest = historyStatsDateWidest(years, history.interval)
+  var widest = historyStatsDateWidest(history.interval)
   var facts = []
   if (coverage.short)
-    facts.push({ label: "SINCE", value: historyStatsDateText(history.firstTradeDate, history.gmtoffset, true, "1d"), widest: historyStatsDateWidest(true, "1d") })
-  if (coverage.bars && coverage.bars < 8) facts.push({ label: "", value: String(coverage.bars), after: "BARS", widest: "8" })
+    facts.push({ label: "SINCE", value: historyStatsDateText(history.firstTradeDate, history.gmtoffset, true, "1d"), widest: historyStatsDateWidest("1d") })
   facts.push({ label: "LOW", value: dated(stats.low), widest: widest })
   facts.push({ label: "HIGH", value: dated(stats.high), widest: widest })
+  if (coverage.short)
+    facts.push({ label: "", value: coverage.bars && coverage.bars < 8 ? String(coverage.bars) : "", after: "BARS", widest: "8" })
   return { title: String(history.range || "").toUpperCase(), range: range, facts: facts }
 }
 

@@ -869,14 +869,15 @@ test("a range's line gives its low and high, their dates, and its coverage", () 
   expect(line(aapl, M.regularClose(quote))).toBe("1Y · 229.02–344.57 @325.13 · LOW 12 SEP 25 · HIGH 29 JUL 26")
   expect(line(week)).toBe("1W · 209.40–254.74 @224.55 · LOW 4 SEP · HIGH 8 SEP")
   expect(line(month)).toBe("1M · 194.80–280.83 @224.55 · LOW 1 SEP · HIGH 17 AUG")
-  expect(line(fig)).toBe("ALL · 16.60–142.92 @23.20 · SINCE 31 JUL 25 · LOW 30 APR 26 · HIGH 1 AUG 25")
+  expect(line(fig)).toBe("ALL · 16.60–142.92 @23.20 · SINCE 31 JUL 25 · LOW 30 APR 26 · HIGH 1 AUG 25 · _ BARS")
   expect(line(weekly)).toBe("5Y · 124.17–344.57 @332.27 · LOW JAN 23 · HIGH JUL 26")
   // No bars: an empty rule and empty dates, and no word about it.
   expect(line({ ...week, bars: [] })).toBe("1W · ?–? · LOW _ · HIGH _")
-  // Each date's slot holds the widest date of its kind, so a new high's
-  // date never widens it.
+  // Each date's slot holds the widest date of its kind, its year included,
+  // so a new high's date, or a period that comes to cross a year, never
+  // widens it.
   expect(M.rangeLine(aapl).facts.map(f => f.widest)).toEqual(["88 MMM 88", "88 MMM 88"])
-  expect(M.rangeLine(week).facts.map(f => f.widest)).toEqual(["88 MMM", "88 MMM"])
+  expect(M.rangeLine(week).facts.map(f => f.widest)).toEqual(["88 MMM 88", "88 MMM 88"])
   expect(M.rangeLine(weekly).facts.map(f => f.widest)).toEqual(["MMM 88", "MMM 88"])
   // A weekly bar names no day, so it carries its year even when the whole
   // period sits inside one.
@@ -893,12 +894,20 @@ test("a range's line gives its low and high, their dates, and its coverage", () 
   expect(M.historyScrubText({ ...week, interval: "1wk" }, week.bars[0])).toBe("WEEK OF 4 SEP · 213.58")
   expect(M.historyScrubText({ ...aapl, interval: "1mo" }, aapl.bars[0])).toBe("SEP 2025 · 234.07")
   expect(M.historyScrubText({ ...aapl, interval: "3mo" }, aapl.bars[0])).toBe("SEP 2025 · 234.07")
-  // A short sparse response says how many bars actually exist.
+  // A young listing's sparse answer says how many bars actually exist; its
+  // eighth bar empties that slot and keeps every slot in place.
+  const day = t => ({ t: 100 + t * DAY, h: 11 + t, l: 9 + t, c: 10 + t })
   const sparse = {
     symbol: "NEW", range: "All", interval: "1d", gmtoffset: 0, baseline: 10, firstTradeDate: 100,
-    bars: [{ t: 100, h: 11, l: 9, c: 10 }, { t: 100 + DAY, h: 12, l: 10, c: 11 }]
+    bars: [day(0), day(1)]
   }
-  expect(line(sparse)).toBe("ALL · 9.00–12.00 @11.00 · SINCE 1 JAN 70 · 2 BARS · LOW 1 JAN · HIGH 2 JAN")
+  expect(line(sparse)).toBe("ALL · 9.00–12.00 @11.00 · SINCE 1 JAN 70 · LOW 1 JAN · HIGH 2 JAN · 2 BARS")
+  const seven = { ...sparse, bars: [0, 1, 2, 3, 4, 5, 6].map(day) }
+  const eight = { ...sparse, bars: [0, 1, 2, 3, 4, 5, 6, 7].map(day) }
+  expect(line(seven)).toMatch(/ · 7 BARS$/)
+  expect(line(eight)).toMatch(/ · _ BARS$/)
+  const slots = h => M.rangeLine(h).facts.map(f => [f.label, f.widest, f.after].join("|"))
+  expect(slots(eight)).toEqual(slots(seven))
 })
 
 test("historyRowModel uses the quote until a historical bar is scrubbed", () => {

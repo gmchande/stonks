@@ -438,11 +438,13 @@ ShellRoot {
           cut.length === 0, cut.join(" | "))
 
         // A refresh moves the tick and nothing else: AAPL's volume from
-        // 52.4M to 999.9M and to 7, with its price a dollar up, leaves both
-        // rules' ends where they were, and the tick follows the price. At a
-        // 52-week high, with Yahoo's 52-week high a dollar behind the day's,
-        // both lines' highs read the day's high in the up colour, and both
-        // ticks sit at their rule's right end. Both looks, both surfaces.
+        // 52.4M to 999.9M, across its rounding into 1.0B, and to 7, with its
+        // price a dollar up, and a listing younger than its range getting
+        // its eighth bar, leave both rules' ends where they were; the tick
+        // follows the price. At a 52-week high, with Yahoo's 52-week high a
+        // dollar behind the day's, both lines' highs read the day's high in
+        // the up colour, and both ticks sit at their rule's right end. Both
+        // looks, both surfaces.
         var aaplQuote = stub.quotes.AAPL
         var restless = []
         var peaks = []
@@ -476,11 +478,28 @@ ShellRoot {
             var where = (surface.wide ? "window " : "popup ") + (retro ? "retro" : "smooth")
             var before = ends()
             var tickBefore = tickEnd("periodRule")
-            ;[999.9e6, 7].forEach(function(volume) {
+            ;[999.9e6, 999.96e6, 1e9, 7].forEach(function(volume) {
               withQuote({ volume: volume, price: aaplQuote.price + 1 })
               if (ends() !== before) restless.push(where + " at VOL " + volume + ": " + before + " became " + ends())
             })
             if (tickEnd("periodRule") === tickBefore) restless.push(where + ": the tick stayed at " + tickBefore + " as the price rose")
+            // A listing younger than its range: its eighth bar lands.
+            stub.featuredSymbol = "NBIS"
+            stub.range = "1M"
+            stub.figures = null
+            var young = function(count) {
+              stub.historyEntry = { status: "ok", receivedAt: stub.now, history: Object.assign({}, month,
+                { firstTradeDate: month.bars[0].t, bars: month.bars.slice(0, count) }) }
+              wait(50)
+            }
+            young(7)
+            var sparse = ends()
+            young(8)
+            if (ends() !== sparse) restless.push(where + " at a young listing's eighth bar: " + sparse + " became " + ends())
+            stub.featuredSymbol = "AAPL"
+            stub.range = "1D"
+            stub.historyEntry = null
+            stub.figures = aapl
             withQuote({ price: aaplQuote.dayHigh, fiftyTwoWeekHigh: aaplQuote.dayHigh - 1 })
             var rules = [find(body, "periodRule"), find(body, "yearRule")]
             var highs = [body.periodLine, body.yearLine].map(function(line) { return line ? line.range.highText : "" })
@@ -495,7 +514,7 @@ ShellRoot {
           })
         }
         withQuote({})
-        root.check("a refresh that changes VOL's width moves neither end of either rule; the tick follows the price",
+        root.check("a refresh moves neither end of either rule: VOL across its units, a young listing's eighth bar; the tick follows the price",
           restless.length === 0, restless.join(" | "))
         root.check("at a 52-week high both highs read the day's high in the up colour, both ticks at the rule's right end",
           peaks.length === 0, peaks.join(" | "))

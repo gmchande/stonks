@@ -496,24 +496,28 @@ run time.
   then the low, a thin rule with a tick where the price sits, and the high,
   then two facts. The first line is the day (`Figures.dayLine`: its session
   as the title, OPEN and VOL) or, on a range, that range
-  (`History.rangeLine`: SINCE for a listing younger than it, the bars of a
-  sparse answer, and the dates of its low and high); the second, on every
-  range, the 52 weeks (`Fundamentals.yearLine`: MKT CAP and P/E, an
-  equity's only), so the two rules stand in one column and the ticks say
-  where the price sits in both. The rule is the breadth rule's ink and
-  2 px, in cells in retro (`Cells.RULE_*`). A day past Yahoo's 52-week mark
-  widens the 52-week range to it: both highs (or lows) read the same, in
-  that direction's colour. Each line names only what is known, never what
+  (`History.rangeLine`: SINCE for a listing younger than it, the dates of
+  its low and high, then the bars of that young listing's sparse answer);
+  the second, on every range, the 52 weeks (`Fundamentals.yearLine`: MKT
+  CAP and P/E, an equity's only), so the two rules stand in one column and
+  the ticks say where the price sits in both. The rule is the breadth
+  rule's ink and 2 px, in cells in retro (`Cells.RULE_*`). A day past
+  Yahoo's 52-week mark widens the 52-week range to it: both highs (or
+  lows) read the same, in that direction's colour. Each line names only
+  what is known, never what
   is missing: an unknown end leaves an empty track and no tick, an unknown
   fact an empty slot. Every column is as wide as the widest figure its
   slots can hold at the listing's digits (`Format.widest`: its largest
-  price, VOL as 999.9M, a cap as 999.9B with room for its currency on a
-  pence listing, a P/E as 99.9), never today's figures, and a slot stays
-  when its fact is missing, so a refresh moves only the tick; the
-  geometry changes only with the symbol, the range, or a price gaining a
-  digit. The rule takes the room the columns leave; a trailing column that
-  still does not fit (a coin under a cent's VOL, a young listing's high
-  date in the popup) is left out whole, never cut. The cap and P/E come from
+  price, VOL as 999.9M, which `Format.compactNumber` never exceeds, a cap
+  as 999.9B with room for its currency on a pence listing, a P/E as 99.9,
+  a date with its year), never today's figures, and a slot stays when its
+  fact is missing (a young listing's BARS after its eighth bar), so a
+  refresh moves only the tick. The geometry changes only with the symbol,
+  the range, a price gaining a digit, or a range whose start passes a
+  young listing's first day, where SINCE and BARS go. The rule takes the
+  room the columns leave; a trailing column that still does not fit (a
+  coin under a cent's VOL, a young listing's high date and bars in the
+  popup) is left out whole, never cut. The cap and P/E come from
   Yahoo's fundamentals timeseries: dated snapshots, weeks or months apart,
   each taken at its date's close, with no share count. Each is moved with
   the headline price from its own date's close, so the cap is an estimate.
