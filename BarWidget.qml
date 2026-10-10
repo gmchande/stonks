@@ -56,7 +56,8 @@ BarWidget {
   onWarningTextChanged: Qt.callLater(function() {
     if (button.tooltipHovered && button.bar) button.bar.showTooltip(button, button.tooltipText)
   })
-  readonly property color trendColor: featured && featured.tone === "up" ? (plugin && plugin.trendColors ? plugin.trendColors.up : button.foreground)
+  readonly property color upColor: plugin && plugin.trendColors ? plugin.trendColors.up : button.foreground
+  readonly property color trendColor: featured && featured.tone === "up" ? upColor
     : featured && featured.tone === "down" ? Color.urgent : dimColor
   // Quieter than the bar's ink by the same rule as the popup's secondary
   // text, against the bar's own ground.
@@ -289,8 +290,8 @@ BarWidget {
         fontSize: button.fontSize * 0.85
         color: button.foreground
       }
-      // Coloured by the figure it shows: a move that rounds to 0.0% here is
-      // no move, and takes no colour, though the rows' 0.04% does.
+      // Coloured by the figure it shows, a percentage whatever change the
+      // rows say: by its sign, and no colour once it shows 0.0%.
       OpticalGlyph {
         objectName: "pillDayChange"
         width: button.width
@@ -298,8 +299,8 @@ BarWidget {
         text: root.featured ? Format.lookSigns(Format.narrowPct(root.featured.pct), root.retro) : "…"
         fontFamily: button.fontFamily
         fontSize: button.fontSize * 0.85
-        color: root.featured && Format.narrowPctShown(root.featured.pct).shown === 0
-          ? root.dimColor : root.trendColor
+        color: !root.featured || Format.narrowPctShown(root.featured.pct).shown === 0 ? root.dimColor
+          : root.featured.pct > 0 ? root.upColor : Color.urgent
       }
     }
   }
