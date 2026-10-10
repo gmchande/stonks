@@ -6,10 +6,11 @@ import "Tones.js" as Tones
 
 // The shared history range control. Each token gets an equal slice of the
 // row so the full set stays on one line in the popup; the chosen one sits in
-// the shell's selected fill, the way the featured row does, and the one under
-// the pointer takes the hover fill. The tokens tile the whole row, so each
-// takes the wheel itself: a notch is one range, however finely the wheel
-// reports it.
+// the shell's selected fill, the way the featured row does, the one under
+// the pointer takes the hover fill, and a pressed one the pressed fill from
+// the moment the button goes down, as the shell's buttons do. The tokens
+// tile the whole row, so each takes the wheel itself: a notch is one range,
+// however finely the wheel reports it.
 Item {
   id: root
 
@@ -57,7 +58,8 @@ Item {
         width: token.implicitWidth + Style.space(12)
         height: parent.height
         radius: root.retro ? 0 : Style.cornerRadius
-        color: parent.chosen ? Style.selectedFillFor(root.foreground, Color.accent)
+        color: tokenMouse.pressed ? Style.pressedFillFor(root.foreground, Color.accent)
+          : parent.chosen ? Style.selectedFillFor(root.foreground, Color.accent)
           : (tokenMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent")
         Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
       }

@@ -231,7 +231,8 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         height: parent.height + Style.space(4)
         radius: root.retro ? 0 : Style.cornerRadius
-        color: root.listMenuOpen ? Style.selectedFillFor(root.foreground, Color.accent)
+        color: listMouse.pressed ? Style.pressedFillFor(root.foreground, Color.accent)
+          : root.listMenuOpen ? Style.selectedFillFor(root.foreground, Color.accent)
           : listMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
         Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
       }
@@ -326,7 +327,8 @@ Item {
         width: orderText.implicitWidth + Style.space(12)
         height: parent.height + Style.space(4)
         radius: root.retro ? 0 : Style.cornerRadius
-        color: orderMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+        color: orderMouse.pressed ? Style.pressedFillFor(root.foreground, Color.accent)
+          : orderMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
         Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
       }
 

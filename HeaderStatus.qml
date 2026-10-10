@@ -142,7 +142,8 @@ Item {
 
   // The look a click switches to, as s does, about a word tall: the chart
   // already shows the current one. The target is the header's full height,
-  // so a click above or below the icon still lands.
+  // so a click above or below the icon still lands. Like the `?`, it hovers
+  // in brighter ink, and takes the pressed fill while the button is down.
   LookIcon {
     id: lookIcon
     objectName: "lookIcon"
@@ -152,6 +153,16 @@ Item {
     retro: root.retro
     still: root.still
     color: lookMouse.containsMouse ? root.foreground : root.dim
+
+    Rectangle {
+      objectName: "lookFill"
+      z: -1
+      anchors.centerIn: parent
+      width: parent.width + Style.space(12)
+      height: parent.height + Style.space(6)
+      radius: root.retro ? 0 : Style.cornerRadius
+      color: lookMouse.pressed ? Style.pressedFillFor(root.foreground, Color.accent) : "transparent"
+    }
 
     MouseArea {
       id: lookMouse
@@ -189,6 +200,15 @@ Item {
     font.pixelSize: Style.font.caption
     font.bold: true
     Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    Rectangle {
+      objectName: "helpFill"
+      z: -1
+      anchors.centerIn: parent
+      width: parent.implicitWidth + Style.space(12)
+      height: parent.implicitHeight + Style.space(4)
+      radius: root.retro ? 0 : Style.cornerRadius
+      color: helpMouse.pressed ? Style.pressedFillFor(root.foreground, Color.accent) : "transparent"
+    }
     MouseArea {
       id: helpMouse
       anchors.horizontalCenter: parent.horizontalCenter

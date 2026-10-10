@@ -72,7 +72,9 @@ Item {
     anchors.fill: parent
     anchors.topMargin: root.hintHeight + Style.space(6)
     radius: root.retro ? 0 : Style.cornerRadius
-    color: root.acts && addMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+    color: !root.acts ? "transparent"
+      : addMouse.pressed ? Style.pressedFillFor(root.foreground, Color.accent)
+      : addMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
 
     Row {
       anchors.centerIn: parent
