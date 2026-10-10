@@ -246,6 +246,15 @@ function printClock(quote, t, calendars) {
   return cal ? calendarClock(cal, t, quote) : Format.zonedHhmm(t, quote.gmtoffset, quote.zoneName)
 }
 
+// A closure as the header names it: the holiday, without the calendar's
+// "observed" or "(substitute day)". The reader learns the market is shut,
+// why, and when it opens without it, and the popup has no room for Tokyo's
+// "Constitution Memorial Day observed" beside its next open. The calendars
+// keep their source's names, since they are renewed from it.
+function holidayName(name) {
+  return name.replace(/ (observed|\(substitute day\))$/, "")
+}
+
 // The one time that matters: how long until the market opens or closes,
 // when the exchange has said. "Closes in" already says it is open. After
 // the bell the phase stands on its own, with the regular close named so
@@ -276,7 +285,7 @@ function marketStatus(quote, now, scrubT, calendars) {
   if (!closure && bell && phase === "pre") return "Pre-market · opens in " + Format.duration(bell.seconds)
   if (!closure && bell) return "Market opens in " + Format.duration(bell.seconds)
   var reg = clockSession(quote, now).regular
-  var base = closure ? kind.name
+  var base = closure ? holidayName(kind.name)
     : (phase === "post" && reg && now >= reg.end ? phaseLabel(phase) + " · close " + printClock(quote, reg.end, calendars)
       : phaseLabel(phase))
   return base + (phase === "post" ? "" : scheduleNote(quote, now, calendars))

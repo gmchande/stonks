@@ -561,7 +561,11 @@ run time.
   unavailable instead of guessing. The header leads with the state
   ("CLOSED · OPENS MON 09:30"), not with what is missing, and while the
   opening bell, lunch lull, power hour, or closing bell lasts it leads with
-  that ("POWER HOUR · CLOSES IN 40M"). A countdown rounds up to the minute,
+  that ("POWER HOUR · CLOSES IN 40M"). On a holiday it leads with the
+  holiday as `calendars.json` names it, less "observed" or "(substitute
+  day)" (`Market.holidayName`), so the longest fits the popup beside its
+  next open; the file keeps its source's names, since it is renewed from
+  it. A countdown rounds up to the minute,
   so its last minute reads 1M. Every exchange time shown (the next open, the
   close, the lunch break's end, a scrub's "AT", "AS OF", the overnight
   print's, an intraday range's) is the exchange's clock, with its zone's
