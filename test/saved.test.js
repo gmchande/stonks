@@ -47,6 +47,14 @@ test("parseChart keeps the fields the panel needs", () => {
   expect(M.parseChart(fixture("nbis-2026-09-11-day-prepost.json")).name).toBe("Nebius Group N.V.")
 })
 
+test("the listing line names a pair's currency once", () => {
+  // Yahoo names the pair with its currency: "BITCOIN USD · CRYPTO", not "· USD" again.
+  expect(btc.name).toBe("Bitcoin USD")
+  expect(M.listingMeta(btc)).toBe("CRYPTO")
+  expect(M.listingMeta(quote)).toBe("NASDAQ · USD")
+  expect(M.listingMeta(shop)).toBe("TSX · CAD")
+})
+
 test("parseChart drops a null close, even on the newest bar the stray filter never judges", () => {
   const json = fixture("aapl.json")
   const result = json.chart.result[0]

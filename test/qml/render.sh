@@ -28,6 +28,12 @@ if [ $# -eq 0 ]; then
   for symbol in shib-usd ry.to brk-a brk-b; do
     states="$states popup-sweep-2026-10-08-1054-$symbol-smooth popup-sweep-2026-10-08-1054-$symbol-retro"
   done
+  # The header's animal: a cold start in smooth too, and the window on an up,
+  # a down, and a flat day, and a cryptocurrency, in both looks.
+  states="$states loading-smooth failed-smooth"
+  for day in 2026-10-07-1455-psix 2026-10-07-1455-nbis 2026-10-07-0100-bldp 2026-10-07-1455-btc-usd; do
+    states="$states window-sweep-$day-smooth window-sweep-$day-retro"
+  done
   # The theme gallery: Omarchy's default, a light theme whose green is under
   # 3:1, and two where up falls back to the foreground. `render.sh
   # theme-<look>-<theme>` renders any other installed theme.

@@ -46,6 +46,20 @@ ShellRoot {
     if (!ok) failures++
   }
 
+  // What the header's animal slot draws, in the look shown: retro's cells,
+  // or smooth's drawn layer alone at full ink; "" for nothing at all.
+  function animalShows(kind) {
+    var sprite = find(body, "sprite")
+    var bull = find(body, "drawnBull")
+    var bear = find(body, "drawnBear")
+    if (stub.retro) return !bull.visible && !bear.visible && (kind === "" ? !sprite.visible
+      : sprite.visible && JSON.stringify(sprite.pixels) === JSON.stringify(Cells.spriteFor(kind === "bull"))
+        && Qt.colorEqual(sprite.color, kind === "bull" ? stub.upColor : stub.downColor))
+    return !sprite.visible && (kind === "bull" ? bull.visible && bull.opacity === 1 && !bear.visible
+      : kind === "bear" ? bear.visible && bear.opacity === 1 && !bull.visible
+      : !bull.visible && !bear.visible)
+  }
+
   function quote(symbol, price, previous) {
     return {
       symbol: symbol,
@@ -209,6 +223,12 @@ ShellRoot {
       name: "Pointer"
       when: window.visible
 
+      // Waits up to ms for fn to hold and returns whether it does.
+      function within(ms, fn) {
+        for (var t = 0; t < ms && !fn(); t += 20) wait(20)
+        return fn()
+      }
+
       function test_owner_flows() {
         root.check("unknown chart direction is neutral in both looks",
           directionlessSmooth.aboveColor === directionlessSmooth.baselineColor
@@ -218,21 +238,24 @@ ShellRoot {
         // The featured symbol is up while the list is net down.
         root.setQuotes(["UP", "DOWN", "DEEP"], [110, 95, 90])
 
-        stub.retro = true
-        wait(50)
-        root.check("featured direction beats a down watchlist in the retro sprite",
-          body.bullish && body.spriteVisible)
-        mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
-        root.check("retro sprite shift-click selects the bull override",
-          body.spriteOverride === 1 && body.bullish && body.spriteVisible)
-        mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
-        root.check("retro sprite shift-click selects the bear override",
-          body.spriteOverride === 2 && !body.bullish && body.spriteVisible)
-        mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
-        root.check("retro sprite shift-click returns to automatic",
-          body.spriteOverride === 0 && body.bullish && body.spriteVisible)
-
-        stub.retro = false
+        // The header's animal, in both looks: the featured day's, and a
+        // Shift-click on it cycles the bull, the bear, and the day's again.
+        ;[true, false].forEach(function(retro) {
+          stub.retro = retro
+          var look = retro ? "retro" : "smooth"
+          wait(50)
+          root.check("featured direction beats a down watchlist in " + look + "'s animal",
+            body.animal.kind === "bull" && within(500, function() { return root.animalShows("bull") }))
+          mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
+          root.check(look + "'s animal: shift-click selects the bull override",
+            body.spriteOverride === 1 && within(500, function() { return root.animalShows("bull") }))
+          mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
+          root.check(look + "'s animal: shift-click selects the bear override",
+            body.spriteOverride === 2 && within(500, function() { return root.animalShows("bear") }))
+          mouseClick(body, 20, 14, Qt.LeftButton, Qt.ShiftModifier)
+          root.check(look + "'s animal: shift-click returns to automatic",
+            body.spriteOverride === 0 && within(500, function() { return root.animalShows("bull") }))
+        })
 
         var rangeRow = root.find(body, "rangeRow")
         var tokens = root.findAll(rangeRow, "rangeToken")
@@ -345,35 +368,64 @@ ShellRoot {
         stub.quotes = Object.assign({}, stub.quotes, { SWING: swing })
         stub.entries = Object.assign({}, stub.entries, { SWING: { status: "ok", receivedAt: stub.now } })
         stub.featuredSymbol = "SWING"
-        stub.retro = true
-        wait(50)
-        // What is drawn: the header's sprite, its pixels and its colour.
-        var sprite = root.find(body, "sprite")
-        var drawn = function(up) {
-          return !!sprite && sprite.visible
-            && JSON.stringify(sprite.pixels) === JSON.stringify(Cells.spriteFor(up))
-            && Qt.colorEqual(sprite.color, up ? stub.upColor : stub.downColor)
-        }
-        root.check("at rest a day that closed down draws the bear", drawn(false))
         // Scrub the way the owner does, with the pointer over the chart.
-        var chart = body.chartItem
         var span = Chart.chartGeometry(swing).end - Chart.chartGeometry(swing).start
-        var xAt = function(t) { return chart.width * (t - Chart.chartGeometry(swing).start) / span }
-        mouseMove(chart, xAt(open + 600), chart.height / 2)
-        wait(50)
-        root.check("the pointer on a morning above the close draws the bull", drawn(true))
-        // While a scrub reads the price against the dashed line, the strip
-        // under the price names it.
         var legend = root.find(body, "baselineLegend")
-        root.check("a scrub names the dashed line under the price",
-          !!legend && legend.visible && legend.text === "┄ PREV CLOSE 100.00")
-        mouseMove(chart, xAt(open + 10800 + 600), chart.height / 2)
-        wait(50)
-        root.check("the pointer on an afternoon below the close draws the bear again", drawn(false))
-        mouseMove(body, body.width / 2, 20)
-        wait(50)
-        root.check("the name leaves with the scrub", !!legend && !legend.visible && body.scrubT === 0)
+        ;[true, false].forEach(function(retro) {
+          stub.retro = retro
+          var look = retro ? "retro" : "smooth"
+          wait(50)
+          var chart = body.chartItem
+          var xAt = function(t) { return chart.width * (t - Chart.chartGeometry(swing).start) / span }
+          root.check(look + ": at rest a day that closed down draws the bear",
+            within(500, function() { return root.animalShows("bear") }))
+          mouseMove(chart, xAt(open + 600), chart.height / 2)
+          root.check(look + ": the pointer on a morning above the close draws the bull",
+            within(500, function() { return root.animalShows("bull") }))
+          // While a scrub reads the price against the dashed line, the strip
+          // under the price names it.
+          root.check(look + ": a scrub names the dashed line under the price",
+            !!legend && legend.visible && legend.text === "┄ PREV CLOSE 100.00")
+          mouseMove(chart, xAt(open + 10800 + 600), chart.height / 2)
+          root.check(look + ": the pointer on an afternoon below the close draws the bear again",
+            within(500, function() { return root.animalShows("bear") }))
+          mouseMove(body, body.width / 2, 20)
+          wait(50)
+          root.check(look + ": the name leaves with the scrub", !!legend && !legend.visible && body.scrubT === 0)
+        })
+
+        // A flat day, a change that rounds to nothing, has no sign, neither
+        // colour, and no animal, in either look. Found on BLDP at 0.00%:
+        // retro drew a green bull.
+        var flat = root.quote("FLAT", 100.001, 100)
+        flat.points = [{ t: open, p: 100.4 }, { t: stub.now - 300, p: 100.001 }]
+        stub.quotes = Object.assign({}, stub.quotes, { FLAT: flat })
+        stub.entries = Object.assign({}, stub.entries, { FLAT: { status: "ok", receivedAt: stub.now } })
+        stub.featuredSymbol = "FLAT"
+        ;[true, false].forEach(function(retro) {
+          stub.retro = retro
+          wait(50)
+          root.check((retro ? "retro" : "smooth") + ": a flat day draws no animal",
+            body.featured.tone === "flat" && body.animal.kind === "" && root.animalShows(""), body.featured.changeText)
+        })
         stub.retro = false
+
+        // A range whose first fetch failed shows the day in its place; the
+        // retry that lands is another chart, so the animal changes at once.
+        // Found in review: the up day's bull crossfaded into the range's bear.
+        stub.featuredSymbol = "UP"
+        stub.range = "1Y"
+        stub.histories = { "UP|1Y": { history: null } }
+        root.check("a failed range's stand-in day draws its bull",
+          body.chart.failed && within(500, function() { return root.animalShows("bull") }))
+        stub.histories = { "UP|1Y": { history: { symbol: "UP", range: "1Y", baseline: 120, interval: "1d", gmtoffset: -14400, bars: [
+          { t: stub.now - 86400, c: 120, h: 121, l: 119, o: 120, v: 100 },
+          { t: stub.now, c: 110, h: 111, l: 109, o: 110, v: 100 }
+        ] } } }
+        root.check("a failed range's retry that lands down draws the bear at once, no crossfade",
+          !body.chart.failed && root.animalShows("bear"), body.animal.kind + " " + root.find(body, "drawnBear").opacity)
+        stub.range = "1D"
+        stub.histories = {}
         stub.featuredSymbol = restFeatured
         wait(50)
 

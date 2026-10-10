@@ -276,6 +276,7 @@ function historyRowModel(history, quote, scrubT) {
     pct: chg.pct,
     tone: Format.changeTone(chg, "pct"),
     dayUp: chg.pct === null ? null : chg.up,
+    dayTone: Format.changeTone(chg, "pct"),
     changeText: Format.pct(chg.pct),
     changeLine: Format.pct(chg.pct),
     // What the change is measured over, said under it the way AT CLOSE is.

@@ -20,6 +20,10 @@
 //                                      frame: nothing draws through them
 //   bun frames.js edgeheld FRAME@T... every frame that shows the card shows
 //                                      its bottom edge where the last does
+//   bun frames.js turn[:0] FRAME@T... the header's animal crossfades to its
+//                                      new picture in about 160 ms, or with
+//                                      :0 changes at once, never through a
+//                                      blank or faint frame
 //   bun frames.js self-check          wrong pictures fail, a right one passes
 //
 // A draw-in is read against its own first and last frames: a pixel is ink
@@ -47,6 +51,16 @@ function picture(bytes) {
   return { width: Number(fields[1]), height: Number(fields[2]), data: bytes.subarray(pos + 1) }
 }
 
+// The picture's ground: its most common colour.
+function groundIn(data) {
+  const counts = new Map()
+  for (let i = 0; i < data.length; i += 3) {
+    const key = data.readUIntBE(i, 3)
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  return [...counts].reduce((a, b) => b[1] > a[1] ? b : a)[0]
+}
+
 // A verdict that the picture changed says when: `changedAt`, the time of
 // the first frame that differs from the first; and `blankBefore`, whether
 // the frames up to it show nothing but the ground, the last frame's most
@@ -54,19 +68,52 @@ function picture(bytes) {
 function same(frames) {
   if (frames.length < 2) return { ok: false, detail: frames.length + " frames grabbed" }
   const first = frames.findIndex(f => !f.image.data.equals(frames[0].image.data))
-  const last = frames[frames.length - 1].image.data
-  const counts = new Map()
-  for (let i = 0; i < last.length; i += 3) {
-    const key = last.readUIntBE(i, 3)
-    counts.set(key, (counts.get(key) || 0) + 1)
-  }
-  const ground = [...counts].reduce((a, b) => b[1] > a[1] ? b : a)[0]
+  const ground = groundIn(frames[frames.length - 1].image.data)
   const data = frames[0].image.data
   let blankBefore = true
   for (let i = 0; i < data.length && blankBefore; i += 3) blankBefore = data.readUIntBE(i, 3) === ground
   return first < 0 ? { ok: true, detail: frames.length + " frames, all the same picture" }
     : { ok: false, changedAt: frames[first].t, blankBefore,
       detail: "frame " + first + " at " + frames[first].t + " ms differs from the first" + (blankBefore ? ", which is blank" : "") }
+}
+
+// The header's animal turning, from the first frame's picture to the
+// last's, both of them an animal: neither may be the bare ground. A turn
+// (`turn`) crossfades: it leaves the first picture within a few frames of
+// the mark, shows the two mixed on three or more distinct frames, and rests
+// on the last from about 160 ms on. A change at once (`turn:0`) shows the
+// first picture until a few frames past the mark and the last from then on,
+// no mix and no way back. Neither shows a blank or faint frame: each
+// frame's strongest pixel stands at least a third as far from the ground as
+// the fainter picture's does, so a fade out and then in, through nothing,
+// fails.
+function turn(frames, atOnce) {
+  if (frames.length < 2) return { ok: false, detail: frames.length + " frames grabbed" }
+  const first = frames[0].image.data
+  const last = frames[frames.length - 1].image.data
+  if (first.equals(last)) return { ok: false, detail: frames.length + " frames, all the same picture" }
+  const ground = groundIn(last)
+  const g = [ground >> 16, (ground >> 8) & 255, ground & 255]
+  const strength = data => {
+    let most = 0
+    for (let i = 0; i < data.length; i++) most = Math.max(most, Math.abs(data[i] - g[i % 3]))
+    return most
+  }
+  const ends = Math.min(strength(first), strength(last))
+  const bare = ends < 24
+  const faint = frames.findIndex(f => strength(f.image.data) < ends / 3)
+  const mixed = frames.filter(f => !f.image.data.equals(first) && !f.image.data.equals(last))
+  const distinct = new Set(mixed.map(f => f.image.data.toString("base64"))).size
+  const left = frames.findIndex(f => !f.image.data.equals(first))
+  const settled = frames.findIndex((f, i) => frames.slice(i).every(later => later.image.data.equals(last)))
+  const leftAt = frames[left].t
+  const restAt = frames[settled].t
+  const ok = !bare && faint < 0 && leftAt <= 50 && (atOnce ? mixed.length === 0 && settled === left
+    : distinct >= 3 && restAt >= 100 && restAt <= 240)
+  return { ok, detail: "leaves the first picture at " + leftAt + " ms, at rest at " + restAt + " ms, "
+    + distinct + " distinct mixed frames"
+    + (bare ? ", the first or last picture is the bare ground" : "")
+    + (faint >= 0 && !bare ? ", frame " + faint + " (" + frames[faint].t + " ms) is blank or faint" : "") }
 }
 
 // The draw-in is judged from the frame it started on: what was grabbed
@@ -368,6 +415,47 @@ function selfCheck() {
   const heldRight = edgeheld(cardFrames(() => 100)).ok && !edgeheld(cardFrames(t => ease(t, 160))).ok
   if (!heldRight) failed++
   console.log((heldRight ? "PASS " : "FAIL ") + "an open held at its height passes, one that grows fails")
+  // The animal: a bull-like picture A turning into a bear-like B, each
+  // layer at its own opacity over the ground, as the header draws them.
+  const animal = (alphas, until = 400, uneven = null) => {
+    const width = 40, height = 28
+    const frames = []
+    for (let t = -48, k = 0; t <= until; t += uneven ? uneven[k++ % uneven.length] : 16) {
+      const [a, b] = alphas(t)
+      const data = Buffer.alloc(width * height * 3)
+      for (let p = 0; p < width * height; p++) {
+        const x = p % width, y = Math.floor(p / width)
+        let c = [16, 18, 21]
+        if (y >= 4 && y < 14 && x >= 6 && x < 34 && (x + y) % 3 === 0) c = c.map((v, i) => v * (1 - a) + [120, 200, 100][i] * a)
+        if (y >= 12 && y < 24 && x >= 4 && x < 36 && (x * y) % 4 === 1) c = c.map((v, i) => v * (1 - b) + [220, 90, 110][i] * b)
+        data.set(c.map(Math.round), p * 3)
+      }
+      frames.push({ t, image: { width, height, data } })
+    }
+    return frames
+  }
+  const fade = (t, length, from = 0) => { const p = outCubic(t, length, from); return [1 - p, p] }
+  const turnCases = [
+    ["crossfades in 160 ms", true, false, t => fade(t, 160)],
+    ["crossfades in 160 ms, frames 9 to 50 ms apart", true, false, t => fade(t, 160), 480, busy],
+    ["changes at once, judged as a turn", false, false, t => t >= 0 ? [0, 1] : [1, 0]],
+    ["crossfades in 60 ms", false, false, t => fade(t, 60)],
+    ["crossfades in 320 ms", false, false, t => fade(t, 320), 560],
+    ["crossfades in 160 ms, starting 200 ms after the mark", false, false, t => fade(t, 160, 200), 560],
+    ["fades out in 160 ms, then in", false, false, t => [1 - outCubic(t, 160), outCubic(t, 160, 160)], 560],
+    ["changes at once", true, true, t => t >= 0 ? [0, 1] : [1, 0]],
+    ["changes at once through a blank frame", false, true, t => t < 0 ? [1, 0] : t < 16 ? [0, 0] : [0, 1]],
+    ["crossfades in 160 ms, judged as at once", false, true, t => fade(t, 160)],
+    ["fades away for good in 160 ms, nothing taking its place", false, false, t => [1 - outCubic(t, 160), 0]],
+    ["changes at once 320 ms after the mark", false, true, t => t >= 320 ? [0, 1] : [1, 0], 480],
+    ["changes at once, back at 160 ms, and again at 240", false, true, t => t >= 0 && (t < 160 || t >= 240) ? [0, 1] : [1, 0], 400],
+  ]
+  for (const [name, expected, atOnce, alphas, until, uneven] of turnCases) {
+    const verdict = turn(animal(alphas, until, uneven), atOnce)
+    const right = verdict.ok === expected
+    if (!right) failed++
+    console.log((right ? "PASS " : "FAIL ") + "the animal " + name + (expected ? " passes" : " fails") + " — " + verdict.detail)
+  }
   process.exit(failed ? 1 : 0)
 }
 
@@ -383,6 +471,7 @@ else {
   }).sort((a, b) => a.t - b.t)
   const verdict = kind === "same" ? same(frames) : kind === "drawin" ? drawin(frames, end === undefined ? 1 : end === "ink" ? end : Number(end))
     : kind === "edge" ? edge(frames, band) : kind === "edgeheld" ? edgeheld(frames)
+    : kind === "turn" ? turn(frames, end === "0")
     : { ok: false, detail: "unknown mode " + mode }
   console.log(JSON.stringify(verdict))
 }

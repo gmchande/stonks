@@ -17,6 +17,14 @@ function arrowAngle(pctChange) {
   return Format.clamp(pctChange / 5, -1, 1) * 45
 }
 
+// The listing line's exchange and currency, the code said once: left out
+// where the name already ends with it, as Yahoo names a pair ("Bitcoin USD").
+function listingMeta(quote) {
+  var tail = " " + quote.currency
+  var name = String(quote.name || "")
+  return quote.exchange + (name.slice(-tail.length) === tail ? "" : " · " + quote.currency)
+}
+
 // Freshness is three separate facts, kept separate: the time the headline
 // quote stands for, whether a refresh was asked for and has had no answer,
 // and whether the last one failed. The policy is presentation, not a claim
@@ -142,7 +150,9 @@ function listBreadth(symbols, quotes, scrubT, mode) {
 // the regular-market quote; a non-zero scrubT reads the sample at that
 // moment. dayUp is always versus the previous close, so the chart fill does
 // not flip when the change mode does, and it is the direction at the moment
-// shown, as a range's is, so the bull and bear follow a scrub and a replay.
+// shown, as a range's is. dayTone is that change's tone, flat when it rounds
+// to nothing, so the bull and bear follow a scrub and a replay, and a flat
+// day has neither.
 // It carries no drawing: a line is drawn from its quote, so it redraws when
 // the quote does, not with the clock or the change mode. Nor does it read
 // the clock, so a row is not derived again every second. Pass the
@@ -162,6 +172,7 @@ function rowModel(quote, scrubT, changeMode) {
     pct: chg.pct,
     tone: Format.changeTone(chg, changeMode, quote.priceDigits),
     dayUp: direction.pct === null ? null : direction.up,
+    dayTone: Format.changeTone(direction, "pct", quote.priceDigits),
     changeText: Format.changeText(chg, changeMode, quote.priceDigits),
     changeLine: Format.changeText(chg, changeMode, quote.priceDigits) + (changeMode === "open" && chg.pct !== null ? " open" : ""),
     periodLabel: Format.changeCaption(changeMode)
