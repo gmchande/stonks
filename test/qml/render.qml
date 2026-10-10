@@ -4,6 +4,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "plugin/Cells.js" as Cells
+import "plugin/Tones.js" as Tones
 import "plugin/Chart.js" as Chart
 import "plugin/Fundamentals.js" as Fundamentals
 import "plugin/History.js" as History
@@ -19,8 +20,9 @@ import "plugin"
 // w22-<surface>-<look>-<symbol>-<range> states render the 22-symbol list with
 // a real day featured, at identical state in both looks; a popup is as tall
 // as its whole rows, the way Panel sizes it. sprite-candidates draws the
-// bull and bear candidates at 1x and 4x. pill-sheet draws the real bar pill
-// for NBIS in every bar style and look, on a horizontal and a vertical bar.
+// bull and bear candidates at 1x and 4x, smooth's drawn pair beside them.
+// pill-sheet draws the real bar pill for NBIS in every bar style and look,
+// on a horizontal and a vertical bar.
 ShellRoot {
   id: root
 
@@ -32,6 +34,9 @@ ShellRoot {
     var match = /^w22-(popup|window)-(smooth|retro)-([a-z]+)-(1d|1y|5y)$/.exec(stateName)
     return match ? { popup: match[1] === "popup", symbol: match[3], range: match[4] } : null
   }
+  // loading and failed: a cold start, the first quotes out or failed, in
+  // retro, or in smooth with -smooth.
+  readonly property string coldState: (/^(loading|failed)(?:-smooth)?$/.exec(stateName) || ["", ""])[1]
   // The popup while adding, and the window at the size App.qml permits.
   readonly property bool searchState: stateName.indexOf("-search") >= 0
   readonly property bool minWindow: stateName.indexOf("min-window-") === 0
@@ -69,15 +74,15 @@ ShellRoot {
   // or on 1M (-1m), at rest or scrubbed (-1m-scrub); at a dated moment
   // (<date>-<hhmm>, New York), NBIS alone, on 1D at rest or scrubbed to its
   // last print (-scrub). Robinhood trades every one of them all day there.
-  // popup-sweep-<moment>-<symbol>-<look>: the listing sweep's moments
-  // (sweep-<date>-<hhmm>), every kind of listing on 1D at rest: NBIS, PSIX,
-  // SPY, BLDP, the S&P 500 (gspc), BTC-USD, SHEL.L, and 7203.T, with
-  // Robinhood's saved answers on which it trades all day.
+  // <popup|window>-sweep-<moment>-<symbol>-<look>: the listing sweep's
+  // moments (sweep-<date>-<hhmm>), every kind of listing on 1D at rest:
+  // NBIS, PSIX, SPY, BLDP, the S&P 500 (gspc), BTC-USD, SHEL.L, and 7203.T,
+  // with Robinhood's saved answers on which it trades all day.
   readonly property var overnight: {
     var match = /^popup-overnight-(day|night|sunday|live|\d{4}-\d\d-\d\d-\d{4})-(nbis|snow|rvii|et|tln)(-1m|-1m-scrub|-scrub)?-(smooth|retro)$/.exec(stateName)
     if (match) return { moment: match[1], symbol: match[2].toUpperCase(), month: match[3] === "-1m" || match[3] === "-1m-scrub",
       scrub: !!match[3] && match[3] !== "-1m", dated: /^\d/.test(match[1]), sweep: false }
-    match = /^popup-sweep-(\d{4}-\d\d-\d\d-\d{4})-(nbis|psix|spy|bldp|gspc|btc-usd|shel\.l|7203\.t|shib-usd|ry\.to|brk-a|brk-b)-(smooth|retro)$/.exec(stateName)
+    match = /^(?:popup|window)-sweep-(\d{4}-\d\d-\d\d-\d{4})-(nbis|psix|spy|bldp|gspc|btc-usd|shel\.l|7203\.t|shib-usd|ry\.to|brk-a|brk-b)-(smooth|retro)$/.exec(stateName)
     return match ? { moment: match[1], symbol: match[2] === "gspc" ? "^GSPC" : match[2].toUpperCase(), month: false, scrub: false,
       dated: true, sweep: true } : null
   }
@@ -257,10 +262,10 @@ ShellRoot {
       root.now = nbisDay.marketTime + 120
       return
     }
-    if (root.stateName === "loading") {
+    if (root.coldState === "loading") {
       stub.quotes = {}
       stub.entries = {}
-    } else if (root.stateName === "failed") {
+    } else if (root.coldState === "failed") {
       stub.quotes = {}
       stub.entries = { AAPL: { status: "failed" }, "SHOP.TO": { status: "failed" } }
     } else if (root.stateName === "aged") {
@@ -602,7 +607,7 @@ ShellRoot {
   FloatingWindow {
     visible: true
     color: root.groundColor
-    implicitWidth: root.pillSheet ? Math.max(520, pillColumn.implicitWidth + 48) : root.themeState ? 480 + 410 : root.sheet ? 800
+    implicitWidth: root.pillSheet ? Math.max(520, pillColumn.implicitWidth + 48) : root.themeState ? 480 + 410 : root.sheet ? 1000
       : (root.windowWidth ? root.windowWidth : (root.minWindow ? 560 : (root.popup ? 480 : 720)))
     // The larger text size lands after the window has taken its height, so
     // the large sheet is given room for its seven rows.
@@ -633,8 +638,8 @@ ShellRoot {
         downColor: stub.downColor
         fontFamily: stub.fontFamily
         surfaceOpen: true
-        headerWhenMissing: root.stateName === "loading" ? "Loading" : "No quote"
-        failClosedHeader: root.stateName === "failed"
+        headerWhenMissing: root.coldState === "loading" ? "Loading" : "No quote"
+        failClosedHeader: root.coldState === "failed"
         margins: Style.space(16)
         chartHeight: root.popup ? Style.space(190) : Style.space(220)
         surfaceKind: root.popup ? "popup" : "window"
@@ -782,8 +787,10 @@ ShellRoot {
 
         Repeater {
           model: [
-            { title: "BULL", color: "#8fc08a", sprites: root.bullCandidates, standard: Cells.BULL_SPRITE },
-            { title: "BEAR", color: "#e05a7a", sprites: root.bearCandidates, standard: Cells.BEAR_SPRITE }
+            { title: "BULL", color: "#8fc08a", sprites: root.bullCandidates, standard: Cells.BULL_SPRITE,
+              wash: Tones.washAlpha("#8fc08a", "#8fc08a", root.groundColor, 0.16, 1) },
+            { title: "BEAR", color: "#e05a7a", sprites: root.bearCandidates, standard: Cells.BEAR_SPRITE,
+              wash: Tones.washAlpha("#e05a7a", "#8fc08a", root.groundColor, 0.16, 1) }
           ]
 
           Column {
@@ -815,6 +822,22 @@ ShellRoot {
                   }
                 }
               }
+              // Smooth's drawn animal, in the theme's wash as the header lays it.
+              Column {
+                spacing: 6
+                Text {
+                  text: family.modelData.title + "  SMOOTH"
+                  color: "#8a8d8d"
+                  font.family: Style.font.family
+                  font.pixelSize: 10
+                  font.bold: true
+                }
+                Row {
+                  spacing: 16
+                  DrawnAnimal { width: 40; height: 28; bull: family.modelData.title === "BULL"; color: family.modelData.color; wash: family.modelData.wash }
+                  DrawnAnimal { width: 80; height: 56; bull: family.modelData.title === "BULL"; color: family.modelData.color; wash: family.modelData.wash }
+                }
+              }
             }
 
             Row {
@@ -828,6 +851,13 @@ ShellRoot {
                   pixels: Cells.spritePixels(modelData)
                   color: family.modelData.color
                 }
+              }
+              DrawnAnimal {
+                width: 160
+                height: 112
+                bull: family.modelData.title === "BULL"
+                color: family.modelData.color
+                wash: family.modelData.wash
               }
             }
           }
