@@ -374,14 +374,12 @@ function settingsEqual(left, right) {
   return JSON.stringify(fileSettings(left)) === JSON.stringify(fileSettings(right))
 }
 
-// What the lists hold: All's symbols and each named list's name and symbols,
-// in their saved order. A list's sort order and direction are views over it.
-function sameLists(left, right) {
-  var held = function(settings) {
-    var from = fileSettings(settings)
-    return JSON.stringify([from.symbols, from.lists.map(function(list) { return [list.name, list.symbols] })])
-  }
-  return held(left) === held(right)
+// What the lists hold, as one value two settings hold equally or not: All's
+// symbols and each named list's name and symbols, in their saved order. A
+// list's sort order and direction are views over it.
+function listsHeld(settings) {
+  var from = fileSettings(settings)
+  return JSON.stringify([from.symbols, from.lists.map(function(list) { return [list.name, list.symbols] })])
 }
 
 // First-run copy of data settings off the bar entry. Null when that entry

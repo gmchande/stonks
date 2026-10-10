@@ -24,8 +24,17 @@ Item {
   property int now: Math.floor(Date.now() / 1000)
   // A symbol whose fundamentals were asked for before its first quote.
   property string pendingFundamentals: ""
-  // What the last removal took and the settings from just before it.
+  // What the last removal took and the settings from just before it, on
+  // offer until the next change to what the lists hold, however it comes: a
+  // change here, on either surface, or in the data file.
   property var lastRemoval: null
+  property string listsHeld: ""
+  onDataSettingsChanged: {
+    var held = Settings.listsHeld(root.dataSettings)
+    if (held === root.listsHeld) return
+    root.listsHeld = held
+    root.lastRemoval = null
+  }
   // Symbols just added whose first answer is not in: neither a quote nor a
   // first fetch that failed for good. They are members, saved and fetched,
   // but no list shows them until then.
@@ -620,11 +629,8 @@ Item {
   }
 
   // Every membership change is a Settings.js rule: settings in, settings out.
-  // One that changes what the lists hold ends the offer to undo the last
-  // removal: the undo stands until the next change to the lists.
   function save(next) {
     if (Settings.settingsEqual(next, root.dataSettings)) return
-    if (!Settings.sameLists(next, root.dataSettings)) root.lastRemoval = null
     root.persist(next)
   }
 

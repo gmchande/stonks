@@ -225,6 +225,17 @@ ShellRoot {
       rangeOptions: ["1D", "1Y"]
     }
 
+    // A pill on this window, which maps offscreen, and the popup card's held
+    // anchor on it: the one place the anchor finds a real bar window.
+    Row {
+      Item { width: 200; height: 1 }
+      Item { id: pillStandIn; width: 150; height: 30 }
+    }
+    HeldAnchor {
+      id: heldAnchor
+      pill: pillStandIn
+    }
+
     TestCase {
       name: "Pointer"
       when: window.visible
@@ -923,6 +934,24 @@ ShellRoot {
         root.check("once the pointer leaves, the note has its moment again, then goes",
           stillHeld === "Removed FIT2" && leftAMoment === "Removed FIT2" && body.note === "",
           stillHeld + "|" + leftAMoment + "|" + body.note)
+
+        // The popup card's held anchor finds the pill's bar window through
+        // the pill and sits on its content, where the shell measures an
+        // anchor, and stays where the pill was held as the pill widens. Found
+        // in review: it found its window through the card, which finds its
+        // window through it, so neither had one and the card opened in the
+        // screen's corner.
+        heldAnchor.hold()
+        var heldAt = heldAnchor.x + "+" + heldAnchor.width
+        pillStandIn.width = 200
+        var widened = heldAnchor.x + "+" + heldAnchor.width
+        heldAnchor.hold()
+        var heldAgain = heldAnchor.x + "+" + heldAnchor.width
+        pillStandIn.width = 150
+        root.check("the popup's held anchor sits on the pill's bar window, where the pill was held, until held again",
+          heldAnchor.QsWindow.window === window && heldAnchor.parent === window.contentItem
+            && heldAt === "200+150" && widened === heldAt && heldAgain === "200+200",
+          [heldAnchor.QsWindow.window === window, heldAnchor.parent === window.contentItem, heldAt, widened, heldAgain].join("|"))
 
         console.log("POINTER DONE")
         done.exitCode = root.failures ? 1 : 0

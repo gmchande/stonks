@@ -46,7 +46,7 @@ run time.
 - `test/qml/fetch-day.sh`, run by hand and not by `test/all.sh` (it takes minutes), counts a weekday and a weekend of glances for a long list's shape through the real Service and window, and estimates the bytes: the numbers a change to fetching is weighed by.
 - A render fails when its log has a runtime error or a Qt warning naming a plugin file, or it wrote no fresh picture: `render.qml` exits 0 once it has grabbed a frame. It grabs 300 ms in; the live dot, retro's live cap, and a text cursor never settle, so a render that shows one changes with that wait.
 - Count fake-curl calls through a new `FileView` for each read; after `reload()`, `text()` can still return the old count.
-- The popup's window (`PanelWindow`) does not load on the offscreen platform. Popup flows drive the real `Panel` in `popup.sh`, under the Wayland session, without mapping it: the script patches `open: false` into its copy of `Panel.qml`. An unmapped pill has no bar window to place a card from, so `popup.sh` copies the shell's `Ui` and lets its `KeyboardPanel` take the bar window and the pill's spot from the flow; the shell's own placement runs on them. A second pill sits on an item the flow hands its card as the bar window's content, so the shell places the card from the pill's own spot as the pill changes width. An unmapped popup renders no frames, so `popup-motion.sh` puts its copy of `Panel.qml`'s card in `CardWindow.qml`, a plain window around the shell's own `BorderSurface` that copies only what lives on `KeyboardPanel` itself, its lines named in its comment: keep them in step when the shell changes.
+- The popup's window (`PanelWindow`) does not load on the offscreen platform. Popup flows drive the real `Panel` in `popup.sh`, under the Wayland session, without mapping it: the script patches `open: false` into its copy of `Panel.qml`. An unmapped pill has no bar window to place a card from, so `popup.sh` copies the shell's `Ui` and lets its `KeyboardPanel` take the bar window and the pill's spot from the flow; the shell's own placement runs on them. A second pill sits on an item the flow hands its card and its `HeldAnchor` as the bar window's content, so the shell places the card from the pill's own spot as the pill changes width; `pointer.sh`, whose window maps offscreen, shows a `HeldAnchor` finding a real bar window through its pill. An unmapped popup renders no frames, so `popup-motion.sh` puts its copy of `Panel.qml`'s card in `CardWindow.qml`, a plain window around the shell's own `BorderSurface` that copies only what lives on `KeyboardPanel` itself, its lines named in its comment: keep them in step when the shell changes.
 - `keys.sh` presses every key the key sheet draws and the README's table lists, with real keys through the real popup (in `CardWindow.qml`) and window, a row ending "(popup)" or "(window)" on that surface alone, and fails on a key that changes nothing the surface shows. A new key goes in the README's table; one that needs something to act on (a range to step back from, a removal to undo) gets that in the walk's `setups`.
 - A script patches its copies of plugin files only through `patch_copy` (`lib.sh`), which stops the script before Quickshell starts when a patch changes nothing. The feed harnesses (`run.sh`, `history.sh`) and `overnight.sh`, whose later moments hold one symbol's day, patch a 200 ms retry pause into theirs.
 - A check on motion reads it on its frames, from a change handler on the animated property, and a wait waits on an event (`within`, `tryVerify`); a fixed sleep into an animation or a debounce fails on a slow frame.
@@ -180,9 +180,11 @@ run time.
   shell's `KeyboardPanel` without `centerOnBar`, which put it at the bar's
   centre), where the pill was as it opened from closed: the shell follows
   its anchor live (`KeyboardPanel`'s `cardOrigin`), so the anchor is a
-  stand-in held there, and nothing pressed in the open popup (`c` into
-  "open", a narrower featured symbol) moves it sideways; the next open
-  takes the pill's new place. The first visit there ever shows the body's
+  stand-in held there (`HeldAnchor.qml`, on the bar window's content, which
+  it finds through the pill, never through the card that finds its window
+  through it), and nothing pressed in the open popup (`c` into "open", a
+  narrower featured symbol) moves it sideways; the next open takes the
+  pill's new place. The first visit there ever shows the body's
   first-run hint, on opening or once the service is ready if it opened
   first, and has the service save `hinted`, so no visit after it, a
   restart included, shows it again. A visit whose footer shows a notice
@@ -619,9 +621,10 @@ run time.
   chosen since stays chosen. `u` takes back the service's last removal,
   from either surface, long after its note has gone, until the next change
   to what the lists hold (an add, a membership, a hand-made order, a list
-  made, renamed, moved, or deleted; `Settings.sameLists`), which ends the
-  offer and the note with it; a sort, a switch, a feature, or a close
-  keeps it. With nothing to take back, `u` says "Nothing to undo".
+  made, renamed, moved, or deleted, here or in the data file;
+  `Settings.listsHeld`), which ends the offer and the note with it; a sort,
+  a switch, a feature, or a close keeps it. With nothing to take back, `u`
+  says "Nothing to undo".
   Unticking a named list in the checklist offers no undo; the checklist
   stays open to tick it again. The order and the change mode are separate
   settings: sorting ranks the rows and never changes their figures. Each list

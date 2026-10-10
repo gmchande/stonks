@@ -61,26 +61,12 @@ Panel {
   readonly property bool serviceReady: !!service && service.pluginsReady === true
   onServiceReadyChanged: offerHint()
 
-  // Where the card stands along the bar, held from an open until the next.
-  // The shell places the card under its anchor live (KeyboardPanel's
-  // `cardOrigin`), and the pill widens or narrows as `c` or a featured
-  // symbol changes what it says, which moved the open card sideways. So the
-  // card's anchor is a stand-in, put where the pill is as the popup opens
-  // from closed; an open during the close fade keeps it, since the card is
-  // still on screen. It sits on the bar window's content, the item the shell
-  // measures the anchor against, so the shell sees it move.
-  Item {
+  // The card's place along the bar, held from an open from closed until the
+  // next; an open during the close fade keeps it, since the card is still on
+  // screen.
+  HeldAnchor {
     id: heldAnchor
-    parent: panel.anchorWindow ? panel.anchorWindow.contentItem : null
-    visible: false
-  }
-  function holdPlace() {
-    if (!root.anchorItem || !heldAnchor.parent) return
-    var at = root.anchorItem.mapToItem(heldAnchor.parent, 0, 0)
-    heldAnchor.x = at.x
-    heldAnchor.y = at.y
-    heldAnchor.width = root.anchorItem.width
-    heldAnchor.height = root.anchorItem.height
+    pill: root.anchorItem
   }
 
   // The views reset as the popup opens, before its first frame, not as it
@@ -98,7 +84,7 @@ Panel {
       offerHint()
       if (fading) easeEdge()
       else {
-        holdPlace()
+        heldAnchor.hold()
         edgeEase.stop()
         root.cardHeight = root.fittedCardHeight
       }

@@ -1030,9 +1030,12 @@ ShellRoot {
           // new place. Seen live: the card moved about 15 px on c.
           var held = placedPill.panel
           var placed = held.testCard
-          // The pill's own window is unmapped, so the bar window the card
-          // reads is the item it sits on, and its row lays out on asking.
-          placed.anchorWindow = { width: placedBar.width, height: Style.bar.sizeHorizontal, screen: Quickshell.screens[0], contentItem: placedBar }
+          // The pill's own window is unmapped, so the bar window the held
+          // anchor and the card read is the item the pill sits on, and its
+          // row lays out on asking.
+          var barWindow = { width: placedBar.width, height: Style.bar.sizeHorizontal, screen: Quickshell.screens[0], contentItem: placedBar }
+          held.testHeldAnchor.barWindow = barWindow
+          placed.anchorWindow = barWindow
           var pillRow = test.find(placedPill, "pillSymbol").parent
           var pillWidth = function() { pillRow.forceLayout(); return placedPill.width }
           service.quotes = Object.assign({}, service.quotes, { MU: test.sampleQuote("MU", 50) })
@@ -1084,9 +1087,31 @@ ShellRoot {
           var said = test.footerText(test.hintPanel)
           var stillGone = test.hintService.library.indexOf(gone) < 0
           test.hintService.deleteList("Undo ends")
-          test.hintPanel.close()
           test.check("after the next change to the lists u puts nothing back, and the footer says why",
             stillGone && said === "Nothing to undo", stillGone + "|" + said)
+          // A change in the data file is a change too, when it changes what
+          // the lists hold; one that changes only the view keeps the offer.
+          test.removedEarlier = test.hintService.library[0]
+          test.hintPanel.testBody.removeRow(test.removedEarlier)
+          test.writeFile(test.dataPath, JSON.stringify(Object.assign({}, test.hintService.dataSettings, { range: "1Y" })))
+        } else if (test.step === 45) {
+          if (test.hold(test.hintService.range === "1Y")) return
+          test.hintPanel.testKeyCatcher.textKey("u")
+          var backAfterView = test.hintService.library.indexOf(test.removedEarlier) >= 0
+          test.check("a data file that changes only the view keeps the undo",
+            test.hintService.range === "1Y" && backAfterView, test.hintService.range + "|" + backAfterView)
+          test.hintPanel.testBody.removeRow(test.removedEarlier)
+          var lists = test.hintService.dataSettings.lists.concat([{ name: "Made elsewhere", symbols: [] }])
+          test.writeFile(test.dataPath, JSON.stringify(Object.assign({}, test.hintService.dataSettings, { lists: lists })))
+        } else if (test.step === 46) {
+          var madeElsewhere = test.hintService.lists.some(function(l) { return l.name === "Made elsewhere" })
+          if (test.hold(madeElsewhere)) return
+          test.hintPanel.testKeyCatcher.textKey("u")
+          var saidAfterFile = test.footerText(test.hintPanel)
+          var goneAfterFile = test.hintService.library.indexOf(test.removedEarlier) < 0
+          test.hintPanel.close()
+          test.check("a list made in the data file ends the undo, as a list made here does",
+            madeElsewhere && goneAfterFile && saidAfterFile === "Nothing to undo", [madeElsewhere, goneAfterFile, saidAfterFile].join("|"))
           console.log("POPUP DONE")
           exitTimer.exitCode = test.failures ? 1 : 0
           exitTimer.start()
