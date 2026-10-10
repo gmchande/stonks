@@ -224,27 +224,38 @@ function historyStatsDateText(t, gmtoffset, withYear, interval) {
   return text + (coarse || withYear ? " " + String(date.year).slice(-2) : "")
 }
 
-// The range is named twice above this line, by its token and the change's
-// caption, so the line leads with what only it says: when a listing younger
-// than its range began, and how few bars a sparse answer has.
-// `digits` is the listing's price decimals (`Quote.priceDigits`).
-function historyStatsText(history, stats, digits) {
+// The widest date historyStatsDateText writes for these bars: a two-digit
+// day, and always the year, which a period takes once it crosses one.
+function historyStatsDateWidest(interval) {
+  var coarse = interval === "1wk" || interval === "1mo" || interval === "3mo"
+  return coarse ? "MMM 88" : "88 MMM 88"
+}
+
+// The info block's first line on a range, in the day line's shape
+// (`Figures.dayLine`): the range, its low and high with the price's place
+// between them, then what only it says: when a listing younger than its
+// range began, the dates of its low and high, and how few bars a young
+// listing's sparse answer has. The bars' slot is kept while the listing is
+// younger than its range, so the eighth bar empties it and moves nothing.
+// `digits` is the listing's price decimals (`Quote.priceDigits`); `price`
+// the headline, else the last bar's close.
+function rangeLine(history, stats, digits, price) {
   stats = stats || periodStats(history)
-  if (!history || !stats || !stats.coverage) return ""
+  if (!history || !stats || !stats.coverage) return null
   var coverage = stats.coverage
-  if (!coverage.bars) return "0 BARS"
   var years = historySpansYears(history)
-  var parts = coverage.short
-    ? ["SINCE " + historyStatsDateText(history.firstTradeDate, history.gmtoffset, true, "1d")] : []
-  if (coverage.bars < 8) parts.push(coverage.bars + " BARS")
-  var high = stats.high
-    ? "H " + Format.money(stats.high.p, digits) + " " + historyStatsDateText(stats.high.t, history.gmtoffset, years, history.interval)
-    : "H —"
-  var low = stats.low
-    ? "L " + Format.money(stats.low.p, digits) + " " + historyStatsDateText(stats.low.t, history.gmtoffset, years, history.interval)
-    : "L —"
-  var below = Format.isFiniteNumber(stats.belowHigh) ? Math.max(0, stats.belowHigh).toFixed(1) + "% BELOW HIGH" : "— BELOW HIGH"
-  return parts.concat([high, low, below]).join(" · ")
+  var range = Format.infoRange(stats.low ? stats.low.p : null, stats.high ? stats.high.p : null,
+    Format.isFiniteNumber(price) ? price : stats.last, digits)
+  var dated = function(point) { return point ? historyStatsDateText(point.t, history.gmtoffset, years, history.interval) : "" }
+  var widest = historyStatsDateWidest(history.interval)
+  var facts = []
+  if (coverage.short)
+    facts.push({ label: "SINCE", value: historyStatsDateText(history.firstTradeDate, history.gmtoffset, true, "1d"), widest: historyStatsDateWidest("1d") })
+  facts.push({ label: "LOW", value: dated(stats.low), widest: widest })
+  facts.push({ label: "HIGH", value: dated(stats.high), widest: widest })
+  if (coverage.short)
+    facts.push({ label: "", value: coverage.bars && coverage.bars < 8 ? String(coverage.bars) : "", after: "BARS", widest: "8" })
+  return { title: String(history.range || "").toUpperCase(), range: range, facts: facts }
 }
 
 // `calendar` is the listing's, so an intraday bar's time across a change of

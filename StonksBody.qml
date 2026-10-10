@@ -221,11 +221,14 @@ Item {
   // the look: a change of it is no turn, so the animal changes at once.
   readonly property string animalChart: [motion.chartKeyOf(chart), view.listKey, retro].join(" ")
   readonly property var animal: ({ kind: animalKind, chart: animalChart })
-  // The info block describes what the chart shows: the range's statistics,
-  // or the day's when the chart is the day. Before any chart, nothing.
-  readonly property string periodText: !chart ? "" : historyShown ? History.historyStatsText(history, historyStats, featuredQuote ? featuredQuote.priceDigits : undefined)
-    : Figures.dayStatsText(featuredQuote)
-  readonly property string keyStatsText: chart ? Fundamentals.keyStatsText(featuredQuote, fundamentals ? fundamentals.figures : null) : ""
+  // The info block describes what the chart shows: the range's line, or the
+  // day's when the chart is the day, over the 52 weeks. Before any chart,
+  // nothing.
+  readonly property var periodLine: !chart ? null : historyShown
+    ? History.rangeLine(history, historyStats, featuredQuote ? featuredQuote.priceDigits : undefined,
+      featuredQuote ? Quote.regularClose(featuredQuote) : null)
+    : Figures.dayLine(featuredQuote)
+  readonly property var yearLine: chart ? Fundamentals.yearLine(featuredQuote, fundamentals ? fundamentals.figures : null) : null
   // What the dashed line is, said while a scrub reads against it.
   readonly property string baselineText: historyShown ? chartRange.toUpperCase() + " START " + Format.money(history.baseline, featuredQuote ? featuredQuote.priceDigits : undefined)
     : (!historyActive && featuredDay ? "PREV CLOSE " + Format.money(featuredDay.prevClose, featuredDay.priceDigits) : "")
@@ -771,9 +774,9 @@ Item {
     replayRunning: motion.replayRunning
     rangeOptions: root.rangeOptions
     range: root.range
-    periodText: root.periodText
+    periodLine: root.periodLine
     baselineText: root.baselineText
-    keyStatsText: root.keyStatsText
+    yearLine: root.yearLine
     now: root.now
     changeCycles: !root.historyShown
     onChangeClicked: root.cycleChangeMode()

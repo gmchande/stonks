@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import qs.Commons
+import "Cells.js" as Cells
 import "Tones.js" as Tones
 
 // The rule between the list's name and its order, drawn as the list's
@@ -30,11 +31,12 @@ Item {
     return parts.join(" · ")
   }
   readonly property bool revealed: hover.hovered && counts !== ""
-  // At 1 px the colours do not read; 2 px is the thinnest that does.
-  readonly property int thickness: 2
-  readonly property color plain: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.12)
+  // At 1 px the colours do not read; 2 px is the thinnest that does. The
+  // ink and grain are the info lines' rules' too (`Cells.RULE_*`).
+  readonly property int thickness: Cells.RULE_THICKNESS
+  readonly property color plain: Qt.rgba(foreground.r, foreground.g, foreground.b, Cells.RULE_INK)
   // Retro draws the rule as cells on the pixel chart's grain.
-  readonly property int pitch: 3
+  readonly property int pitch: Cells.RULE_PITCH
   readonly property int cells: Math.max(0, Math.floor((width + 1) / pitch))
   // Both ends round down, by the same rule, so they never overlap and equal
   // counts draw equal lengths; what rounding leaves over stays plain.

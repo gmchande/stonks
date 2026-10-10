@@ -102,23 +102,27 @@ function extendedStack(quote, latest, now, day) {
   }
 }
 
-// The info block's first line on the day, in the words the range line
-// uses: the session it describes, then its regular open, high, and low,
-// each once known, and its volume. With no quote there is no day to
-// describe, and the line says nothing.
-function dayStatsText(quote) {
-  if (!quote) return ""
+// The info block's first line on the day: the session it describes, its
+// regular low and high once known, the price's place between them, then
+// its open and volume. An end the day pushes to its 52-week mark takes
+// that direction's tone, as the 52-week line's does (`Fundamentals.yearLine`).
+// The open keeps its slot before the session's first bar, so the line keeps
+// its shape; VOL's is as wide as 999.9M. With no quote there is no line.
+function dayLine(quote) {
+  if (!quote) return null
   var q = quote
-  var parts = [sessionDayText(quote)]
-  if (Format.isFiniteNumber(q.dayOpen)) parts.push("O " + Format.money(q.dayOpen, q.priceDigits))
-  // Yahoo's 52-week marks are daily highs and lows; a day that reaches one
-  // says so in place of the plain H or L, not by how much.
-  if (Format.isFiniteNumber(q.dayHigh))
-    parts.push((Format.isFiniteNumber(q.fiftyTwoWeekHigh) && q.dayHigh >= q.fiftyTwoWeekHigh ? "52W HIGH " : "H ") + Format.money(q.dayHigh, q.priceDigits))
-  if (Format.isFiniteNumber(q.dayLow))
-    parts.push((Format.isFiniteNumber(q.fiftyTwoWeekLow) && q.dayLow <= q.fiftyTwoWeekLow ? "52W LOW " : "L ") + Format.money(q.dayLow, q.priceDigits))
-  parts.push("VOL " + Format.compactNumber(q.volume))
-  return parts.join(" · ")
+  var head = Quote.headlineQuote(q)
+  var range = Format.infoRange(q.dayLow, q.dayHigh, head ? head.price : null, q.priceDigits)
+  if (range.high !== null && Format.isFiniteNumber(q.fiftyTwoWeekHigh) && range.high >= q.fiftyTwoWeekHigh) range.highTone = "up"
+  if (range.low !== null && Format.isFiniteNumber(q.fiftyTwoWeekLow) && range.low <= q.fiftyTwoWeekLow) range.lowTone = "down"
+  return {
+    title: sessionDayText(q),
+    range: range,
+    facts: [
+      { label: "OPEN", value: Format.isFiniteNumber(q.dayOpen) ? Format.money(q.dayOpen, q.priceDigits) : "", widest: range.widest },
+      { label: "VOL", value: Format.isFiniteNumber(q.volume) ? Format.compactNumber(q.volume) : "", widest: Format.widest("999.9M") }
+    ]
+  }
 }
 
 // The date of the session the day's figures are, in the exchange's own

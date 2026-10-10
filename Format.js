@@ -169,13 +169,49 @@ function changeTone(chg, mode, digits) {
   return sign > 0 ? "up" : sign < 0 ? "down" : "flat"
 }
 
+// A count in its unit: 52.4M, 1.6B, 4.75T. A figure that rounds up to 1,000
+// of its unit is one of the next (999.96M is 1.0B, never 1000.0M), and
+// trillions, the last unit, take fewer decimals as they grow (33.82T,
+// 400.1T, 1234T, a cap in won or rupiah), so no count draws wider than
+// 999.9M.
 function compactNumber(n) {
   if (n === null || n === undefined || isNaN(n)) return "—"
-  if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/0$/, "").replace(/\.0$/, "") + "T"
-  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B"
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M"
+  if (n >= 999.95e9) {
+    var t = n / 1e12
+    return String(Number(t.toFixed(t >= 999.95 ? 0 : t >= 99.995 ? 1 : 2))) + "T"
+  }
+  if (n >= 999.95e6) return (n / 1e9).toFixed(1) + "B"
+  if (n >= 999.5e3) return (n / 1e6).toFixed(1) + "M"
   if (n >= 1e3) return (n / 1e3).toFixed(0) + "K"
   return String(n)
+}
+
+// The widest a figure of this shape draws: every digit an 8. A column sized
+// by it holds any value with the same digits, so a refresh that changes the
+// value never moves what stands beside it.
+function widest(text) {
+  return String(text).replace(/\d/g, "8")
+}
+
+// An info line's range: its low and high, each null and "" when not known,
+// the price whose place it marks, and the widest a price of the listing's
+// takes at its decimals, from the largest price the line knows.
+function infoRange(low, high, price, digits) {
+  var known = function(v) { return isFiniteNumber(v) ? v : null }
+  low = known(low)
+  high = known(high)
+  price = known(price)
+  var largest = [low, high, price].reduce(function(m, v) { return v === null ? m : Math.max(m, Math.abs(v)) }, -1)
+  return {
+    low: low,
+    high: high,
+    price: price,
+    lowText: low === null ? "" : money(low, digits),
+    highText: high === null ? "" : money(high, digits),
+    lowTone: "",
+    highTone: "",
+    widest: largest < 0 ? "" : widest(money(largest, digits))
+  }
 }
 
 function clamp(v, lo, hi) {

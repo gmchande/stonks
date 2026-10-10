@@ -153,6 +153,25 @@ ShellRoot {
 
   function describe(m) { return JSON.stringify(m) }
 
+  // Every text drawn inside `item`, where its ink reaches in body
+  // coordinates: { what, left, right, whole }, whole when it fits its box
+  // on one line.
+  function drawnSpans(item) {
+    var out = []
+    var walk = function(it) {
+      if (!it.visible) return
+      if (String(it).indexOf("QQuickText(") === 0 && it.text !== "") {
+        var w = Math.ceil(it.implicitWidth)
+        var left = xIn(it, it.horizontalAlignment === Text.AlignRight ? it.width - w : 0)
+        out.push({ what: it.text, left: left, right: left + w, color: it.color,
+          whole: !it.truncated && it.lineCount === 1 && it.implicitWidth <= it.width + 0.5 })
+      }
+      for (var i = 0; i < it.children.length; i++) walk(it.children[i])
+    }
+    walk(item)
+    return out
+  }
+
   // A price and a change wide enough that the room the change leaves cannot
   // hold the digits: both renderers have to shrink.
   function wideQuote(quote) {
@@ -317,18 +336,35 @@ ShellRoot {
           // 1M with an overnight print under the price.
           { symbol: "NBIS", range: "1M", history: month, figures: null, line: "OVERNIGHT" }
         ]
-        // Both info lines whole: never elided, in either look at either width.
+        // Both info lines whole: every cell of each drawn in full, none
+        // overlapping the next or the rule, none past the block's edge, and
+        // the two rules in one column; in either look at either width.
         var cut = []
-        var longest = ""
         // The line under the price, too: whole, short of the caption, and
         // there when the case expects it.
         var whole = function(label, expected) {
-          ["periodLine", "keyStatsLine"].forEach(function(name) {
+          var block = find(body, "infoBlock")
+          var rules = [find(body, "periodRule"), find(body, "yearRule")]
+          if (!rules[0] || !rules[1]) cut.push(label + " has no rules")
+          else if (rules[0].visible && rules[1].visible
+            && (xIn(rules[0], 0) !== xIn(rules[1], 0) || rules[0].width !== rules[1].width))
+            cut.push(label + " rules at " + xIn(rules[0], 0) + "+" + rules[0].width + " and " + xIn(rules[1], 0) + "+" + rules[1].width)
+          ;["periodLine", "yearLine"].forEach(function(name, i) {
             var line = find(body, name)
-            if (line.truncated || line.lineCount !== 1 || line.implicitWidth > line.width + 0.5)
-              cut.push(label + " " + name + " \"" + line.text + "\" " + Math.ceil(line.implicitWidth) + " px in " + line.width)
+            if (!line) {
+              cut.push(label + " has no " + name)
+              return
+            }
+            var spans = root.drawnSpans(line)
+            if (rules[i] && rules[i].visible) spans.push({ what: "rule", left: xIn(rules[i], 0), right: xIn(rules[i], rules[i].width), whole: true })
+            spans.sort(function(a, b) { return a.left - b.left })
+            spans.forEach(function(s, k) {
+              var next = spans[k + 1]
+              if (!s.whole || (next && s.right > next.left) || s.right > xIn(block, block.width))
+                cut.push(label + " " + name + " \"" + s.what + "\" " + s.left + "–" + s.right
+                  + (next ? " before \"" + next.what + "\" at " + next.left : "") + " in " + xIn(block, block.width))
+            })
           })
-          if (body.keyStatsText.length > longest.length) longest = body.keyStatsText
           var strip = find(body, "extendedLine")
           var caption = find(body, "changeCaption")
           if (strip.visible && root.xIn(strip, strip.width) >= root.xIn(caption, 0))
@@ -398,8 +434,90 @@ ShellRoot {
         }
         root.check("a price too wide for the popup (WIDE, SHIB-USD) shrinks there and not in the window, and no other price shrinks",
           misfits.length === 0, misfits.join(", "))
-        root.check("both info lines are whole for every symbol, the longest key stats line included (" + longest + "), and the line under the price is whole where it shows",
+        root.check("both info lines are whole for every symbol, cell by cell, their rules in one column, and the line under the price is whole where it shows",
           cut.length === 0, cut.join(" | "))
+
+        // A refresh moves the tick and nothing else: AAPL's volume from
+        // 52.4M to 999.9M, across its rounding into 1.0B, and to 7, with its
+        // price a dollar up, and a listing younger than its range getting
+        // its eighth bar, leave both rules' ends where they were; the tick
+        // follows the price. At a 52-week high, with Yahoo's 52-week high a
+        // dollar behind the day's, both lines' highs read the day's high in
+        // the up colour, and both ticks sit at their rule's right end. Both
+        // looks, both surfaces.
+        var aaplQuote = stub.quotes.AAPL
+        var restless = []
+        var peaks = []
+        var ends = function() {
+          return ["periodRule", "yearRule"].map(function(name) {
+            var rule = find(body, name)
+            return rule ? xIn(rule, 0) + "+" + rule.width : "none"
+          }).join(" ")
+        }
+        // The tick's right edge in its rule, -1 without one.
+        var tickEnd = function(name) {
+          var rule = find(body, name)
+          var tick = rule ? find(rule, stub.retro ? "infoTickCells" : "infoTick") : null
+          return tick && tick.visible ? tick.x + tick.width : -1
+        }
+        var withQuote = function(changes) {
+          var next = Object.assign({}, stub.quotes)
+          next.AAPL = Object.assign({}, aaplQuote, changes)
+          stub.quotes = next
+          wait(50)
+        }
+        for (var refreshSurface = 0; refreshSurface < 2; refreshSurface++) {
+          surface.wide = refreshSurface === 1
+          ;[false, true].forEach(function(retro) {
+            stub.retro = retro
+            stub.featuredSymbol = "AAPL"
+            stub.range = "1D"
+            stub.historyEntry = null
+            stub.figures = aapl
+            withQuote({})
+            var where = (surface.wide ? "window " : "popup ") + (retro ? "retro" : "smooth")
+            var before = ends()
+            var tickBefore = tickEnd("periodRule")
+            ;[999.9e6, 999.96e6, 1e9, 7].forEach(function(volume) {
+              withQuote({ volume: volume, price: aaplQuote.price + 1 })
+              if (ends() !== before) restless.push(where + " at VOL " + volume + ": " + before + " became " + ends())
+            })
+            if (tickEnd("periodRule") === tickBefore) restless.push(where + ": the tick stayed at " + tickBefore + " as the price rose")
+            // A listing younger than its range: its eighth bar lands.
+            stub.featuredSymbol = "NBIS"
+            stub.range = "1M"
+            stub.figures = null
+            var young = function(count) {
+              stub.historyEntry = { status: "ok", receivedAt: stub.now, history: Object.assign({}, month,
+                { firstTradeDate: month.bars[0].t, bars: month.bars.slice(0, count) }) }
+              wait(50)
+            }
+            young(7)
+            var sparse = ends()
+            young(8)
+            if (ends() !== sparse) restless.push(where + " at a young listing's eighth bar: " + sparse + " became " + ends())
+            stub.featuredSymbol = "AAPL"
+            stub.range = "1D"
+            stub.historyEntry = null
+            stub.figures = aapl
+            withQuote({ price: aaplQuote.dayHigh, fiftyTwoWeekHigh: aaplQuote.dayHigh - 1 })
+            var rules = [find(body, "periodRule"), find(body, "yearRule")]
+            var highs = [body.periodLine, body.yearLine].map(function(line) { return line ? line.range.highText : "" })
+            var drawn = ["periodLine", "yearLine"].map(function(name) {
+              return find(body, name) ? root.drawnSpans(find(body, name)).filter(function(s) { return s.what === highs[0] }) : []
+            })
+            var toned = drawn.every(function(spans) { return spans.length === 1 && Qt.colorEqual(spans[0].color, stub.upColor) })
+            if (!rules[0] || !rules[1] || tickEnd("periodRule") !== rules[0].width || tickEnd("yearRule") !== rules[1].width
+                || highs[0] !== highs[1] || !toned)
+              peaks.push(where + ": highs " + highs.join(" / ") + (toned ? "" : " not both in the up colour") + ", ticks end at "
+                + tickEnd("periodRule") + " / " + tickEnd("yearRule") + " of " + (rules[0] ? rules[0].width : "-") + " / " + (rules[1] ? rules[1].width : "-"))
+          })
+        }
+        withQuote({})
+        root.check("a refresh moves neither end of either rule: VOL across its units, a young listing's eighth bar; the tick follows the price",
+          restless.length === 0, restless.join(" | "))
+        root.check("at a 52-week high both highs read the day's high in the up colour, both ticks at the rule's right end",
+          peaks.length === 0, peaks.join(" | "))
 
         // Every price a listing shows is in its own decimals: a coin under a
         // cent to four significant digits, a six-figure price to none, in

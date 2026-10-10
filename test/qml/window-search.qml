@@ -142,9 +142,9 @@ ShellRoot {
         shown === "true,194.60,1,true,true,1", shown)
       var fetched = [calls("SHOP.TO", before.to), calls("SHOP", before.shop), calls("SHHI.NE", before.shhi)].join(",")
       harness.check("only the result the choice rests on is fetched", fetched === "1,0,0", fetched)
-      var stats = within(3000, function() { return body.keyStatsText.indexOf("MKT CAP") === 0 })
+      var stats = within(3000, function() { return !!body.yearLine && body.yearLine.facts.length > 0 && body.yearLine.facts[0].value !== "" })
       harness.check("the preview's info lines are its own: its day and its cap",
-        stats && body.periodText.indexOf("WED 2 SEP") === 0, body.periodText + " / " + body.keyStatsText)
+        stats && !!body.periodLine && body.periodLine.title === "WED 2 SEP", JSON.stringify(body.periodLine) + " / " + JSON.stringify(body.yearLine))
       // An hour on the schedule's clock, and a user's refresh.
       service.now += 3600
       service.askDue()

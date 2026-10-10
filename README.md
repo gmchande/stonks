@@ -117,12 +117,13 @@ Robinhood does, from the left edge to where the clock has reached, so the
 quiet hours of a thinly traded name take no room; the hours still to come
 run by the clock. On a range
 the change is measured over the range, which is named under it. Under the
-range row, two lines always say the period (the day's date, its open once
-the session has traded, high, low, and volume, so a weekend says the day is
-Friday's, with "52W HIGH" or "52W LOW" in the move's colour on a day that
-reaches one; or the range's high,
-low, and distance from the high) and the key stats on every range: the
-market cap, the P/E, and the 52-week range, each only when known. The cap
+range row, two lines always say where the price sits: the day (its date,
+so a weekend says the day is Friday's) or the range, over the 52 weeks,
+each as its low, a thin rule with a tick at the price, and its high. A day
+that reaches a 52-week high or low shows that end in the move's colour on
+both lines. Beside them, the day's open once the session has traded and
+its volume, or the dates of the range's low and high, and on every range
+the market cap and the P/E, each only when known. The cap
 and P/E are Yahoo's latest dated figures moved with the price since, so
 the cap is an estimate; an ETF, an index, or a cryptocurrency has neither,
 and a company losing money has no P/E. A quote older than two minutes

@@ -40,6 +40,25 @@ if [ $# -eq 0 ]; then
     states="$states popup-note-undo-$look window-note-undo-$look popup-hint-undo-$look"
   done
   states="$states popup-note-retro"
+  # The info lines' hard cases, in both looks, in the popup and the window
+  # (window-sweep-*, and window-of-<state> for the rest): every kind of
+  # listing, a coin under a cent, a six-figure price, London before its
+  # session and at its 52-week high, Tokyo at lunch, pre-market, after
+  # hours, overnight, a Saturday, and the ranges. AAPL with every fact is
+  # w22-*-aapl-1d.
+  for look in smooth retro; do
+    for sweep in own-shel.l own-7203.t 2026-10-08-1054-shel.l; do
+      states="$states popup-sweep-$sweep-$look"
+    done
+    for sweep in own-shel.l own-7203.t 2026-10-08-1054-shel.l 2026-10-07-1455-nbis 2026-10-07-1455-psix \
+      2026-10-07-1455-spy 2026-10-07-1455-gspc 2026-10-07-1455-btc-usd 2026-10-07-1455-shel.l 2026-10-08-1054-brk-a \
+      2026-10-08-1054-shib-usd 2026-10-07-0600-nbis 2026-10-07-0100-nbis 2026-10-03-1200-nbis; do
+      states="$states window-sweep-$sweep-$look"
+    done
+    for state in overnight-2026-10-06-1800-nbis history-1y history-all 52w; do
+      states="$states popup-$state-$look window-of-$state-$look"
+    done
+  done
   # The theme gallery: Omarchy's default, a light theme whose green is under
   # 3:1, and two where up falls back to the foreground. `render.sh
   # theme-<look>-<theme>` renders any other installed theme.
