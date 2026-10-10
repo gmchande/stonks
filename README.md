@@ -64,10 +64,9 @@ of its own.
 
 <img src="media/scrub.png" width="480" alt="The popup scrubbed to 12:50, New York's lunch lull: the price, change, and rows follow the pointer">
 
-The top line says where the market is: counting down to the open or the
-close, the lunch lull or the power hour, after hours, or closed until the
-next open. Times are the exchange's own, with its zone named when it isn't
-yours.
+The top line says where the market is, in its own time: counting down to
+the open or the close, the lunch lull or the power hour, after hours, or
+closed until the next open.
 
 A smaller line under the price shows the pre-market, after-hours, or
 overnight price. Overnight prices are for the US stocks and ETFs Robinhood
@@ -114,10 +113,9 @@ or change, and Shift-click it to reverse the sort.
 <img src="media/window.png" width="720" alt="Stonks' window: the popup's chart and rows at the window's width">
 
 Right-click the pill, or run `omarchy-shell grvc.stonks openWindow '{}'`,
-for Stonks in a tiled window that stays open while you work. It shares the
-popup's lists, range, and quotes, and Escape closes it. Past 720 pixels its
-content keeps that width and centres. To float it, match class
-`org.quickshell` and title `Stonks` in a window rule.
+for Stonks in a tiled window. It shares the popup's lists, range, and
+quotes, and Escape closes it. To float it, match class `org.quickshell` and
+title `Stonks` in a window rule.
 
 The window also works with no pill. Run
 `omarchy plugin disable grvc.stonks`, then add `{ "id": "grvc.stonks" }` to
