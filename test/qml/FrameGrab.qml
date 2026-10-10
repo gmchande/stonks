@@ -69,10 +69,10 @@ Item {
   }
 
   // Asks frames.js for its verdict on `judged` (every frame by default), in
-  // `mode` (drawin, same, edge, or edgeheld) with the mode's own `args`
-  // (edge's band). The run is over: the ground goes. A verdict always comes
-  // within 9 s, a failing one if frames.js gave none, so a harness waiting
-  // 10 s for it never reads null.
+  // `mode` (drawin, same, edge, edgeheld, press, turn, or atonce) with the
+  // mode's own `args` (edge's band, press's fill and box). The run is over:
+  // the ground goes. A verdict always comes within 9 s, a failing one if
+  // frames.js gave none, so a harness waiting 10 s for it never reads null.
   function judge(mode, judged, args) {
     verdict = null
     if (ground) ground.destroy()
