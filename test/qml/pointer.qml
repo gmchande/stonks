@@ -696,6 +696,25 @@ ShellRoot {
         root.setFixtureWatchlist()
         wait(100)
 
+        // A right-click that removes a row mid-glide hands the cursor to the
+        // row that takes its place, as x does. From the rows review: the
+        // cursor read the glide's destination, skipped that row, and the
+        // next removal key acted on the one after it.
+        body.watchlist.contentY = 0
+        wait(50)
+        var clicked = body.watchlist.displayedSymbols[0]
+        var takesPlace = body.watchlist.displayedSymbols[1]
+        mouseMove(body.watchlist, 12, 10)
+        mouseMove(body.watchlist, 12, 12)
+        mouseWheel(body.watchlist, 12, 12, 0, -120, Qt.NoModifier)
+        mouseClick(body.watchlist, 12, 12, Qt.RightButton)
+        wait(600)
+        root.check("a right-click removing a row mid-glide hands the cursor to the row that takes its place",
+          body.watchlist.displayedSymbols.indexOf(clicked) < 0 && body.watchlist.cursorRow === takesPlace,
+          clicked + " -> " + body.watchlist.cursorRow + " for " + takesPlace)
+        root.setFixtureWatchlist()
+        wait(100)
+
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,
         // not as a fill.

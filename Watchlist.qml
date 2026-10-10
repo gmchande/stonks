@@ -661,8 +661,11 @@ Flickable {
           root.cursorSymbol = symbol
           root.featureRequested(symbol)
         }
+        // Selected, not only set: mid-glide the cursor reads where the list
+        // is headed, so the row is brought into that view and the removal
+        // hands the cursor to the row that takes its place.
         onRemoveRequested: {
-          root.cursorSymbol = symbol
+          root.select(symbol)
           root.removeRequested(symbol)
         }
         onListsRequested: {
