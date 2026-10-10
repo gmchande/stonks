@@ -158,7 +158,6 @@ Item {
         headerWhenMissing: root.ready ? "No quote" : "Loading"
         margins: Style.space(16)
         chartHeight: Style.space(220)
-        surfaceKind: "window"
         upColor: root.trendColors ? root.trendColors.up : Color.foreground
         downColor: Color.urgent
         onKeysReleased: root.refocusKeys()

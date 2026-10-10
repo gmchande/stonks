@@ -189,17 +189,20 @@ price, chart, and figures, on the range you are on. Enter adds it, or click
 a result and then its Add; Escape goes back to the featured symbol. A result
 already in the list you are on says Show instead: Enter or Show features its
 row. A result's quote is fetched once the choice rests on it, and not
-refreshed until you add it. `?` opens the shortcut sheet.
+refreshed until you add it. `?` opens the shortcut sheet: the everyday keys
+and what the mouse does. Every key is in this table:
 
 | Key | Does |
 | --- | --- |
 | `↑` `↓` | Move the row cursor |
 | `j` `k` | Move the row cursor (popup) |
-| `⏎` or Space | Feature the cursor row (Space is popup-only) |
+| `⏎` | Feature the cursor row |
+| Space | Feature the cursor row (popup) |
 | `←` `→` | Scrub one chart step |
 | `h` `l` | Scrub one chart step (popup) |
 | `[` `]` | Change the chart range |
-| `p` | Replay the shown chart; `Shift+P` in slow motion |
+| `p` | Replay the shown chart |
+| `Shift+P` | Replay it in slow motion |
 | `a` or `+` | Search and add a symbol |
 | `x` | Remove the cursor row |
 | `u` | Undo a removal, while the footer offers it |

@@ -57,6 +57,11 @@ ShellRoot {
   // The same day closed up: the pill's icon form climbs where NBIS's falls.
   readonly property var pillUpQuote: pillQuote ? Object.assign({}, pillQuote, { prevClose: pillQuote.price * 0.97 }) : null
   readonly property bool popup: w22 ? w22.popup : stateName.indexOf("popup") === 0 || themeState
+  // <popup-help|popup-help-sorted|window-help>-<look>: the key sheet.
+  readonly property var help: {
+    var match = /^(popup-help|popup-help-sorted|window-help)-(smooth|retro)$/.exec(stateName)
+    return match ? { sorted: match[1] === "popup-help-sorted", window: match[1] === "window-help" } : null
+  }
   readonly property bool historyState: stateName.indexOf("history-") === 0
     || stateName.indexOf("popup-history-") === 0
   readonly property bool nbisState: stateName.indexOf("popup-history-1w-") === 0
@@ -515,10 +520,10 @@ ShellRoot {
         body.search.searchText = "ZZZ"
         body.search.answer = root.stateName.indexOf("-none-") > 0 ? "none" : "failed"
       }
-    } else if (root.stateName === "window-help" || root.stateName.indexOf("popup-help") === 0) {
+    } else if (root.help) {
       // Manual order, so the sheet shows every entry it can; popup-help-sorted
-      // shows a sorted order's instead, with its reversal.
-      stub.order = root.stateName === "popup-help-sorted" ? "pct" : "manual"
+      // shows a sorted order's instead, without J K and the drag.
+      stub.order = root.help.sorted ? "pct" : "manual"
       body.showingHelp = true
     } else if (root.stateName.indexOf("popup-waiting-") === 0) {
       // Search open, its first answer still out: the rows stay.
@@ -611,7 +616,7 @@ ShellRoot {
       : (root.windowWidth ? 850
         : (root.minWindow ? body.chromeHeight + body.listRowHeight
           : (root.popup ? body.fittedHeight(body.chromeHeight + 6 * body.rowPitch - body.rowGap)
-            : (root.stateName === "window-help" ? 520 : 760))))
+            : (root.help && root.help.window ? 520 : 760))))
 
     Rectangle {
       id: frame
@@ -637,7 +642,6 @@ ShellRoot {
         failClosedHeader: root.stateName === "failed"
         margins: Style.space(16)
         chartHeight: root.popup ? Style.space(190) : Style.space(220)
-        surfaceKind: root.popup ? "popup" : "window"
         ground: root.groundColor
       }
 

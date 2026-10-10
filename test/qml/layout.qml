@@ -284,7 +284,6 @@ ShellRoot {
         surfaceOpen: true
         margins: surface.wide ? Style.space(16) : 0
         chartHeight: surface.wide ? Style.space(220) : Style.space(190)
-        surfaceKind: surface.wide ? "window" : "popup"
       }
     }
 
