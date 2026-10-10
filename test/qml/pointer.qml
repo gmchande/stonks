@@ -1193,7 +1193,10 @@ ShellRoot {
         for (var n = 1; n < 15; n++) many.push({ name: "L" + n, label: "List " + n, count: 0, symbols: [] })
         stub.lists = many
         wait(50)
-        var wheeled = function(open, close, viewName, rowName) {
+        // Opens a view at its top with the pointer on its second row and
+        // wheels two notches under it; `interrupt`, if any, acts 30 ms in,
+        // while the wheel's motion runs. Says the cursor then and at rest.
+        var wheeled = function(open, close, viewName, rowName, interrupt) {
           open()
           wait(100)
           var view = root.find(body, viewName)
@@ -1203,20 +1206,39 @@ ShellRoot {
           wait(50)
           var pointed = view.cursor
           mouseWheel(body, at.x, at.y, 0, -240, Qt.NoModifier)
+          var stopped = -1
+          if (interrupt) {
+            wait(30)
+            interrupt()
+            stopped = view.cursor
+          }
           wait(400)
           var under = -1
           rows.forEach(function(row, i) { if (row.contains(row.mapFromItem(body, at.x, at.y))) under = i })
-          var cursor = view.cursor
+          var rested = view.cursor
           close()
           wait(100)
-          return [pointed === 1, under > 1, cursor === under].join(",") + " " + pointed + "/" + under + "/" + cursor
+          return { pointed: pointed, under: under, stopped: stopped, rested: rested }
         }
+        // A key, or the surface closing with the view showing through its
+        // fade, while the wheel's motion runs stops it: the cursor moves no
+        // further. From the rows re-review: the motion carried it on past the
+        // key's row, and on through the close.
         var wheels = [
-          wheeled(function() { body.openListMenu() }, function() { body.closeListMenu() }, "listMenu", "listChoice"),
-          wheeled(function() { body.openSymbolLists("FIT1") }, function() { body.closeListViews() }, "symbolLists", "symbolListRow"),
-          wheeled(function() { body.openManageLists() }, function() { body.closeListViews() }, "manageLists", "manageRow")
-        ]
-        root.check("in the list menu, a symbol's lists, and Manage lists, the wheel under a still pointer moves the cursor to the row then under it",
+          [function() { body.openListMenu() }, function() { body.closeListMenu() }, "listMenu", "listChoice"],
+          [function() { body.openSymbolLists("FIT1") }, function() { body.closeListViews() }, "symbolLists", "symbolListRow"],
+          [function() { body.openManageLists() }, function() { body.closeListViews() }, "manageLists", "manageRow"]
+        ].map(function(v) {
+          var free = wheeled(v[0], v[1], v[2], v[3], null)
+          var keyed = wheeled(v[0], v[1], v[2], v[3], function() { keyClick(Qt.Key_Down) })
+          var closed = wheeled(v[0], v[1], v[2], v[3], function() { body.surfaceOpen = false })
+          body.surfaceOpen = true
+          wait(50)
+          return [free.pointed === 1 && free.under > 1 && free.rested === free.under,
+            keyed.rested === keyed.stopped, closed.rested === closed.stopped].join(",")
+            + " " + v[2] + " " + JSON.stringify([free, keyed, closed])
+        })
+        root.check("in the list menu, a symbol's lists, and Manage lists, the wheel under a still pointer moves the cursor to the row then under it, until a key or a close stops it",
           wheels.every(function(w) { return w.indexOf("true,true,true ") === 0 }), wheels.join(" | "))
 
         console.log("POINTER DONE")

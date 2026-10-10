@@ -7,5 +7,5 @@ plugin_tree pointer.qml
 frame_tools
 export QT_QPA_PLATFORM=offscreen
 export STONKS_WATCHLIST_FIXTURE="$STONKS_FIXTURES/watchlist-22.json"
-run_qs 80
+run_qs 90
 finish "POINTER DONE"

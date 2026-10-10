@@ -53,6 +53,7 @@ FocusScope {
     } else {
       nameField.focus = false
       root.focus = false
+      scroll.cancelFlick()
     }
   }
 
@@ -82,7 +83,10 @@ FocusScope {
     if (index < choices.length) cursor = index
   }
 
+  // A key takes the list over from the wheel: its motion stops, so it
+  // cannot carry the cursor on from where the key put it.
   function showCursor() {
+    scroll.cancelFlick()
     var top = cursor * itemHeight
     if (top < scroll.contentY) scroll.contentY = top
     else if (top + itemHeight > scroll.contentY + scroll.height)
@@ -199,7 +203,7 @@ FocusScope {
     interactive: contentHeight > height
     // The wheel scrolling the rows under a still pointer moves the cursor
     // to the row now under it; a key's scroll (showCursor) is no movement.
-    onContentYChanged: if (moving && pointer.hovered) root.pointAt(pointer.scenePosition.x, pointer.scenePosition.y)
+    onContentYChanged: if (root.active && moving && pointer.hovered) root.pointAt(pointer.scenePosition.x, pointer.scenePosition.y)
 
     Column {
       id: column
