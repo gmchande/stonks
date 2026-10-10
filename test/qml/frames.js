@@ -78,13 +78,15 @@ function same(frames) {
 }
 
 // The header's animal turning, from the first frame's picture to the
-// last's. A turn (`turn`) crossfades: it leaves the first picture within a
-// few frames of the mark, shows the two mixed on three or more distinct
-// frames, and rests on the last from about 160 ms on. A change at once
-// (`turn:0`) shows no mix on any frame. Neither shows a blank or faint
-// frame: each frame's strongest pixel stands at least a third as far from
-// the ground as the fainter picture's does, so a fade out and then in,
-// through nothing, fails.
+// last's, both of them an animal: neither may be the bare ground. A turn
+// (`turn`) crossfades: it leaves the first picture within a few frames of
+// the mark, shows the two mixed on three or more distinct frames, and rests
+// on the last from about 160 ms on. A change at once (`turn:0`) shows the
+// first picture until a few frames past the mark and the last from then on,
+// no mix and no way back. Neither shows a blank or faint frame: each
+// frame's strongest pixel stands at least a third as far from the ground as
+// the fainter picture's does, so a fade out and then in, through nothing,
+// fails.
 function turn(frames, atOnce) {
   if (frames.length < 2) return { ok: false, detail: frames.length + " frames grabbed" }
   const first = frames[0].image.data
@@ -97,19 +99,21 @@ function turn(frames, atOnce) {
     for (let i = 0; i < data.length; i++) most = Math.max(most, Math.abs(data[i] - g[i % 3]))
     return most
   }
-  const floor = Math.min(strength(first), strength(last)) / 3
-  const faint = frames.findIndex(f => strength(f.image.data) < floor)
+  const ends = Math.min(strength(first), strength(last))
+  const bare = ends < 24
+  const faint = frames.findIndex(f => strength(f.image.data) < ends / 3)
   const mixed = frames.filter(f => !f.image.data.equals(first) && !f.image.data.equals(last))
   const distinct = new Set(mixed.map(f => f.image.data.toString("base64"))).size
   const left = frames.findIndex(f => !f.image.data.equals(first))
   const settled = frames.findIndex((f, i) => frames.slice(i).every(later => later.image.data.equals(last)))
   const leftAt = frames[left].t
   const restAt = frames[settled].t
-  const ok = faint < 0 && (atOnce ? mixed.length === 0
-    : distinct >= 3 && leftAt <= 50 && restAt >= 100 && restAt <= 240)
+  const ok = !bare && faint < 0 && leftAt <= 50 && (atOnce ? mixed.length === 0 && settled === left
+    : distinct >= 3 && restAt >= 100 && restAt <= 240)
   return { ok, detail: "leaves the first picture at " + leftAt + " ms, at rest at " + restAt + " ms, "
     + distinct + " distinct mixed frames"
-    + (faint >= 0 ? ", frame " + faint + " (" + frames[faint].t + " ms) is blank or faint" : "") }
+    + (bare ? ", the first or last picture is the bare ground" : "")
+    + (faint >= 0 && !bare ? ", frame " + faint + " (" + frames[faint].t + " ms) is blank or faint" : "") }
 }
 
 // The draw-in is judged from the frame it started on: what was grabbed
@@ -442,6 +446,9 @@ function selfCheck() {
     ["changes at once", true, true, t => t >= 0 ? [0, 1] : [1, 0]],
     ["changes at once through a blank frame", false, true, t => t < 0 ? [1, 0] : t < 16 ? [0, 0] : [0, 1]],
     ["crossfades in 160 ms, judged as at once", false, true, t => fade(t, 160)],
+    ["fades away for good in 160 ms, nothing taking its place", false, false, t => [1 - outCubic(t, 160), 0]],
+    ["changes at once 320 ms after the mark", false, true, t => t >= 320 ? [0, 1] : [1, 0], 480],
+    ["changes at once, back at 160 ms, and again at 240", false, true, t => t >= 0 && (t < 160 || t >= 240) ? [0, 1] : [1, 0], 400],
   ]
   for (const [name, expected, atOnce, alphas, until, uneven] of turnCases) {
     const verdict = turn(animal(alphas, until, uneven), atOnce)
