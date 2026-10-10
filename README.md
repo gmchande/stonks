@@ -144,8 +144,8 @@ against ("┄ PREV CLOSE 316.85", or "┄ 1Y START 230.03" on a range).
 behind it, through the day's trades or times or, on a range, its dates.
 Choose from 1D through All under the chart, or wheel over the range row. One
 range applies to every symbol and list; the popup and the window share it,
-and it is kept across restarts. Every change of chart, another symbol, a new
-range, or opening the popup or window, draws it in from the left. Long-range
+and it is kept across restarts. Opening the popup or window draws the chart
+in from the left; another symbol or a new range shows at once. Long-range
 scrubs leave the watchlist rows on today,
 and the rows always show the day's change.
 Click a row to feature it; right-click (or middle-click) removes it, and
