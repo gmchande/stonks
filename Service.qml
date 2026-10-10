@@ -252,17 +252,46 @@ Item {
     // written, and the watch reads the second back over it.
     blockWrites: true
     printErrors: false
-    onFileChanged: dataFile.reload()
-    onLoaded: root.takeLoadedSettings()
+    onFileChanged: root.readDataFile()
+    onLoaded: root.dataReadEnded(root.takeLoadedSettings)
     // Only a file that isn't there is missing: one there that can't be
     // read, for its permissions or as a folder, is never written over.
     onLoadFailed: function(error) {
-      if (error === FileViewError.FileNotFound) root.takeMissingFile()
-      else root.takeUnreadableFile()
+      root.dataReadEnded(error === FileViewError.FileNotFound ? root.takeMissingFile : root.takeUnreadableFile)
     }
+    // A write drops a read in flight unheard: neither loaded nor failed.
+    onSaved: root.dataReadEnded(null)
     onSaveFailed: function(error) {
       console.warn("stonks: failed to write " + root.dataPath + ": " + error)
+      root.dataReadEnded(null)
     }
+  }
+  // A read of the data file is in flight, or owed; the first starts as its
+  // path is set. Quickshell 0.3.1 ignores a reload() asked for while one is,
+  // so a change saved meanwhile would never be read: it is held instead,
+  // and read once that read ends, however it ends.
+  property bool dataReading: true
+  property bool dataChangedMeanwhile: false
+  function readDataFile() {
+    if (root.dataReading) {
+      root.dataChangedMeanwhile = true
+      return
+    }
+    root.startDataRead()
+  }
+  function startDataRead() {
+    root.dataReading = true
+    dataFile.reload()
+  }
+  // TAKE, when the read found something, takes it first. A change held
+  // during the read is read once the handler has returned: Quickshell lets
+  // go of a read only after its loaded or loadFailed handlers have run.
+  function dataReadEnded(take) {
+    var again = root.dataChangedMeanwhile
+    root.dataReading = again
+    root.dataChangedMeanwhile = false
+    if (take) take()
+    if (again) Qt.callLater(root.startDataRead)
   }
 
   Gate {
