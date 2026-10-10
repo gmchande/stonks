@@ -83,8 +83,12 @@ Under the ranges, two lines show where the price sits in the day, or the
 range, and in the past 52 weeks: the low, a tick at the price on a thin
 rule, and the high. Beside them are the day's open and volume, or the dates
 of the range's low and high, and the market cap and P/E. The cap is an
-estimate: Yahoo's latest reported figure moved with the price since. A late
-quote says so on its row and on the pill.
+estimate: Yahoo's latest reported figure moved with the price since.
+
+A quote more than two minutes old while its market trades, or one saved
+from the last session, says "As of" and its time on its row and beside its
+name above the price. A refresh that fails, or has no answer after 90
+seconds, says so there too and puts a "!" on the pill.
 
 ## Your lists
 
