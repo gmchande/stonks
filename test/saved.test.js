@@ -1254,13 +1254,26 @@ test("the header's animal sleeps while its market does: by phase and calendar, n
   expect([asleep(gspc, at("2026-10-08", "06:00")), asleep(gspc, at("2026-10-08", "11:00"))]).toEqual([true, false])
   // An early close's own periods rule its day: the day after Thanksgiving,
   // PSIX's after hours ends at 17:00, so it sleeps at 18:00, not at 20:00,
-  // whether they are its bars' periods or only Yahoo's current ones over
-  // Wednesday's bars.
+  // whether they are its bars' periods, only Yahoo's current ones over
+  // Wednesday's bars, or none of that day's at all, Wednesday's answer held
+  // there: its after hours runs as long after the early close as after a
+  // normal one.
   const early = clock => at("2026-11-27", clock)
   const periods = {
     pre: { start: early("04:00"), end: early("09:30") },
     regular: { start: early("09:30"), end: early("13:00") },
     post: { start: early("13:00"), end: early("17:00") } }
-  for (const friday of [{ ...psix, session: periods }, { ...psix, current: periods }])
+  for (const friday of [{ ...psix, session: periods }, { ...psix, current: periods }, psix])
     expect(["16:00", "18:00"].map(clock => asleep(friday, early(clock)))).toEqual([false, true])
+  // A listing's own extended hours, whatever day its periods describe:
+  // London's Wednesday answer held into Thursday is awake in its pre-market
+  // (07:15 to 08:00) and after hours (16:30 to 17:15), as Thursday's own
+  // answer is; Toronto's, from 2 September, the next day in its pre-market
+  // (08:00 to 09:30) and after hours (16:00 to 17:00); each asleep outside.
+  const london = clock => M.epochAt(calendars.calendars.LSE, "2026-10-08", clock)
+  const toronto = clock => M.epochAt(calendars.calendars.TSX, "2026-09-03", clock)
+  const awakeAt = (quote, times) => times.map(t => !asleep(quote, t))
+  for (const set of ["sweep-2026-10-07-1455", "sweep-2026-10-08-1054"])
+    expect(awakeAt(savedDay(set, "shel.l"), ["07:00", "07:20", "16:40", "17:30"].map(london))).toEqual([false, true, true, false])
+  expect(awakeAt(shop, ["07:30", "08:30", "16:10", "17:30"].map(toronto))).toEqual([false, true, true, false])
 })

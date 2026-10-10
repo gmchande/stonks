@@ -305,9 +305,11 @@ function inRegularSession(quote, now, calendars) {
 }
 
 // Whether a quote's own market is in its pre-market or after hours now:
-// Yahoo's periods, or, for a quote held from an earlier day, whose periods,
-// its bars' and its current ones, don't describe today, the calendar's,
-// for a listing whose periods have them (an index's have none); less a
+// Yahoo's periods; or, for a quote held from an earlier day, whose periods,
+// its bars' and its current ones, don't describe today, the listing's own
+// extended hours, as long as its periods have them before and after its
+// regular session (an index's have none), around today's segments in its
+// calendar, so an early close's after hours ends as early; less a
 // published closure.
 function inExtendedHours(quote, now, calendars) {
   if (!quote || quote.crypto || calendarQuiet(calendars, quote, now)) return false
@@ -319,9 +321,12 @@ function inExtendedHours(quote, now, calendars) {
     return !!p && !!p.regular && dateStringOf(localDate(p.regular.start, cal)) === date
   })
   var segs = cal && !described ? segmentsOn(cal, date) : []
-  if (!segs.length) return false
-  var pre = !!quote.session.pre && !!cal.pre && now >= epochAt(cal, date, cal.pre.open) && now < segs[0].start
-  var post = !!quote.session.post && !!cal.post && now >= segs[segs.length - 1].end && now < epochAt(cal, date, cal.post.close)
+  var s = quote.session
+  if (!segs.length || !s.regular) return false
+  var open = segs[0].start
+  var close = segs[segs.length - 1].end
+  var pre = !!s.pre && now >= open - (s.regular.start - s.pre.start) && now < open
+  var post = !!s.post && now >= close && now < close + (s.post.end - s.regular.end)
   return pre || post
 }
 
