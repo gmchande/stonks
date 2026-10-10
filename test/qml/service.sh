@@ -6,8 +6,9 @@
 # tree's copy of the manifest.
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 feed_tree service.qml Service.qml Gate.qml Updates.qml QuoteFeed.qml HistoryFeed.qml FundamentalsFeed.qml AllDayFeed.qml OvernightFeed.qml Fetch.js Quote.js Format.js Market.js Overnight.js History.js Fundamentals.js Chart.js Settings.js calendars.json manifest.json
-# The harness ages a fundamentals entry by a day.
-patch_copy Service.qml '/readonly property var fundamentals:/a\  readonly property alias testFundamentalsFeed: fundamentalsFeed'
+# The harness ages a fundamentals entry by a day, and counts the data file's
+# reads, so a check waits on its read-back.
+patch_copy Service.qml '/readonly property var fundamentals:/a\  readonly property alias testFundamentalsFeed: fundamentalsFeed\n  readonly property alias testDataFile: dataFile'
 scratch_home shell-bar-only.json shell.json
 run_qs 70
 finish "ALL PASS"
