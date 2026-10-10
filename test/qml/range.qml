@@ -1014,6 +1014,34 @@ ShellRoot {
       tryVerify(function() { return pill.warns }, 10000)
       var textLanding = warnsThenLands("text")
       var iconLanding = warnsThenLands("icon")
+      // A quote landing under a resting pointer, with no warning involved,
+      // leaves the bubble as it opened: its figures stay, and it never
+      // blinks, though the pill's words have moved on.
+      pill.settings = Object.assign({}, settingsBeforeLate, { barStyle: "icon" })
+      var widget = null
+      for (var wc = 0; wc < pill.children.length; wc++) if (pill.children[wc].tooltipText !== undefined) widget = pill.children[wc]
+      var shows = 0
+      mouseMove(pill, pill.width / 2, -5)
+      wait(20)
+      barApi._showTooltip = function(target, text) { shows++; bubble = text }
+      barApi._hideTooltip = function(target) { bubble = "" }
+      mouseMove(pill, pill.width / 2, pill.height / 2)
+      wait(20)
+      var opened = bubble
+      var quotesBeforeRest = service.testFeed.quotes
+      var risen = Object.assign({}, quotesBeforeRest)
+      risen.LATE = Object.assign({}, risen.LATE, { price: risen.LATE.price + 10 })
+      service.testFeed.quotes = risen
+      wait(100)
+      var resting = [shows, JSON.stringify(opened), JSON.stringify(bubble), JSON.stringify(widget.tooltipText), pill.warns]
+      mouseMove(pill, pill.width / 2, -5)
+      wait(20)
+      barApi._showTooltip = null
+      barApi._hideTooltip = null
+      service.testFeed.quotes = quotesBeforeRest
+      harness.check("a quote landing under a resting pointer, with no warning, leaves the bubble as it opened",
+        resting[0] === 1 && /^"LATE /.test(resting[1]) && resting[2] === resting[1] && resting[3] !== resting[1] && resting[4] === false,
+        resting.join(" | "))
       pill.settings = settingsBeforeLate
       service.feature("FAIL")
       service.removeSymbol("LATE")
