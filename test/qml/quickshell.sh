@@ -28,7 +28,11 @@ qs_code=0
 # SECONDS. Sets qs_code: Quickshell's exit code, 124 on a timeout, or 128 and
 # its signal on a death by one. Whatever ends it, its group and every
 # process carrying the mark are stopped (quickshell_stop), and a FAIL line
-# is added to LOG for a crash, a timeout, or a process that left the group.
+# is added to LOG for a crash, an unexpected exit, a timeout, or a process
+# that left the group. A crash is a code over 128 whose rest names a signal.
+# Exit 1 is a harness's own failure, which its FAIL lines already say; any
+# other code, such as the 255 a file that fails to load gives, is an exit,
+# which its log explains: no core to look for.
 quickshell_run() {
   local - secs=$1 log=$2 fd pid sig
   set +e
@@ -50,9 +54,10 @@ quickshell_run() {
   disown "$qs_leader"
   set +m
   if read -r -t "$secs" -u "$fd" pid qs_code; then
-    if (( qs_code > 128 )); then
-      sig=$(kill -l $((qs_code - 128)) 2> /dev/null)
+    if (( qs_code > 128 )) && sig=$(kill -l $((qs_code - 128)) 2> /dev/null) && [ -n "$sig" ]; then
       echo "FAIL Quickshell crashed: SIG$sig ($((qs_code - 128))), pid $pid; its core dump: coredumpctl info $pid" >> "$log"
+    elif (( qs_code != 0 && qs_code != 1 )); then
+      echo "FAIL Quickshell exited with code $qs_code; its log says why" >> "$log"
     fi
   else
     qs_code=124
