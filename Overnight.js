@@ -149,6 +149,23 @@ function nightAt(cal, t) {
   return { start: day.start, end: Market.epochAt(cal, day.date, cal.overnight.close), open: day.open }
 }
 
+// Whether a listing's market is resting at `t`, by its phase and its
+// calendar alone, never by how old its data is: awake through its regular
+// session (`Market.inRegularSession`: Yahoo's periods, or the calendar's
+// for a quote held from an earlier day), its pre-market and after hours,
+// and a night that trades for one Robinhood trades all day (`allDay`),
+// Sunday evening's included; asleep through Tokyo's lunch, a weekend, a
+// published closure, and the rest of the night. A cryptocurrency never
+// rests.
+function marketAsleep(quote, allDay, t, calendars) {
+  if (!quote || quote.crypto) return false
+  var cal = Market.calendarFor(calendars, quote)
+  var night = allDay && cal && cal.overnight ? nightAt(cal, t) : null
+  if ((night && night.open) || Market.inRegularSession(quote, t, calendars)) return false
+  var phase = Market.sessionPhase(quote, t)
+  return Market.calendarQuiet(calendars, quote, t) || (phase !== "pre" && phase !== "post")
+}
+
 function tradingDayBefore(cal, date) {
   var day = Market.previousDateString(date)
   for (var i = 0; i < 14 && Market.dayKind(cal, day).kind !== "open"; i++) day = Market.previousDateString(day)

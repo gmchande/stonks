@@ -1205,3 +1205,44 @@ test("a quote held from an earlier day stays warm by its calendar; one with no c
   // A cryptocurrency never stays warm with nothing open.
   expect(M.staysWarm(btc, btc.session.regular.start + 3600, calendars)).toBe(false)
 })
+
+test("the header's animal sleeps while its market does: by phase and calendar, never by the data's age", () => {
+  // The sweep's listings at each saved moment, each from its own answer at
+  // that moment, and whether Robinhood trades it all day from its own.
+  const sweep = ["nbis", "psix", "spy", "bldp", "gspc", "btc-usd", "shel.l", "7203.t"]
+  const tradable = M.parseAllDay(fixture("overnight/sweep-2026-10-07-0100/robinhood-instruments.json"), ["NBIS", "PSIX", "SPY", "BLDP"])
+  const asleep = (quote, t) => M.marketAsleep(quote, !!tradable[quote.symbol], t, calendars)
+  const row = (set, t) => sweep.filter(name => asleep(savedDay(set, name), t)).join(" ")
+  // Wednesday 01:00: NBIS's and SPY's night trades; PSIX's and BLDP's
+  // doesn't, nor an index's or London's; Tokyo is in its afternoon.
+  expect(row("sweep-2026-10-07-0100", at("2026-10-07", "01:00"))).toBe("psix bldp gspc shel.l")
+  // 06:00, pre-market: every US stock and ETF is awake, the thin ones
+  // too; an index has no pre-market; London trades; Tokyo has closed.
+  expect(row("sweep-2026-10-07-0600", at("2026-10-07", "06:00"))).toBe("gspc 7203.t")
+  // 14:55, the session; London and Tokyo have closed.
+  expect(row("sweep-2026-10-07-1455", at("2026-10-07", "14:55"))).toBe("shel.l 7203.t")
+  // Thursday 10:54, the session, London's too.
+  expect(row("sweep-2026-10-08-1054", M.epochAt(US, "2026-10-08", "10:54") + 24)).toBe("7203.t")
+  // Saturday noon: all but the cryptocurrency, which never sleeps.
+  expect(row("sweep-2026-10-03-1200", at("2026-10-03", "12:00"))).toBe("nbis psix spy bldp gspc shel.l 7203.t")
+  // After hours, the 14:55 answers held to 17:00: a thin stock is awake
+  // with nothing trading; an index has closed.
+  expect(row("sweep-2026-10-07-1455", at("2026-10-07", "17:00"))).toBe("gspc shel.l 7203.t")
+  // Sunday 22:30: Monday's night trades for NBIS; the index sleeps.
+  const sunday = at("2026-09-27", "22:30")
+  expect([asleep(savedDay("sunday", "nbis"), sunday), asleep(savedDay("sunday", "gspc"), sunday)]).toEqual([false, true])
+  // Tokyo's lunch, 11:45 JST, sleeps; its morning, 10:00, is awake.
+  const tokyo = M.parseChart(fixture("7203-t-day.json"))
+  expect([asleep(tokyo, Date.UTC(2026, 9, 2, 2, 45) / 1000), asleep(tokyo, Date.UTC(2026, 9, 2, 1, 0) / 1000)]).toEqual([true, false])
+  // A holiday sleeps, whatever Yahoo's periods still say: Labor Day, with
+  // a response that describes a session; and Thanksgiving, NBIS's held
+  // answer, with no night before it.
+  const labor = 1788793200
+  const fakeOpen = { ...sep4, session: { pre: null, post: null, regular: { start: labor - 3600, end: labor + 3600 } } }
+  expect(asleep(fakeOpen, labor)).toBe(true)
+  const nbis = savedDay("sweep-2026-10-07-1455", "nbis")
+  expect([asleep(nbis, at("2026-11-26", "12:00")), asleep(nbis, at("2026-11-25", "22:00"))]).toEqual([true, true])
+  // The data's age never sends it to sleep: Wednesday's answer held into
+  // Thursday's session is awake by the calendar.
+  expect(asleep(nbis, at("2026-10-08", "11:00"))).toBe(false)
+})
