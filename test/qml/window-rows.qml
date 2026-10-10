@@ -703,6 +703,21 @@ ShellRoot {
       var watchlist = body.watchlist
       var keys = app.testKeyCatcher
 
+      // A reopened window's cursor rests on the featured row, not where the
+      // last visit left it. Found in the live check of #9: the bar stayed on
+      // the last visit's row, so Enter, Space, x, and m acted on it.
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_Down)
+      wait(50)
+      var leftOn = watchlist.cursorRow
+      app.close()
+      wait(200)
+      app.open("{}")
+      wait(200)
+      harness.check("a reopened window's cursor rests on the featured row, not the last visit's",
+        leftOn !== service.featuredSymbol && watchlist.cursorRow === service.featuredSymbol,
+        leftOn + " -> " + watchlist.cursorRow + " for " + service.featuredSymbol)
+
       var removedRow = watchlist.rowItem("MSFT")
       mouseClick(removedRow, removedRow.width / 2, removedRow.height / 2, Qt.MiddleButton)
       wait(100)

@@ -309,7 +309,9 @@ ShellRoot {
       panel.testKeyCatcher.moveRequested(0, 1)
       test.check("in the popup, a over the key sheet opens search alone, and a row key shows the rows",
         searchAlone && !panel.testBody.showingHelp, searchAlone + "|" + panel.testBody.showingHelp)
-      panel.testBody.watchlist.cursorSymbol = ""
+      // The row key moved the cursor off the featured row; the close leaves
+      // it there for the fade.
+      var cursorLeftOn = panel.testBody.watchlist.cursorRow
       panel.testBody.showingHelp = true
       panel.testBody.motion.scrubT = 123
       panel.close()
@@ -331,6 +333,14 @@ ShellRoot {
       service.setRange("5Y")
       panel.open()
       test.check("interaction state cleared as it opens", !panel.testBody.showingHelp && panel.testBody.scrubT === 0)
+      // The cursor too: it rests on the featured row until you point or press
+      // a key, not on the last visit's row. Found in the live check of #9:
+      // the bar stayed where the last visit left it, so Enter, Space, x, and
+      // m acted on that row. This harness used to clear it by hand before
+      // closing, which hid it.
+      test.check("a reopened popup's cursor rests on the featured row, not the last visit's",
+        cursorLeftOn !== service.featuredSymbol && panel.testBody.watchlist.cursorRow === service.featuredSymbol,
+        cursorLeftOn + " -> " + panel.testBody.watchlist.cursorRow + " for " + service.featuredSymbol)
       test.check("an open popup's clock is the service's", panel.testBody.now === service.now)
       test.check("the popup opens on the shared range", panel.range === "5Y")
       test.check("reopen tells the service the popup is open", test.opensTold > beforeReopen)

@@ -586,10 +586,12 @@ Flickable {
   }
   onSortHeldChanged: if (!sortHeld && surfaceOpen) applyShown()
 
-  // As the surface opens: the rows in the service's order, at rest, and no
-  // Shift+wheel move left half made.
+  // As the surface opens: the rows in the service's order, at rest, no
+  // Shift+wheel move left half made, and no cursor of the last visit's, so
+  // it rests on the featured row until you point or press a key.
   function reopen() {
     wheelMoving = ""
+    cursorSymbol = ""
     forgetClicks()
     layOut()
   }
