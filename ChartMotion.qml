@@ -4,8 +4,9 @@ import "History.js" as History
 import "Quote.js" as Quote
 // The chart a surface presents, its moment, and how it arrives: the chart
 // on screen, which moment it shows (the scrub, and the replay that drives
-// it), and the one motion, a draw-in from the left, for every change of
-// the chart on screen. It decides once per change of the view the surface
+// it), and its one motion, a draw-in from the left as a surface opens.
+// Getting around, every other change of the chart on screen, shows the
+// new one at once. It decides once per change of the view the surface
 // holds (`StonksBody`'s held inputs), whoever made it. It draws nothing
 // itself.
 Item {
@@ -76,11 +77,15 @@ Item {
   // How much of the chart is drawn, 0..1: a replay draws it in behind its
   // scrub, and otherwise the draw-in says.
   readonly property real drawn: replayX >= 0 ? replayX : reveal
+  // A surface opened while its chart was on its way: the first chart to
+  // land is the open's, and draws in.
+  property bool opening: false
 
   // The view as this piece last saw it. Each change of the view is compared
-  // with it once: another chart on screen draws in; a chart asked for and
-  // not ready keeps the one on screen whole and still; new data for the
-  // same chart is taken as it is.
+  // with it once: another chart on screen shows whole at once, or draws in
+  // when it is the one an open waited for; a chart asked for and not ready
+  // keeps the one on screen whole and still; new data for the same chart
+  // is taken as it is.
   property var seen: null
   onViewChanged: {
     var before = seen
@@ -95,9 +100,10 @@ Item {
     // A replay and a scrub belong to the chart they started on, and to data
     // that still covers their moment.
     if (moved || asked || (refreshed && scrubT && !covers(next, scrubT))) clearScrub()
-    if (moved) {
-      if (surfaceOpen) drawIn()
-    } else if (asked) {
+    if (moved && opening && surfaceOpen) {
+      opening = false
+      drawIn()
+    } else if (moved || asked) {
       drawInAnim.stop()
       reveal = 1
     }
@@ -160,6 +166,7 @@ Item {
   function revealChart() {
     drawInAnim.stop()
     reveal = 1
+    opening = loading
     if (!loading) drawIn()
   }
 
@@ -187,14 +194,17 @@ Item {
 
   // A closing surface stops what moves where it is: a replay keeps what it
   // had drawn, and a draw-in what it had revealed. Only what runs can pause.
+  // An open's chart still on its way is no longer the open's.
   function freeze() {
     if (replayAnim.running) replayAnim.pause()
     drawInAnim.stop()
+    opening = false
   }
 
   // At rest before an open's first frame: now, and whole.
   function reset() {
     stopReplay()
+    opening = false
     reveal = 1
     scrubT = 0
   }
