@@ -281,6 +281,32 @@ Flickable {
     cursorSymbol = symbol
   }
 
+  // A click on a row, at (x, y) in the scene. It stops the list where it
+  // is, a glide or a touchpad's settle, as a flicking list stops under a
+  // finger, and puts the cursor on the row, now in sight where the list
+  // rests: the row stays under the pointer, and x or Enter act on it.
+  // Gliding it whole into view or onto a row boundary instead moved it out
+  // from under the pointer. And a double-click is one click, for the list
+  // as for a row: a click within the double-click interval of the last,
+  // at its place, does nothing, whatever button and whichever row is under
+  // it by then, as the one sliding up into a removed row's place.
+  // Says whether the click acts.
+  property real lastClickTime: 0
+  property point lastClickPlace: Qt.point(-1, -1)
+  function clickRow(symbol, x, y) {
+    var now = Date.now()
+    var near = Application.styleHints.startDragDistance
+    var again = now - lastClickTime < Application.styleHints.mouseDoubleClickInterval
+      && Math.abs(x - lastClickPlace.x) <= near && Math.abs(y - lastClickPlace.y) <= near
+    lastClickTime = now
+    lastClickPlace = Qt.point(x, y)
+    if (again || displayedSymbols.indexOf(symbol) < 0) return false
+    takeOver()
+    cancelFlick()
+    cursorSymbol = symbol
+    return true
+  }
+
   // Whether row `index` is whole in the list's view with it scrolled to
   // `top`. The card's edge easing past the foot is left out: the cursor
   // follows the scroll, not a moment of the card's motion.
@@ -654,23 +680,11 @@ Flickable {
         upColor: root.upColor
         downColor: root.downColor
         fontFamily: root.fontFamily
-        // A click puts the cursor on the row it acts on, wherever the keys
-        // left it under a still pointer. Selected, not only set: mid-glide
-        // the cursor reads where the list is headed, so the row is brought
-        // into that view, and x or Enter then acts on it; a removal by click
-        // hands the cursor on as a key's does.
-        onFeatureRequested: {
-          root.select(symbol)
-          root.featureRequested(symbol)
-        }
-        onRemoveRequested: {
-          root.select(symbol)
-          root.removeRequested(symbol)
-        }
-        onListsRequested: {
-          root.select(symbol)
-          root.listsRequested(symbol)
-        }
+        // A double-click's second press does nothing (clickRow), and a
+        // click stops the list where it is and puts the cursor on its row.
+        onFeatureRequested: function(x, y) { if (root.clickRow(symbol, x, y)) root.featureRequested(symbol) }
+        onRemoveRequested: function(x, y) { if (root.clickRow(symbol, x, y)) root.removeRequested(symbol) }
+        onListsRequested: function(x, y) { if (root.clickRow(symbol, x, y)) root.listsRequested(symbol) }
         onMoveWheeled: function(angle) { root.wheelMove(symbol, angle) }
         onDragStarted: function(y) { root.beginDrag(symbol, y) }
         onDragMoved: function(y) { root.dragTo(y) }

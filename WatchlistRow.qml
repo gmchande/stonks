@@ -36,10 +36,12 @@ Rectangle {
   property color downColor: Color.urgent
   property string fontFamily: Style.font.family
 
-  signal featureRequested()
-  signal removeRequested()
+  // Each click says where it was, in the scene, so the list can tell a
+  // double-click's second press, whichever row it lands on.
+  signal featureRequested(real x, real y)
+  signal removeRequested(real x, real y)
   // Ctrl-click, Apple's Control-click: this row's lists.
-  signal listsRequested()
+  signal listsRequested(real x, real y)
   // Shift and the wheel over this row, by its angle.
   signal moveWheeled(real angle)
   // Drag positions are in the parent's coordinates, since the row itself
@@ -243,9 +245,10 @@ Rectangle {
     }
     onClicked: function(event) {
       if (dragged) return
-      if (event.button === Qt.RightButton || event.button === Qt.MiddleButton) row.removeRequested()
-      else if (event.modifiers & Qt.ControlModifier) row.listsRequested()
-      else if (event.button === Qt.LeftButton) row.featureRequested()
+      var at = mapToItem(null, event.x, event.y)
+      if (event.button === Qt.RightButton || event.button === Qt.MiddleButton) row.removeRequested(at.x, at.y)
+      else if (event.modifiers & Qt.ControlModifier) row.listsRequested(at.x, at.y)
+      else if (event.button === Qt.LeftButton) row.featureRequested(at.x, at.y)
     }
     // A double-click is one click: its second would land on whatever took
     // the first one's place, a row sliding up or the rows back from search.

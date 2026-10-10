@@ -743,6 +743,53 @@ ShellRoot {
         root.check("a click or a Ctrl-click mid-glide puts the cursor on its row, and x then removes that row",
           /^true /.test(byClick) && /^true /.test(byCtrlClick), byClick + " | " + byCtrlClick)
 
+        // A double-click is one click for the list, not only for a row: its
+        // second press, at the first one's place, does nothing, whichever
+        // row is under it by then. And a click stops the list where it is,
+        // so its row stays under the pointer. From Grok's review of #9: a
+        // click glided its row away (onto a row boundary after a touchpad
+        // scroll), and the second press featured the next row; after a
+        // right-click's removal, the row that slid up was removed too.
+        root.setFixtureWatchlist()
+        wait(100)
+        body.watchlist.contentY = 0
+        wait(50)
+        var featuredSeen = []
+        var noteFeatured = function() { featuredSeen.push(stub.featuredSymbol) }
+        stub.featuredSymbolChanged.connect(noteFeatured)
+        body.watchlist.followBy(17)
+        var partRow = body.watchlist.displayedSymbols[1]
+        var partY = pitch + 2 - 17
+        mouseMove(body.watchlist, 12, partY - 2)
+        mouseMove(body.watchlist, 12, partY)
+        mouseClick(body.watchlist, 12, partY)
+        wait(200)
+        mouseClick(body.watchlist, 12, partY)
+        wait(400)
+        stub.featuredSymbolChanged.disconnect(noteFeatured)
+        var featuredOnce = featuredSeen.length > 0 && featuredSeen.every(function(s) { return s === partRow })
+          && stub.featuredSymbol === partRow && body.watchlist.cursorRow === partRow
+        root.setFixtureWatchlist()
+        wait(100)
+        body.watchlist.contentY = 0
+        wait(50)
+        var shownBefore = body.watchlist.displayedSymbols.slice()
+        var thirdY = 2 * pitch + 20
+        mouseMove(body.watchlist, 12, thirdY - 2)
+        mouseMove(body.watchlist, 12, thirdY)
+        mouseClick(body.watchlist, 12, thirdY, Qt.RightButton)
+        wait(200)
+        mouseClick(body.watchlist, 12, thirdY, Qt.RightButton)
+        wait(400)
+        var shownAfter = body.watchlist.displayedSymbols
+        var removedOnce = shownAfter.length === shownBefore.length - 1
+          && shownAfter.indexOf(shownBefore[2]) < 0 && shownAfter.indexOf(shownBefore[3]) >= 0
+        root.check("a double-click on a part-scrolled row features only that row, and a right double-click removes one row",
+          featuredOnce && removedOnce,
+          featuredSeen.join(",") + " for " + partRow + " | " + shownBefore.length + " -> " + shownAfter.length)
+        root.setFixtureWatchlist()
+        wait(100)
+
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,
         // not as a fill.

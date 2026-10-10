@@ -263,7 +263,9 @@ run time.
   cursor, as in the shell's own panels (`Ui/CursorSurface.qml`): moving the
   pointer puts it on the row under it, the wheel on the row it brings under
   a still pointer, a key one row on from wherever it is, and a click on the
-  row clicked; a lifted row keeps it while the wheel scrolls the list under
+  row clicked, which stops the list where it is, a glide or a touchpad's
+  settle, as a flicking list stops under a finger, so the row stays under
+  the pointer; a lifted row keeps it while the wheel scrolls the list under
   it; the pointer leaving the list leaves it there. Pointer and wheel read
   the list where it is headed, as the cursor always does, so mid-glide they
   name the row that will rest under the pointer. Only a real move within
@@ -421,8 +423,11 @@ run time.
 - `RangeSelector.qml` — the shared one-line range token control.
 - `WatchlistRow.qml` — one row; value-in, signals out. Owns the press-and-
   move gesture that lifts a row; the watchlist positions it and the others.
-  A double-click, on a row or the footer, is one click: its second would
-  land on whatever took the first one's place.
+  A double-click, on a row, the list, or the footer, is one click: its
+  second would land on whatever took the first one's place. On the list, a
+  click within the double-click interval of the last, at its place, does
+  nothing, whatever button and whichever row is under it by then
+  (`Watchlist.clickRow`): a right double-click removes one row.
 - `CursorBar.qml` — the cursor's one mark, a bar down a row's left edge, on
   the watchlist's rows and in every list view.
 - `DayChart.qml`, `Sparkline.qml`, `DrawnAnimal.qml` — the smooth look's
