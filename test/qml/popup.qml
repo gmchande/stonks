@@ -1047,8 +1047,8 @@ ShellRoot {
           if (test.hold(test.savedSettings().hinted === true)) return
           test.check("and the hint shown is saved", test.savedSettings().hinted === true)
         } else if (test.step === 43) {
-          // Nothing pressed in the open popup moves it sideways: c into
-          // "open", which widens the pill, and a narrower featured symbol
+          // Nothing pressed in the open popup moves it sideways: c into the
+          // amount, which changes the pill's width, and a narrower featured symbol
           // leave the card where it opened; the next open takes the pill's
           // new place. Seen live: the card moved about 15 px on c.
           var held = placedPill.panel
@@ -1068,10 +1068,9 @@ ShellRoot {
           held.open()
           var openedAt = placed.cardOrigin.x
           held.testKeyCatcher.textKey("c")
-          held.testKeyCatcher.textKey("c")
           var mode = service.changeMode
-          var widened = pillWidth()
-          var afterOpenMode = placed.cardOrigin.x
+          var switched = pillWidth()
+          var afterMode = placed.cardOrigin.x
           service.feature("MU")
           var narrowed = pillWidth()
           var afterFeature = placed.cardOrigin.x
@@ -1081,11 +1080,11 @@ ShellRoot {
           var expected = Math.round(placedPill.x + narrowed / 2 - placed.contentWidth / 2)
           held.close()
           service.changeMode = "pct"
-          test.check("c into open and a narrower featured symbol leave the open card where it opened, and the next open takes the pill's new place",
-            mode === "open" && widened > before && narrowed < widened
-              && afterOpenMode === openedAt && afterFeature === openedAt && reopenedAt === expected && reopenedAt !== openedAt,
-            [mode, "AAPL " + before + " → " + widened + ", MU " + narrowed,
-              "card x " + openedAt + " → " + afterOpenMode + " → " + afterFeature, "reopened " + reopenedAt + " (expected " + expected + ")"].join(", "))
+          test.check("c into the amount and a narrower featured symbol leave the open card where it opened, and the next open takes the pill's new place",
+            mode === "abs" && switched !== before && narrowed < switched
+              && afterMode === openedAt && afterFeature === openedAt && reopenedAt === expected && reopenedAt !== openedAt,
+            [mode, "AAPL " + before + " → " + switched + ", MU " + narrowed,
+              "card x " + openedAt + " → " + afterMode + " → " + afterFeature, "reopened " + reopenedAt + " (expected " + expected + ")"].join(", "))
           // A removal's undo outlives its note: u long after it, with the
           // footer back on the add, still takes it back.
           test.hintPanel.open()

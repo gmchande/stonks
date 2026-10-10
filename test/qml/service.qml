@@ -316,13 +316,18 @@ ShellRoot {
           saved.order === "pct" && saved.reversed === true && saved.lists.length === 2
             && yen.name === "Yen" && yen.order === "pct" && yen.reversed === false && harness.sameSymbols(yen.symbols, ["MSFT"]),
           JSON.stringify({ order: saved.order, reversed: saved.reversed, lists: saved.lists }))
-        harness.renameThen(harness.bodyFrom({ style: "retro" }), function() {
+        // With it, a change mode saved as since the open: it reads as percent.
+        harness.renameThen(harness.bodyFrom({ style: "retro", changeMode: "open" }), function() {
           harness.go(5)
         })
       } else if (harness.step === 5) {
         if (!service.retro && harness.waited < 2000) return
         harness.check("rename overwrite reaches the service", service.retro,
           service.retro ? "retro" : "smooth")
+        harness.check("a change mode saved as since the open reads as percent, the rest of the file kept",
+          service.changeMode === "pct" && service.dataSettings.changeMode === "pct" && service.featuredSymbol === "MSFT"
+            && harness.sameSymbols(service.symbols, ["AAPL", "MSFT"]),
+          JSON.stringify({ changeMode: service.changeMode, featured: service.featuredSymbol, symbols: service.symbols }))
         service.persist({ featured: "AAPL" })
         harness.go(6)
       } else if (harness.step === 6) {

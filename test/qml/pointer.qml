@@ -1281,20 +1281,6 @@ ShellRoot {
         mouseMove(body, body.width / 2, 20)
         wait(200)
 
-        // Since the open, the hero's caption names it, in the slot AT CLOSE
-        // would take, and the figure is bare; a row says "open" inline.
-        stub.featuredSymbol = "MU"
-        stub.changeMode = "open"
-        wait(50)
-        var heroCaption = root.find(body, "changeCaption")
-        var heroChange = root.find(body, "changeText")
-        var firstShown = body.watchlist.rowItem(body.watchlist.displayedSymbols[0])
-        root.check("a change since the open is captioned SINCE OPEN, never AT CLOSE",
-          heroCaption.text === "SINCE OPEN" && heroChange.text.indexOf("open") < 0
-            && firstShown.view.changeLine.indexOf(" open") > 0)
-        stub.changeMode = "pct"
-        wait(50)
-
         root.setQuotes(["FIT1", "FIT2"], [101, 102])
         wait(200)
         root.check("the scrollbar is absent when every row fits",

@@ -188,7 +188,7 @@ first, in the row. `m` on the cursor row, or Ctrl-click on any row, shows that
 symbol's lists as tick boxes: ticking adds it to a list, unticking takes it
 out, and unticking All removes it everywhere.
 Rows can be moved by hand only while manual order is shown. Click the change
-to cycle percent, currency amount, and percent since the open; that is the
+to switch between percent and currency amount; that is the
 day's change, so on a range it changes the rows and the hero keeps the
 range's. Sorting by % change ranks the rows and leaves what they show
 alone. In search, the top result is chosen to start with, and the arrows
@@ -221,7 +221,7 @@ and what the mouse does. Every key is in this table:
 | `Shift+W` | Manage lists: rename, reorder, delete |
 | `m` | The cursor row's lists |
 | `,` `.` | Previous or next list, scrolled where you left it |
-| `c` | Cycle the day's change: percent, amount, and since-open |
+| `c` | Switch the day's change between percent and amount |
 | `s` | Switch between the smooth and retro looks |
 | `r` | Refresh |
 | `1` to `9` | Feature that row |

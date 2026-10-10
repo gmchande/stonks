@@ -139,7 +139,7 @@ test("formatting", () => {
   const shown = [[20, 21.99], [20, 18.01], [100, 109.95], [100, 90.05], [20, 21.988], [20, 20.01], [20, 19.99],
     [100, 100.05], [100, 99.95], [20, 39.99], [100, 199.95], [20, 0.01], [100, 0.05]]
     .map(([prevClose, price]) => {
-      const move = M.change({ prevClose }, price, "pct").pct
+      const move = M.change({ prevClose }, price).pct
       return M.pct(move) + " " + M.narrowPct(move)
     })
   expect(shown).toEqual(["+9.95% +10%", "\u22129.95% \u221210%", "+9.95% +10%", "\u22129.95% \u221210%", "+9.94% +9.9%",
@@ -148,7 +148,7 @@ test("formatting", () => {
   expect(M.changeText({ abs: 0.91, pct: 0.52 }, "abs")).toBe("+0.91")
   expect(M.changeText({ abs: -1234.5, pct: -2 }, "abs")).toBe("\u22121,234.50")
   expect(M.nextChangeMode("pct")).toBe("abs")
-  expect(M.nextChangeMode("open")).toBe("pct")
+  expect(M.nextChangeMode("abs")).toBe("pct")
   expect(M.compactNumber(52432411)).toBe("52.4M")
   expect(M.compactNumber(1234)).toBe("1K")
   expect(M.compactNumber(2.5e9)).toBe("2.5B")

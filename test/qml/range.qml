@@ -446,7 +446,7 @@ ShellRoot {
         return service.quotes.AAPL && service.quotes.MSFT && service.quotes.NVDA
           && service.testFeed.firstRun.length + service.testFeed.refreshRun.length === 0
       }, 10000)
-      var dayLine = Format.lookSigns(pill.featured.changeLine, false)
+      var dayLine = Format.lookSigns(pill.featured.changeText, false)
       harness.check("on the day the pill reads its day",
         service.range === "1D" && harness.pillText() === dayLine, harness.pillText())
 
@@ -573,10 +573,10 @@ ShellRoot {
       var msftDay = Figures.rowModel(service.quotes.MSFT, 0, service.changeMode)
       var row = body.watchlist.rowItem("MSFT")
       harness.check("on 1W the pill shows the day, as the row does, and its line",
-        harness.pillText() === Format.lookSigns(msftDay.changeLine, false) && msftDay.changeLine !== week.changeLine
-          && row.view.changeLine === msftDay.changeLine
+        harness.pillText() === Format.lookSigns(msftDay.changeText, false) && msftDay.changeText !== week.changeText
+          && row.view.changeText === msftDay.changeText
           && JSON.stringify(harness.find(pill, "pillLine").geometry) === JSON.stringify(Chart.chartGeometry(service.quotes.MSFT)),
-        harness.pillText() + " vs day " + msftDay.changeLine + " / week " + week.changeLine)
+        harness.pillText() + " vs day " + msftDay.changeText + " / week " + week.changeText)
 
       // A refetch with the week in hand holds still: the header stays on the
       // market. It said "LOADING 1W" every fifteen minutes, when the service
@@ -1065,7 +1065,7 @@ ShellRoot {
       service.summon("SLOW", "1W")
       tryVerify(function() { return harness.answered("SLOW|1W") && body.motion.drawn === 1 }, 5000)
       var sig = function() {
-        return JSON.stringify([body.featuredGeometry, body.featured ? body.featured.priceText + " " + body.featured.changeLine : "",
+        return JSON.stringify([body.featuredGeometry, body.featured ? body.featured.priceText + " " + body.featured.changeText : "",
           JSON.stringify(body.periodLine), body.chartSymbol])
       }
       var dropEntry = function(key) {
@@ -1180,7 +1180,7 @@ ShellRoot {
       app.close()
       var downDay = Figures.rowModel(service.quotes.DOWN, 0, service.changeMode)
       var downRange = History.historyRowModel(service.histories["DOWN|6M"].history, service.quotes.DOWN, 0)
-      var dayWrong = pillInEveryStyle(function(retro) { return Format.lookSigns(downDay.changeLine, retro) }, Color.urgent)
+      var dayWrong = pillInEveryStyle(function(retro) { return Format.lookSigns(downDay.changeText, retro) }, Color.urgent)
       harness.check("on 6M every bar style in both looks shows the day in its colour, and a middle-click keeps the entry's other keys",
         service.range === "6M" && downDay.tone === "down" && downRange.tone === "up" && dayWrong.length === 0,
         service.range + " " + downDay.tone + "/" + downRange.tone + " " + dayWrong.join(" | "))

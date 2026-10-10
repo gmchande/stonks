@@ -35,7 +35,7 @@ function sheet(order) {
         { key: "s", does: "Switch smooth and retro" },
         // The change mode is the day's: on a range the hero shows the period,
         // so c changes the rows and, on the day, the hero.
-        { key: "c", does: "Cycle the day's change" },
+        { key: "c", does: "Switch the day's change" },
         { key: "r", does: "Refresh quotes" }
       ]}
     ],

@@ -202,7 +202,7 @@ Rectangle {
     anchors.bottomMargin: row.inset
     horizontalAlignment: Text.AlignRight
     textFormat: Text.PlainText
-    text: row.view ? Format.lookSigns(row.view.changeLine, row.retro) : ""
+    text: row.view ? Format.lookSigns(row.view.changeText, row.retro) : ""
     color: row.trend
     font.family: row.fontFamily
     font.pixelSize: Style.font.body

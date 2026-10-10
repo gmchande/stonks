@@ -4,8 +4,10 @@
 // The data file's settings and lists, and every rule that changes them:
 // settings in, settings out. Knows nothing of quotes, except to rank them.
 
+// The day's change in percent or in the listing's currency. A mode saved by
+// an older build as "open", since the open, reads as percent.
 function nextChangeMode(mode) {
-  return mode === "pct" ? "abs" : mode === "abs" ? "open" : "pct"
+  return mode === "abs" ? "pct" : "abs"
 }
 
 function normalizeSymbols(value) {
@@ -98,7 +100,7 @@ function sortedSymbols(symbols, quotes, order, reversed) {
 
 function sortKey(quote, order) {
   if (order === "symbol") return quote.symbol.toUpperCase()
-  return Quote.change(quote, Quote.regularClose(quote), "pct").pct
+  return Quote.change(quote, Quote.regularClose(quote)).pct
 }
 
 function barEntryFor(config, id) {
@@ -140,7 +142,7 @@ function fileSettings(src) {
     featured: String(from.featured || ""),
     order: normalizeOrder(from.order || "manual"),
     reversed: normalizeReversed(from.order, from.reversed),
-    changeMode: from.changeMode === "abs" || from.changeMode === "open" ? from.changeMode : "pct",
+    changeMode: from.changeMode === "abs" ? "abs" : "pct",
     style: from.style === "retro" ? "retro" : "smooth",
     refreshIntervalSec: normalizeRefreshInterval(from.refreshIntervalSec),
     lists: lists,

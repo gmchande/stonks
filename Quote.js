@@ -246,11 +246,6 @@ function regularPoints(quote) {
   return out
 }
 
-function openPrice(quote) {
-  var pts = regularPoints(quote)
-  return pts.length ? pts[0].p : quote.prevClose
-}
-
 // The headline: the regular-market quote Yahoo reports, with its own
 // timestamp, the way Apple's Stocks shows the price. It is the latest
 // regular print while trading and the close otherwise, and it may be
@@ -303,8 +298,8 @@ function readingAt(quote, t) {
   return { price: pts[k].p, t: t, close: false }
 }
 
-function change(quote, priceNow, mode) {
-  var base = mode === "open" ? openPrice(quote) : quote.prevClose
+function change(quote, priceNow) {
+  var base = quote.prevClose
   if (!Format.isFiniteNumber(priceNow) || !Format.isFiniteNumber(base)) return { abs: null, pct: null, up: true }
   var abs = priceNow - base
   return { abs: abs, pct: base ? (abs / base) * 100 : 0, up: abs >= 0 }

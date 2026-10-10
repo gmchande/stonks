@@ -314,7 +314,6 @@ ShellRoot {
       harness.check("the change mode redraws no line", service.changeMode === "abs" && total() === 0,
         service.changeMode + "|" + JSON.stringify(paints))
       keyClick(Qt.Key_C)
-      keyClick(Qt.Key_C)
       wait(50)
       keyClick(Qt.Key_Period)
       wait(100)

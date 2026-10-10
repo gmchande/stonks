@@ -65,7 +65,7 @@ BarWidget {
   readonly property color dimColor: Tones.dim(button.foreground, barGround)
   // A failed or overdue refresh marks the pill too: the bar is the surface
   // most likely to be trusted at a glance.
-  readonly property string changeText: featured ? (warns ? "! " : "") + Format.lookSigns(featured.changeLine, retro)
+  readonly property string changeText: featured ? (warns ? "! " : "") + Format.lookSigns(featured.changeText, retro)
     : (warns ? "! no data" : "…")
 
   // What is left of a notch between wheel events: a high-resolution wheel
