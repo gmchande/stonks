@@ -309,6 +309,35 @@ ShellRoot {
       panel.testKeyCatcher.moveRequested(0, 1)
       test.check("in the popup, a over the key sheet opens search alone, and a row key shows the rows",
         searchAlone && !panel.testBody.showingHelp, searchAlone + "|" + panel.testBody.showingHelp)
+      // ↓ put the cursor off the featured row; the key sheet, shown and
+      // closed by ? and ? or by Escape, and Manage lists leave it there,
+      // though the popup's card shrinks to each and the list with it, and a
+      // key pressed over them acts on it. Found in the live check of #19:
+      // the shrunk list let the cursor go, and it came back on the featured
+      // row, so x removed that one.
+      var wl = panel.testBody.watchlist
+      var keyedRow = wl.cursorRow
+      var fullHeight = wl.height
+      var shrunk = []
+      var kept = []
+      panel.testKeyCatcher.textKey("?")
+      shrunk.push(wl.height)
+      kept.push(wl.cursorRow)
+      panel.testKeyCatcher.textKey("?")
+      kept.push(wl.cursorRow)
+      panel.testKeyCatcher.textKey("?")
+      shrunk.push(wl.height)
+      panel.testKeyCatcher.closeRequested()
+      kept.push(wl.cursorRow)
+      panel.testKeyCatcher.textKey("W")
+      shrunk.push(wl.height)
+      kept.push(wl.cursorRow)
+      panel.testBody.closeListViews()
+      kept.push(wl.cursorRow)
+      test.check("in the popup, the key sheet and Manage lists leave the cursor where ↓ put it, though the card shrinks to them",
+        keyedRow !== service.featuredSymbol && shrunk.every(function(h) { return h < fullHeight })
+          && kept.every(function(s) { return s === keyedRow }),
+        keyedRow + " for featured " + service.featuredSymbol + " | heights " + fullHeight + " -> " + shrunk.join(",") + " | " + kept.join(","))
       panel.testBody.showingHelp = true
       panel.testBody.motion.scrubT = 123
       panel.close()
@@ -710,6 +739,27 @@ ShellRoot {
           var lastVisible = list.rowItem(list.displayedSymbols[Math.round(list.contentY / list.rowPitch) + 5])
           test.check("the capped panel's last visible row is whole",
             lastVisible && lastVisible.y + lastVisible.height <= list.contentY + list.height)
+          // Under the key sheet, a sort that carries the cursor's row below
+          // the rows' view lets the cursor go, though the card has shrunk to
+          // the sheet: the rows' view is what counts. From Grok's review of
+          // #24: the hidden rows kept the cursor, so x, Enter, or m acted on
+          // a row out of sight.
+          list.contentY = 0
+          var inView = Math.floor((list.height + list.rowGap) / list.rowPitch)
+          var sortedPct = Settings.sortedSymbols(service.symbols, service.quotes, "pct", false)
+          var carriedRow = list.displayedSymbols.filter(function(s, i) {
+            return i < inView - 1 && sortedPct.indexOf(s) > inView + 1
+          })[0]
+          list.select(carriedRow)
+          panel.testKeyCatcher.textKey("?")
+          var sheetSight = list.height
+          service.setOrder("pct")
+          var afterSortUnder = [list.cursorSymbol, list.cursorRow]
+          service.setOrder("manual")
+          panel.testKeyCatcher.textKey("?")
+          test.check("in the popup, a sort under the key sheet that carries the cursor's row below the rows' view lets it go",
+            carriedRow !== undefined && sheetSight < list.rowPitch && afterSortUnder[0] === "" && afterSortUnder[1] !== carriedRow,
+            carriedRow + " | list under the sheet " + sheetSight + " | " + afterSortUnder.join(","))
           panel.testBody.featureSymbol("MU")
           // The popup's own key route: W and m reach the list views through the
           // real catcher, which then stands aside so j, x, and esc reach the view.

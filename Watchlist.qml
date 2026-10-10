@@ -45,6 +45,11 @@ Flickable {
   property bool surfaceOpen: true
   // The card's own colour, which a moving row carries under its fill.
   property color ground: "transparent"
+  // The rows' own view height, as it is while they show: the list's own
+  // height unless the surface says otherwise. The popup's card shrinks to
+  // the key sheet or a view, and the list with it, while its rows are
+  // hidden; sight is judged against the rows' view all the same.
+  property real sightHeight: height
 
   property string cursorSymbol: ""
   property var displayedSymbols: []
@@ -79,9 +84,12 @@ Flickable {
   // list, the list shortens, or the rows change under it, is let go: the
   // cursor moves by the rule above and stays there when the row comes back.
   // Let go as the sight changes, not as cursorRow does: it reads the cursor
-  // it would clear.
+  // it would clear. Sight is the rows' own view (`sightHeight`), as it is
+  // while they show: the popup's card shrinks to the key sheet or a view,
+  // and the list with it, and that is no scroll of yours, but the window
+  // made shorter, a removal, or a sort under the sheet are.
   onHeadedYChanged: letGoUnseen()
-  onHeightChanged: letGoUnseen()
+  onSightHeightChanged: letGoUnseen()
   onDisplayedSymbolsChanged: letGoUnseen()
   // A lifted row rides the pointer wherever its place has scrolled to, so
   // it keeps the cursor through the drag.
@@ -352,14 +360,14 @@ Flickable {
   // follows the scroll, not a moment of the card's motion.
   function wholeInSight(index, top) {
     var y = index * rowPitch
-    return y >= top - 0.5 && y + rowHeight <= top + height + 0.5
+    return y >= top - 0.5 && y + rowHeight <= top + sightHeight + 0.5
   }
 
   // Whether any of row `index` shows, with the list scrolled to `top`: the
   // pointer may rest on a row the list's foot cuts.
   function partInSight(index, top) {
     var y = index * rowPitch
-    return y + rowHeight > top + 0.5 && y < top + height - 0.5
+    return y + rowHeight > top + 0.5 && y < top + sightHeight - 0.5
   }
 
   // Shift and the wheel move a row a place a notch; a high-resolution wheel's

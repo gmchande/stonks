@@ -966,6 +966,66 @@ ShellRoot {
             && smallKeyed === body.watchlist.displayedSymbols[2] && body.watchlist.cursorRow === body.watchlist.displayedSymbols[1],
           viewKeyed + " -> " + viewKept + " | " + smallKeyed + " -> " + body.watchlist.cursorRow)
 
+        // Under the key sheet, a cursor whose row really leaves the rows'
+        // view is let go, as with the rows in sight, so x, Enter, or m act
+        // on a row you can see: the surface made shorter (the window
+        // resized) until the cursor's row is below the fold, a removal of a
+        // row above a cursor on the view's top row, and a sort that carries
+        // it below the fold. From Grok's review of #24: the hidden rows kept
+        // the cursor in each.
+        mouseMove(body, body.width / 2, 20)
+        wait(50)
+        var rowsInView = Math.floor((body.watchlist.height + body.watchlist.rowGap) / pitch)
+        body.watchlist.contentY = 0
+        wait(50)
+        var lowRow = body.watchlist.displayedSymbols[rowsInView - 1]
+        body.watchlist.select(lowRow)
+        body.toggleHelp()
+        wait(50)
+        body.anchors.fill = undefined
+        body.height = body.chromeHeight + pitch - body.watchlist.rowGap
+        wait(100)
+        var afterShrink = [body.watchlist.cursorSymbol, body.watchlist.cursorRow]
+        body.anchors.fill = body.parent
+        wait(100)
+        body.toggleHelp()
+        wait(50)
+        body.watchlist.contentY = 3 * pitch
+        wait(50)
+        var topRow = body.watchlist.displayedSymbols[3]
+        body.watchlist.select(topRow)
+        body.toggleHelp()
+        wait(50)
+        stub.removeSymbol(body.watchlist.displayedSymbols[1])
+        wait(100)
+        var afterRemoval = [body.watchlist.cursorSymbol, body.watchlist.cursorRow]
+        body.toggleHelp()
+        wait(50)
+        root.setFixtureWatchlist()
+        wait(100)
+        body.watchlist.contentY = 0
+        wait(50)
+        var sorted = Settings.sortedSymbols(stub.symbols, stub.quotes, "pct")
+        var carried = body.watchlist.displayedSymbols.filter(function(s, i) {
+          return i < rowsInView - 1 && sorted.indexOf(s) > rowsInView + 1
+        })[0]
+        body.watchlist.select(carried)
+        body.toggleHelp()
+        wait(50)
+        stub.order = "pct"
+        stub.shown = sorted
+        wait(100)
+        var afterSort = [body.watchlist.cursorSymbol, body.watchlist.cursorRow]
+        body.toggleHelp()
+        wait(50)
+        root.setFixtureWatchlist()
+        wait(100)
+        root.check("under the key sheet, the surface made shorter, a removal above the cursor's top row, or a sort carrying it below the fold, lets the cursor go",
+          rowsInView > 1 && afterShrink[0] === "" && afterShrink[1] !== lowRow
+            && afterRemoval[0] === "" && afterRemoval[1] !== topRow && carried !== undefined
+            && afterSort[0] === "" && afterSort[1] !== carried,
+          lowRow + " -> " + afterShrink.join(",") + " | " + topRow + " -> " + afterRemoval.join(",") + " | " + carried + " -> " + afterSort.join(","))
+
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,
         // not as a fill.
