@@ -32,9 +32,12 @@ if [ $# -eq 0 ]; then
     states="$states popup-sweep-2026-10-08-1054-$symbol-smooth popup-sweep-2026-10-08-1054-$symbol-retro"
   done
   # The header's animal: a cold start in smooth too, and the window on an up,
-  # a down, and a flat day, and a cryptocurrency, in both looks.
+  # a down, and a flat day, and a cryptocurrency, in both looks; asleep at
+  # 01:00 for PSIX, whose night doesn't trade, and on Saturday for an index
+  # (NBIS awake at 01:00 and Tokyo's lunch are among the info lines' below).
   states="$states loading-smooth failed-smooth"
-  for day in 2026-10-07-1455-psix 2026-10-07-1455-nbis 2026-10-07-0100-bldp 2026-10-07-1455-btc-usd; do
+  for day in 2026-10-07-1455-psix 2026-10-07-1455-nbis 2026-10-07-0100-bldp 2026-10-07-1455-btc-usd \
+    2026-10-07-0100-psix 2026-10-03-1200-gspc; do
     states="$states window-sweep-$day-smooth window-sweep-$day-retro"
   done
   # The footer's notes in both looks and both surfaces: a refusal, and a

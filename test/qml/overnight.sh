@@ -16,8 +16,11 @@
 # PSIX and BLDP, with no overnight line from a stray night trade, Yahoo's
 # own day laid out a print a step from the left edge, keys stepping print to
 # print, and SPY on Yahoo's day while Robinhood's instruments are down;
-# exchange times named by zone for a reader in New York; and an index with
-# no pre-market, no tail after its close, and its next open. HOME
+# exchange times named by zone for a reader in New York; an index with
+# no pre-market, no tail after its close, and its next open; and the
+# header's animal asleep on Saturday and for a stock whose night doesn't
+# trade, awake for one whose night does and for a cryptocurrency, woken by
+# a scrub, in both looks. HOME
 # and curl are scratch; the fake curl answers from test/fixtures/overnight.
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 plugin_tree overnight.qml
