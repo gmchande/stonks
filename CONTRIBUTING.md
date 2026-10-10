@@ -46,7 +46,7 @@ run time.
 - Each `quickshell_run` gives its Quickshell a runtime folder of its own (`XDG_RUNTIME_DIR`), linking every entry of the session's but `quickshell/`, and removes it as the run ends, however it ends: Quickshell 0.3.1 leaves each instance's folder, with its logs, in `$XDG_RUNTIME_DIR/quickshell`, and tens of thousands of test runs filled the session's. Its name is short and in `/tmp`, whatever `TMPDIR` says: Hyprland's sockets under it must fit a Unix socket's 107 bytes. A run whose folder can't be made never starts Quickshell, and one whose Quickshell says it saved in the session's folder fails; `crash-check.sh` proves these with its stand-in.
 - A harness ends Quickshell only through `HarnessExit.qml` (set its `exitCode`, then start it), which waits until no `TestCase` is running; `test/boundaries.sh` fails any other `Qt.exit` or `Qt.quit` under `test/`. An exit during QtTest's `wait()` tears the engine down inside that wait and aborts with a core dump, so a harness keeps no watchdog of its own: its script's `run_qs` timeout is its one timeout, and the TERM that ends it leaves no core (Quickshell 0.3.1 doesn't handle TERM).
 - `test/qml/fetch-day.sh`, run by hand and not by `test/all.sh` (it takes minutes), counts a weekday and a weekend of glances for a long list's shape through the real Service and window, and estimates the bytes: the numbers a change to fetching is weighed by.
-- A render fails when its log has a runtime error or a Qt warning naming a plugin file, or it wrote no fresh picture: `render.qml` exits 0 once it has grabbed a frame. It grabs 300 ms in; the live dot, retro's live cap, and a text cursor never settle, so a render that shows one changes with that wait.
+- A render fails when its log has a runtime error or a Qt warning naming a plugin file, or it wrote no fresh picture: `render.qml` exits 0 once it has grabbed a frame. It grabs 300 ms in; the live dot, retro's live cap, and a text cursor never settle, so a render that shows one changes with that wait. A popup render holds the body as the card does: inset by the card's padding, with no margins of its own, clipped at its edges, so what the real popup cuts off (the sleeping animal's "z" drawn above the header once) is cut off there too.
 - Count fake-curl calls through a new `FileView` for each read; after `reload()`, `text()` can still return the old count.
 - The popup's window (`PanelWindow`) does not load on the offscreen platform. Popup flows drive the real `Panel` in `popup.sh`, under the Wayland session, without mapping it: the script patches `open: false` into its copy of `Panel.qml`. An unmapped pill has no bar window to place a card from, so `popup.sh` copies the shell's `Ui` and lets its `KeyboardPanel` take the bar window and the pill's spot from the flow; the shell's own placement runs on them. A second pill sits on an item the flow hands its card and its `HeldAnchor` as the bar window's content, so the shell places the card from the pill's own spot as the pill changes width; `pointer.sh`, whose window maps offscreen, shows a `HeldAnchor` finding a real bar window through its pill. An unmapped popup renders no frames, so `popup-motion.sh` puts its copy of `Panel.qml`'s card in `CardWindow.qml`, a plain window around the shell's own `BorderSurface` that copies only what lives on `KeyboardPanel` itself, its lines named in its comment: keep them in step when the shell changes.
 - `keys.sh` presses every key the key sheet draws and the README's table lists, with real keys through the real popup (in `CardWindow.qml`) and window, a row ending "(popup)" or "(window)" on that surface alone, and fails on a key that changes nothing the surface shows. A new key goes in the README's table; one that needs something to act on (a range to step back from, a removal to undo) gets that in the walk's `setups`.
@@ -789,11 +789,16 @@ run time.
   range's retry landing, or an open, changes it at once, and retro's cells
   always change at once.
   The animal sleeps while its market does, eyes shut and a dim "z" past
-  its slot (`Overnight.marketAsleep`): through Tokyo's lunch, a weekend, a
+  its slot at the header's top, inside its box, since the popup's body
+  starts there and clips what draws above it (`Overnight.marketAsleep`):
+  through Tokyo's lunch, a weekend, a
   published closure, and a night, by the phase and the calendar, never by
   the data's age. It is awake for the regular session, pre-market, and
-  after hours, each by the calendar for a quote held from an earlier day
-  (`Market.inRegularSession`, `Market.inExtendedHours`), and a night
+  after hours (`Market.inRegularSession`, `Market.inExtendedHours`): for a
+  quote held from an earlier day, the session is the calendar's, and its
+  extended hours run as long before and after today's segments as its own
+  periods' do, so an early close's after hours ends early, and London's
+  and Toronto's, which the calendar doesn't list, still count; and a night
   that trades for a listing Robinhood trades all day; a cryptocurrency
   never sleeps, and a scrub, which reads a moment the market traded, wakes
   it. Only the clock closing the market while you watch moves it (the

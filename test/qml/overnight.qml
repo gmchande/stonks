@@ -75,11 +75,15 @@ ShellRoot {
 
   // How the header's animal is drawn, in the look shown: "asleep", its eyes
   // shut and the "z" shown, "awake", eyes open and no "z", else how far its
-  // lids are down and whether the "z" shows.
+  // lids are down and whether the "z" shows. A "z" reaching past the
+  // header's box is cut off: the popup's body starts at the header's top
+  // and clips what draws above it.
   function sleep() {
     var body = app.testBody
     var header = find(body, "animal").parent
-    var z = find(header, body.retro ? "sleepCells" : "sleepZ").visible
+    var mark = find(header, body.retro ? "sleepCells" : "sleepZ")
+    var z = mark.visible
+    var whole = mark.y >= 0 && mark.y + mark.height <= header.height
     var lids
     if (body.retro) {
       var drawn = JSON.stringify(find(header, "sprite").pixels)
@@ -87,7 +91,8 @@ ShellRoot {
     } else {
       lids = [find(header, "drawnBull"), find(header, "drawnBear")].filter(function(a) { return a.visible })[0].lids
     }
-    return lids === 1 && z ? "asleep" : lids === 0 && !z ? "awake" : "lids " + lids + ", z " + z
+    return lids === 1 && z && whole ? "asleep" : lids === 0 && !z ? "awake"
+      : "lids " + lids + ", z " + z + (whole ? "" : " at " + mark.y + " to " + (mark.y + mark.height) + " of the header's " + header.height)
   }
 
   // The line under the price as drawn: its words, "dim" when every one of

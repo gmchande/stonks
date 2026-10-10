@@ -120,14 +120,14 @@ BEAR_HALF[4] = ".#####.############."
 var BEAR_SHUT = BEAR_SPRITE.slice()
 BEAR_SHUT[4] = ".#..##.############."
 
-// The sleeper's "z" in cells, 4 wide and 5 tall, at the sprite's cell
-// size: a 4 by 4 one's diagonal read as a stem.
+// The sleeper's "z" in cells, 3 wide and 5 tall like the block digits, at
+// the sprite's cell size: it fits the gap before the header's words.
 var SLEEP_Z = [
-  "####",
-  "..#.",
-  ".#..",
-  "#...",
-  "####"
+  "###",
+  "..#",
+  ".#.",
+  "#..",
+  "###"
 ]
 
 // Flattened lit pixels for a Repeater: [{x, y}, ...].

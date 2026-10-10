@@ -153,13 +153,15 @@ Item {
   }
 
   // Asleep, a small dim "z" over the animal's back, just past its slot:
-  // text in smooth, cells in retro, coming in with the eyes' close.
+  // text in smooth, cells in retro, coming in with the eyes' close. It sits
+  // at the header's top, never above it: the popup's body starts there and
+  // clips what draws past it.
   Text {
     objectName: "sleepZ"
     visible: !root.retro && root.kind !== "" && opacity > 0
     opacity: root.lids
     x: slot.x + slot.width + Style.space(1)
-    y: slot.y - Style.space(6)
+    y: 0
     textFormat: Text.PlainText
     text: "z"
     color: root.dim
@@ -171,12 +173,12 @@ Item {
     objectName: "sleepCells"
     readonly property int cell: Math.floor(Math.min(slot.width / 20, slot.height / 14))
     visible: root.retro && root.kind !== "" && root.retroLids === 2
-    columns: 4
+    columns: 3
     rows: 5
-    width: cell * 4
+    width: cell * 3
     height: cell * 5
     x: slot.x + slot.width + Style.space(1)
-    y: slot.y - Style.space(4)
+    y: 0
     pixels: Cells.spritePixels(Cells.SLEEP_Z)
     color: root.dim
   }

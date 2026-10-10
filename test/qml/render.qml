@@ -718,10 +718,10 @@ ShellRoot {
     // The larger text size lands after the window has taken its height, so
     // the large sheet is given room for its seven rows.
     implicitHeight: root.stateName === "pill-sheet-large" ? 580 : root.pillSheet ? pillColumn.implicitHeight + 40 : root.sheet ? 460
-      : root.themeState ? Math.max(body.fittedHeight(body.chromeHeight + 3 * body.rowPitch - body.rowGap), pillColumn.implicitHeight + 40)
+      : root.themeState ? Math.max(body.fittedHeight(body.chromeHeight + 3 * body.rowPitch - body.rowGap) + content.inset * 2, pillColumn.implicitHeight + 40)
       : (root.windowWidth ? 850
         : (root.minWindow ? body.chromeHeight + body.listRowHeight
-          : (root.popup ? body.fittedHeight(body.chromeHeight + 6 * body.rowPitch - body.rowGap)
+          : (root.popup ? body.fittedHeight(body.chromeHeight + 6 * body.rowPitch - body.rowGap) + content.inset * 2
             : (root.help && root.help.window ? 520 : 760))))
 
     Rectangle {
@@ -729,26 +729,40 @@ ShellRoot {
       anchors.fill: parent
       color: root.groundColor
 
-      StonksBody {
-        id: body
+      // The popup's body as the card holds it: inset by the card's padding,
+      // its own margins none, in a box that clips it at its edges
+      // (`Panel.qml`'s key catcher), so what draws past the body is cut
+      // here as on screen. The window's body has its own margins.
+      Item {
+        id: content
+        readonly property int inset: root.popup ? Style.spacing.popupPadding : 0
+        clip: root.popup
         visible: !root.sheet && !root.pillSheet
-        // As App.qml draws it: past 720 the body keeps that width, centred.
-        // The gallery's popup is at the left, the pills beside it.
-        width: root.themeState ? 480 : Math.min(parent.width, Style.space(720))
-        height: root.themeState ? body.fittedHeight(body.chromeHeight + 3 * body.rowPitch - body.rowGap) : parent.height
-        x: root.themeState ? 0 : (parent.width - width) / 2
-        service: stub
-        updates: updates
-        foreground: stub.foreground
-        upColor: stub.upColor
-        downColor: stub.downColor
-        fontFamily: stub.fontFamily
-        surfaceOpen: true
-        headerWhenMissing: root.coldState === "loading" ? "Loading" : "No quote"
-        failClosedHeader: root.coldState === "failed"
-        margins: Style.space(16)
-        chartHeight: root.popup ? Style.space(190) : Style.space(220)
-        ground: root.groundColor
+        x: inset
+        y: inset
+        width: (root.themeState ? 480 : parent.width) - inset * 2
+        height: root.themeState ? body.fittedHeight(body.chromeHeight + 3 * body.rowPitch - body.rowGap) : parent.height - inset * 2
+
+        StonksBody {
+          id: body
+          // As App.qml draws it: past 720 the body keeps that width, centred.
+          // The gallery's popup is at the left, the pills beside it.
+          width: root.themeState ? parent.width : Math.min(parent.width, Style.space(720))
+          height: parent.height
+          x: (parent.width - width) / 2
+          service: stub
+          updates: updates
+          foreground: stub.foreground
+          upColor: stub.upColor
+          downColor: stub.downColor
+          fontFamily: stub.fontFamily
+          surfaceOpen: true
+          headerWhenMissing: root.coldState === "loading" ? "Loading" : "No quote"
+          failClosedHeader: root.coldState === "failed"
+          margins: root.popup ? 0 : Style.space(16)
+          chartHeight: root.popup ? Style.space(190) : Style.space(220)
+          ground: root.groundColor
+        }
       }
 
       Column {
