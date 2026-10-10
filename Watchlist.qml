@@ -79,7 +79,11 @@ Flickable {
   // list, the list shortens, or the rows change under it, is let go: the
   // cursor moves by the rule above and stays there when the row comes back.
   // Let go as the sight changes, not as cursorRow does: it reads the cursor
-  // it would clear.
+  // it would clear. While the rows are hidden (behind the key sheet or a
+  // view) nothing is in sight or out of it: the popup's card shrinks to the
+  // sheet or the view and the list with it, and that is no scroll of yours.
+  // The cursor stays, a key acts on it, and it is judged again as the rows
+  // come back.
   onHeadedYChanged: letGoUnseen()
   onHeightChanged: letGoUnseen()
   onDisplayedSymbolsChanged: letGoUnseen()
@@ -88,7 +92,7 @@ Flickable {
   function ownInSight(top) {
     if (cursorSymbol !== "" && cursorSymbol === dragSymbol) return true
     var own = displayedSymbols.indexOf(cursorSymbol)
-    return cursorSymbol !== "" && own >= 0 && partInSight(own, top)
+    return cursorSymbol !== "" && own >= 0 && (!visible || partInSight(own, top))
   }
   function letGoUnseen() {
     if (cursorSymbol !== "" && !ownInSight(headedY)) cursorSymbol = ""
@@ -342,9 +346,15 @@ Flickable {
   }
   // The rows shown again, behind a view or the key sheet before: the pointer
   // resting over them is no move (RowPointer.rest).
+  // The cursor is judged again a turn later, once the list has its height
+  // back: the rows show in the same change that gives it back, and may
+  // show first.
   onVisibleChanged: {
     forgetClicks()
-    if (visible) listHover.rest()
+    if (visible) {
+      listHover.rest()
+      Qt.callLater(function() { if (root.visible) root.letGoUnseen() })
+    }
   }
 
   // Whether row `index` is whole in the list's view with it scrolled to

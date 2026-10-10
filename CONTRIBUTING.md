@@ -289,7 +289,10 @@ run time.
   a cursor of your own while any of its row is in sight; without one (every
   open clears it, `reopen`; on another list), the featured row when that is
   in sight, else the first whole row in sight. The scrollbar moving your
-  cursor out of sight, or the rows changing under it, lets it go; removing
+  cursor out of sight, or the rows changing under it, lets it go; the rows
+  hidden behind the key sheet or a view do not, though the popup's card,
+  and the list with it, shrinks to them: the cursor stays, a key acts on
+  it, and it is judged again a turn after the rows come back; removing
   the cursor's row (`x`, Delete, Backspace, or a right- or middle-click,
   which puts the cursor there first) hands the cursor to the row that
   takes its place, the next one, or the one before when it was the last
