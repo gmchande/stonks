@@ -276,10 +276,9 @@ ShellRoot {
       wait(100)
     }
 
-    // Moving a row by Shift and the wheel, J and K, and the keys that carry
-    // the cursor past the edge: one place a notch, the row the wheel started
-    // on, and the list gliding along so nothing jumps on screen.
-    function movesByWheelAndKeys(body, watchlist, keys) {
+    // Moving a row by J and K, and the keys that carry the cursor past the
+    // edge: the list gliding along so nothing jumps on screen.
+    function movesByKeys(body, watchlist, keys) {
       var six = ["AAPL", "MSFT", "NVDA", "FLAT", "DOWN", "STRAY"]
       var reset = function(list, look) {
         service.persist({ style: look })
@@ -290,58 +289,11 @@ ShellRoot {
         mouseMove(body, 1, 1)
         tryVerify(function() { return watchlist.displayedSymbols.every(function(s) { return watchlist.rowItem(s).resting }) }, 2000)
       }
-      // A notch as `ticks` over NVDA's row, Shift held, `gap` ms apart.
-      var wheelOver = function(ticks, gap) {
-        var row = watchlist.rowItem("NVDA")
-        var at = row.mapToItem(body, row.width / 2, row.height / 2)
-        mouseMove(body, at.x, at.y)
-        wait(50)
-        ticks.forEach(function(delta) { mouseWheel(body, at.x, at.y, 0, delta, Qt.NoButton, Qt.ShiftModifier, gap) })
-        tryVerify(function() { return !watchlist.settling && watchlist.displayedSymbols.every(function(s) { return watchlist.rowItem(s).resting }) }, 2000)
-        var order = watchlist.displayedSymbols.join(",")
-        mouseMove(body, 1, 1)
-        return order
-      }
       service.createList("Moves")
       six.forEach(function(s) { service.setMembership(s, "Moves", true) })
-
-      // Found in the transition audit (lists 1, lists 2): one notch of a
-      // high-resolution wheel moved the row several places and moved rows
-      // that slid under the pointer; two classic notches moved the row down
-      // and then its neighbour back up over it.
-      reset("", "smooth")
-      var hiRes = wheelOver([-15, -15, -15, -15, -15, -15, -15, -15], 12)
-      reset("Moves", "retro")
-      var libinput = wheelOver([-60, -15, -15, -15, -15], 12)
-      reset("", "smooth")
-      var twoNotches = wheelOver([-120, -120], 250)
-      reset("Moves", "retro")
-      var upTwo = wheelOver([120, 120], 250)
-      // Half a notch, a close and a reopen with the pointer still, and half
-      // a notch again: two sessions' halves make no move. Found in cubic's
-      // review of #26: the first half survived the close.
-      reset("", "smooth")
-      var nvda = watchlist.rowItem("NVDA")
-      var over = nvda.mapToItem(body, nvda.width / 2, nvda.height / 2)
-      mouseMove(body, over.x, over.y)
-      wait(50)
-      mouseWheel(body, over.x, over.y, 0, -60, Qt.NoButton, Qt.ShiftModifier)
-      app.close()
-      app.open("{}")
-      wait(200)
-      mouseWheel(body, over.x, over.y, 0, -60, Qt.NoButton, Qt.ShiftModifier)
-      tryVerify(function() { return !watchlist.settling && watchlist.displayedSymbols.every(function(s) { return watchlist.rowItem(s).resting }) }, 2000)
-      var halves = watchlist.displayedSymbols.join(",")
-      mouseMove(body, 1, 1)
-      harness.check("Shift and the wheel move the row it started on a place a notch: hi-res and libinput ticks, two notches down and up, no halves across a reopen",
-        hiRes === "AAPL,MSFT,FLAT,NVDA,DOWN,STRAY" && libinput === hiRes
-          && twoNotches === "AAPL,MSFT,FLAT,DOWN,NVDA,STRAY" && upTwo === "NVDA,AAPL,MSFT,FLAT,DOWN,STRAY"
-          && halves === six.join(","),
-        [hiRes, libinput, twoNotches, upTwo, halves].join(" | "))
-
       // A move past the edge of the view carries the list along: the moved
-      // row keeps its place on screen on every frame, J at the bottom, K at
-      // the top of a list scrolled to its end, and Shift and the wheel; ↓ past
+      // row keeps its place on screen on every frame, J at the bottom and K at
+      // the top of a list scrolled to its end; ↓ past
       // the edge glides the list. Found in the transition audit (lists 0,
       // featured 5): the list jumped a row, the moved row a slot the wrong
       // way, and the two crossed back.
@@ -376,14 +328,6 @@ ShellRoot {
       keys.forceActiveFocus()
       var kAtTop = carried(topRow, function() { keyClick(Qt.Key_K, Qt.ShiftModifier) })
       reset("", "smooth")
-      var wheelAtBottom = carried("NVDA", function() {
-        var row = watchlist.rowItem("NVDA")
-        var at = row.mapToItem(body, row.width / 2, row.height / 2)
-        mouseMove(body, at.x, at.y)
-        mouseWheel(body, at.x, at.y, 0, -120, Qt.NoButton, Qt.ShiftModifier)
-      })
-      mouseMove(body, 1, 1)
-      reset("", "smooth")
       watchlist.cursorSymbol = "NVDA"
       var scrolls = []
       var watchScroll = function() { scrolls.push(watchlist.contentY) }
@@ -393,9 +337,9 @@ ShellRoot {
       tryVerify(function() { return !watchlist.settling }, 2000)
       watchlist.contentYChanged.disconnect(watchScroll)
       var glided = scrolls.length > 2 && scrolls[scrolls.length - 1] === watchlist.rowPitch
-      harness.check("a move past the view's edge keeps the moved row still on screen, J, K, and the wheel, and ↓ glides",
-        /^true /.test(jAtBottom) && /^true /.test(kAtTop) && /^true /.test(wheelAtBottom) && glided,
-        [jAtBottom, kAtTop, wheelAtBottom, scrolls.join(",")].join(" | "))
+      harness.check("a move past the view's edge keeps the moved row still on screen, J and K, and ↓ glides",
+        /^true /.test(jAtBottom) && /^true /.test(kAtTop) && glided,
+        [jAtBottom, kAtTop, scrolls.join(",")].join(" | "))
       app.close()
       app.testWindow.implicitHeight = heightBefore
       app.open("{}")
@@ -790,12 +734,6 @@ ShellRoot {
         service.order === "pct" && service.symbols.join(",") === before)
 
       var sortedRow = watchlist.rowItem("NVDA")
-      mouseWheel(sortedRow, sortedRow.width / 2, sortedRow.height / 2,
-        0, -120, Qt.ShiftModifier)
-      wait(20)
-      harness.check("Shift-wheel cannot move a sorted row",
-        service.order === "pct" && service.symbols.join(",") === before)
-
       var sortedX = sortedRow.width / 2
       var sortedY = sortedRow.height / 2
       mousePress(sortedRow, sortedX, sortedY, Qt.LeftButton)
@@ -1003,7 +941,7 @@ ShellRoot {
       service.setRange("1D")
       wait(300)
 
-      movesByWheelAndKeys(body, watchlist, keys)
+      movesByKeys(body, watchlist, keys)
       dragsAndTheWheel(body, watchlist, keys)
       cursorInSight(body, watchlist, keys)
       noticesInTheWindow(body)

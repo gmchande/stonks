@@ -25,7 +25,6 @@ Rectangle {
   // under its fill, so the rows it passes never show through.
   property bool moving: false
   property color ground: "transparent"
-  property bool movable: true
   property real scrubX: -1
   // The exchanges' calendars, for the breaks in the day line.
   property var calendars: null
@@ -43,8 +42,6 @@ Rectangle {
   signal removeRequested(real x, real y, bool second)
   // Ctrl-click, Apple's Control-click: this row's lists.
   signal listsRequested(real x, real y, bool second)
-  // Shift and the wheel over this row, by its angle.
-  signal moveWheeled(real angle)
   // Drag positions are in the parent's coordinates, since the row itself
   // moves under the pointer.
   signal dragStarted(real y)
@@ -256,13 +253,5 @@ Rectangle {
     // the first one's place, a row sliding up or the rows back from search.
     // The list says whether it acts: only after the wheel or a key between.
     onDoubleClicked: function(event) { act(event, true) }
-    // The wheel scrolls the list; with Shift held it moves this row.
-    onWheel: function(wheel) {
-      if (wheel.modifiers & Qt.ShiftModifier) {
-        if (row.movable) row.moveWheeled(wheel.angleDelta.y)
-        wheel.accepted = true
-      }
-      else wheel.accepted = false
-    }
   }
 }

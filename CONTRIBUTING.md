@@ -306,8 +306,7 @@ run time.
   shortens a list scrolled to its end moves only the rows above the gap.
   A key or a move scrolls the list only by gliding (the wheel's 160 ms),
   so a move past the edge carries the rows along and the moved row stays
-  still on screen. Shift and the wheel move the row the wheel started on a
-  place a notch, however finely the wheel ticks, until the pointer moves.
+  still on screen.
   Signals out feature/remove/lists/move/reorder; the body acts on them
   through the service, and every removal goes through `StonksBody.removeRow`.
 - `Hero.qml`, `HeaderStatus.qml`, `HeroBand.qml`, `AddFooter.qml`,
@@ -440,7 +439,7 @@ run time.
   click within the double-click interval of the last, at its place, does
   nothing, whatever button and whichever row is under it by then
   (`Watchlist.clickRow`): a right double-click removes one row. The wheel,
-  a key, or a row's move (Shift and the wheel, `J` `K`) starts another
+  a key, or a row's move (`J` `K`) starts another
   gesture, and the next click acts, even one Qt takes for a double-click's
   second press, when that pair's first press was the list's last click: a
   row hands every click, the second too, to the list to decide. Another

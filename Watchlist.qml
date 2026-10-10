@@ -127,7 +127,6 @@ Flickable {
   // system-synthesized, which a WheelHandler ignores unless it accepts the
   // touchpad), so the finger and the wheel settle through the same glide.
   WheelHandler {
-    acceptedModifiers: Qt.NoModifier
     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
     onWheel: function(event) {
       // The wheel starts another gesture: the next click is a click of its own.
@@ -169,7 +168,6 @@ Flickable {
     parent: root
     onMoved: function(x, y) {
       if (!root.surfaceOpen) return
-      root.wheelMoving = ""
       root.pointAt(x, y)
     }
   }
@@ -360,21 +358,6 @@ Flickable {
   function partInSight(index, top) {
     var y = index * rowPitch
     return y + rowHeight > top + 0.5 && y < top + height - 0.5
-  }
-
-  // Shift and the wheel move a row a place a notch; a high-resolution wheel's
-  // small ticks add up to notches. The row the wheel started on keeps moving,
-  // whichever row slides under the still pointer, until the pointer moves.
-  property string wheelMoving: ""
-  property real wheelMoveRemainder: 0
-  function wheelMove(symbol, angle) {
-    if (wheelMoving === "" || displayedSymbols.indexOf(wheelMoving) < 0) {
-      wheelMoving = symbol
-      wheelMoveRemainder = 0
-    }
-    var notches = Util.wheelSteps(wheelMoveRemainder, angle)
-    wheelMoveRemainder = notches.remainder
-    if (notches.steps !== 0) moveSymbol(wheelMoving, -notches.steps)
   }
 
   // Shows `next`. Rows never draw through each other: when `animate`, a
@@ -591,11 +574,10 @@ Flickable {
   }
   onSortHeldChanged: if (!sortHeld && surfaceOpen) applyShown()
 
-  // As the surface opens: the rows in the service's order, at rest, no
-  // Shift+wheel move left half made, and no cursor of the last visit's, so
-  // it rests on the featured row until you point or press a key.
+  // As the surface opens: the rows in the service's order, at rest, and
+  // no cursor of the last visit's, so it rests on the featured row until
+  // you point or press a key.
   function reopen() {
-    wheelMoving = ""
     cursorSymbol = ""
     forgetClicks()
     listHover.rest()
@@ -717,7 +699,6 @@ Flickable {
         featuredRow: symbol === root.featuredSymbol
         cursor: symbol === root.cursorRow
         lifted: symbol === root.dragSymbol
-        movable: root.manualOrder
         retro: root.retro
         scrubX: quote && root.scrubShown ? Chart.fractionAtTime(quote, root.scrubShown) : -1
         foreground: root.foreground
@@ -731,7 +712,6 @@ Flickable {
         onFeatureRequested: function(x, y, second) { if (root.clickRow(symbol, x, y, second)) root.featureRequested(symbol) }
         onRemoveRequested: function(x, y, second) { if (root.clickRow(symbol, x, y, second)) root.removeRequested(symbol) }
         onListsRequested: function(x, y, second) { if (root.clickRow(symbol, x, y, second)) root.listsRequested(symbol) }
-        onMoveWheeled: function(angle) { root.wheelMove(symbol, angle) }
         onDragStarted: function(y) { root.beginDrag(symbol, y) }
         onDragMoved: function(y) { root.dragTo(y) }
         onDragEnded: root.endDrag()
