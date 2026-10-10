@@ -694,13 +694,12 @@ ShellRoot {
         wait(700)
         root.check("and the list settles on a row once the finger stops", body.watchlist.contentY === 0)
 
-        // Search: the rows stay until results arrive, then the keyboard's
+        // Search: it takes the rows' place as it opens, then the keyboard's
         // choice (the top result) is what Enter adds, wherever the pointer
         // rests.
         body.startAdding()
         wait(100)
-        root.check("opening search keeps the rows until results arrive",
-          body.adding && body.watchlist.visible && !body.searching)
+        root.check("opening search takes the rows' place at once", body.adding && !body.watchlist.visible)
         body.search.results = [
           { symbol: "TOPR", name: "Top Result Inc.", exchange: "NASDAQ" },
           { symbol: "SECR", name: "Second Result Inc.", exchange: "NYSE" },
@@ -708,7 +707,6 @@ ShellRoot {
         ]
         body.search.answer = "results"
         wait(50)
-        root.check("results replace the rows", body.searching && !body.watchlist.visible)
         var third = root.findAll(body.search, "searchResult")[2]
         var overThird = third.mapToItem(body, third.width / 2, third.height / 2)
         mouseMove(body, overThird.x, overThird.y)

@@ -69,7 +69,7 @@ ShellRoot {
       wait(50)
       keyClick(Qt.Key_S)
       keyClick(Qt.Key_H)
-      tryVerify(function() { return body.searching && body.search.results.length > 1 }, 3000)
+      tryVerify(function() { return body.adding && body.search.results.length > 1 }, 3000)
       wait(50)
     }
 

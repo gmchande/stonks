@@ -27,8 +27,10 @@
 #                name: a long list of busy US stocks
 # A symbol search answers the saved SHOP results after 0.4 s, so a search
 # can still be out when the popup closes and opens again; ZZZ answers with
-# no matches, and OOPS gets no answer. Each SHOP answer given, after the
-# pause, is counted in SEARCH.answered.calls; a search stopped first is not.
+# no matches, OOPS gets no answer, ONE answers the first SHOP result alone,
+# and BTC Yahoo's five long symbols for "wrapped btc". Each SHOP answer
+# given, after the pause, is counted in SEARCH.answered.calls; a search
+# stopped first is not.
 # History requests use the saved AAPL year response for AAPL, MSFT, and BOTH,
 # and NBIS's saved month for NBIS.
 # Fundamentals answer from test/fixtures/fundamentals: the timeseries by
@@ -122,6 +124,13 @@ serve() {
     case "$url" in
       *"q=ZZZ"*) echo '{"quotes":[]}' ;;
       *"q=OOPS"*) exit 22 ;;
+      *"q=ONE&"*) jq -c '.quotes |= .[:1]' "$fixtures/search.json" ;;
+      *"q=BTC&"*) echo '{"quotes":[
+        {"symbol":"XBTC39577-USD","longname":"OKX Wrapped BTC USD","exchange":"CCC","quoteType":"CRYPTOCURRENCY"},
+        {"symbol":"CBBTC32994-USD","longname":"Coinbase Wrapped BTC USD","exchange":"CCC","quoteType":"CRYPTOCURRENCY"},
+        {"symbol":"KBTC33513-USD","longname":"Kraken Wrapped Bitcoin USD","exchange":"CCC","quoteType":"CRYPTOCURRENCY"},
+        {"symbol":"WBTC-USD","longname":"Wrapped Bitcoin USD","exchange":"CCC","quoteType":"CRYPTOCURRENCY"},
+        {"symbol":"CIRBTC-USD","longname":"Circle Wrapped Bitcoin USD","exchange":"CCC","quoteType":"CRYPTOCURRENCY"}]}' ;;
       *) count "${STONKS_FAKE_STATE:?}/SEARCH.answered.calls" > /dev/null; cat "$fixtures/search.json" ;;
     esac
     exit

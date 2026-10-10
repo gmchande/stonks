@@ -310,7 +310,6 @@ FocusScope {
             anchors.rightMargin: root.rowPadding
             spacing: root.columnGap
             Text {
-              objectName: "searchSymbol"
               width: root.symbolWidth
               anchors.verticalCenter: parent.verticalCenter
               textFormat: Text.PlainText
