@@ -89,10 +89,19 @@ Rectangle {
 
   // Worked out only while they show or fade, so a still list derives none
   // on each tick. The words name no zone where the clock beside the symbol
-  // already shows the listing's.
+  // already shows the listing's, and are the brief ones where the header's
+  // would not fit the name's room (a holiday's name, Tokyo's lunch break in
+  // the popup).
   readonly property bool momentLive: moment || clockShown > 0 || wordsShown > 0
   readonly property string listingClock: momentLive && quote ? Market.listingClock(quote, now, calendars) : ""
-  readonly property string words: momentLive && quote ? Market.marketStatus(quote, now, 0, calendars, listingClock !== "") : ""
+  readonly property string fullWords: momentLive && quote ? Market.marketStatus(quote, now, 0, calendars, listingClock !== "") : ""
+  readonly property string words: fullWords === "" || fullFit.advanceWidth <= momentText.width ? fullWords
+    : Market.marketStatus(quote, now, 0, calendars, listingClock !== "", true)
+  TextMetrics {
+    id: fullFit
+    font: momentText.font
+    text: row.fullWords
+  }
   readonly property bool wordsShow: moment && words !== "" && freshnessNote === ""
   // Each crossfades in 160 ms, as the header's words do; a closing surface
   // holds them where they are, and the next open sets them at once
@@ -208,6 +217,7 @@ Rectangle {
 
   // The market's moment, in the name's place.
   Text {
+    id: momentText
     objectName: "rowMoment"
     visible: row.wordsShown > 0
     opacity: row.wordsShown

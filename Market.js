@@ -287,8 +287,10 @@ function holidayName(name) {
 // scrubbing, where in the day the finger is: at the close's own time, the
 // closing bell, when it reads the close (`Quote.readingAt`). Its times name
 // no zone where the exchange's clock is in sight (`local`), as a row's is
-// beside its symbol.
-function marketStatus(quote, now, scrubT, calendars, local) {
+// beside its symbol. Where a row's room is short of the words (`brief`), a
+// closure says "Closed" for the holiday's name, and Tokyo's lunch "Lunch"
+// for "Lunch break".
+function marketStatus(quote, now, scrubT, calendars, local, brief) {
   if (scrubT) {
     var read = Quote.readingAt(quote, scrubT)
     return "At " + printClock(quote, read.t, calendars, local) + " · " + phaseLabel(read.close ? "closing" : scrubPhase(quote, scrubT))
@@ -296,7 +298,7 @@ function marketStatus(quote, now, scrubT, calendars, local) {
   var cal = calendarFor(calendars, quote)
   var brk = cal ? breakUntil(cal, now) : null
   if (brk) {
-    return "Lunch break · reopens " + calendarClock(cal, brk, quote, local) + " · in " + Format.duration(brk - now)
+    return (brief ? "Lunch" : "Lunch break") + " · reopens " + calendarClock(cal, brk, quote, local) + " · in " + Format.duration(brk - now)
   }
   var phase = sessionPhase(quote, now)
   var bell = secondsToBell(quote, now)
@@ -312,7 +314,7 @@ function marketStatus(quote, now, scrubT, calendars, local) {
   if (!closure && bell && phase === "pre") return "Pre-market · opens in " + Format.duration(bell.seconds)
   if (!closure && bell) return "Market opens in " + Format.duration(bell.seconds)
   var reg = clockSession(quote, now).regular
-  var base = closure ? holidayName(kind.name)
+  var base = closure ? (brief ? phaseLabel("closed") : holidayName(kind.name))
     : (phase === "post" && reg && now >= reg.end ? phaseLabel(phase) + " · close " + printClock(quote, reg.end, calendars, local)
       : phaseLabel(phase))
   return base + (phase === "post" ? "" : scheduleNote(quote, now, calendars, local))
