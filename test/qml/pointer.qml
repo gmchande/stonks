@@ -203,8 +203,6 @@ ShellRoot {
 
   DayChart { id: directionlessSmooth; visible: false; up: null; baselineColor: "#667788" }
   PixelChart { id: directionlessRetro; visible: false; up: null; baselineColor: "#667788" }
-  // The body's rendered frames, for frames.js.
-  FrameGrab { id: grab }
 
   FloatingWindow {
     id: window
