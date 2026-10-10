@@ -647,7 +647,10 @@ run time.
   bar's urgent). The direction is in the arrow's tilt, the mark's climb or
   fall, the sign, and the line's shape; a flat day is dim ink. A failed or
   overdue refresh draws the day in the bar's urgent (`bar.urgent`) on every
-  form, with a "!" before the change where the change shows.
+  form, with its "!": before the change; on a vertical bar in the "%"'s
+  place, so the change stays five characters across the bar; and on the
+  icon form in the slot's margin right of the mark (a corner badge, as
+  Tailscale's icon wears one, blurs into the columns at this size).
   It names no range and fetches nothing for itself. Where the pill sits is
   the bar's (drag it to another section) and its form is its own setting
   for that section: in the right section, among the bar's bare icons,

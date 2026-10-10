@@ -964,6 +964,21 @@ ShellRoot {
       harness.check("the pill says no data in the bar's urgent when the first fetch failed",
         within(10000, function() { return pillChange.text === "! no data" && Qt.colorEqual(pillChange.color, barApi.urgent) }),
         pillChange.text + " in " + pillChange.color)
+      // The icon form and a vertical bar have no room for "! no data": the
+      // mark's "!" and the vertical change's say it.
+      var settingsAtFail = pill.settings
+      pill.settings = Object.assign({}, settingsAtFail, { barStyle: "icon" })
+      var markWarning = harness.find(pill, "pillMarkWarning")
+      var iconWarning = !!markWarning && markWarning.visible && Qt.colorEqual(markWarning.color, barApi.urgent)
+      pill.settings = settingsAtFail
+      barApi.vertical = true
+      var verticalChange = harness.find(pill, "pillDayChange")
+      var verticalWarning = verticalChange.text === "!" && Qt.colorEqual(verticalChange.color, barApi.urgent)
+      var verticalShown = verticalChange.text + " in " + verticalChange.color
+      barApi.vertical = false
+      harness.check("the icon form and a vertical bar mark the failed fetch with a \"!\" in the bar's urgent",
+        iconWarning && verticalWarning, "icon " + iconWarning + ", vertical " + verticalShown)
+
       // The "!" names itself on hover on every form, the text's included,
       // in the popup's words; the text's says nothing else.
       var warningTips = hoverEveryForm()

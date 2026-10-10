@@ -231,8 +231,8 @@ BarWidget {
       }
 
       // The icon form, on either bar: Stonks' mark, the same in both looks,
-      // climbing or falling with the day, in its colour, at the size of the
-      // bar's icons, its columns solid so it reads beside their glyphs.
+      // climbing or falling with the day, in the bar's ink, at the size of
+      // the bar's icons, its columns solid so it reads beside their glyphs.
       StonksMark {
         objectName: "pillMark"
         visible: root.iconOnly
@@ -242,6 +242,23 @@ BarWidget {
         solid: true
         pixel: Math.max(2, Math.round(Style.bar.iconCanvas / 8))
         gap: 1
+
+        // A warning's "!" hangs in the slot's margin right of the mark, so
+        // the mark stays where it was. A badge on its corner, as the shell's
+        // Tailscale icon wears one, blurred into the columns at this size.
+        Text {
+          objectName: "pillMarkWarning"
+          visible: root.warns
+          anchors.left: parent.right
+          anchors.leftMargin: 1
+          anchors.verticalCenter: parent.verticalCenter
+          textFormat: Text.PlainText
+          text: "!"
+          color: root.dayColor
+          font.family: button.fontFamily
+          font.pixelSize: button.fontSize
+          font.bold: true
+        }
       }
 
       Text {
@@ -300,7 +317,10 @@ BarWidget {
         objectName: "pillDayChange"
         width: button.width
         height: Style.bar.iconSlot
-        text: root.featured ? Format.lookSigns(Format.narrowPct(root.featured.pct), root.retro) : "…"
+        // A warning's "!" takes the "%"'s place, so the figure stays five
+        // characters across the bar.
+        readonly property string figure: root.featured ? Format.lookSigns(Format.narrowPct(root.featured.pct), root.retro) : ""
+        text: !root.featured ? (root.warns ? "!" : "…") : root.warns ? "!" + figure.replace("%", "") : figure
         fontFamily: button.fontFamily
         fontSize: button.fontSize * 0.85
         color: root.warns ? button.activeColor
