@@ -130,6 +130,8 @@ Flickable {
     acceptedModifiers: Qt.NoModifier
     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
     onWheel: function(event) {
+      // The wheel starts another gesture: the next click is a click of its own.
+      root.endClick()
       // A touchpad reports the pixels the finger moved: the list follows
       // them exactly, and settles on a row once the finger stops.
       if (event.pixelDelta.y !== 0) root.followBy(-event.pixelDelta.y)
@@ -199,6 +201,7 @@ Flickable {
   }
 
   function moveCursor(delta) {
+    endClick()
     if (displayedSymbols.length === 0) return
     var current = displayedSymbols.indexOf(cursorRow)
     var next = Math.max(0, Math.min(displayedSymbols.length - 1, current < 0 ? 0 : current + delta))
@@ -281,6 +284,15 @@ Flickable {
     cursorSymbol = symbol
   }
 
+  // The cursor handed to `symbol`, as a removal hands it on: where its row
+  // is in sight already, the list stays where it is, stopped by the click,
+  // perhaps between rows; else the row is carried into view.
+  function handTo(symbol) {
+    var index = displayedSymbols.indexOf(symbol)
+    if (index >= 0 && partInSight(index, headedY)) cursorSymbol = symbol
+    else select(symbol)
+  }
+
   // A click on a row, at (x, y) in the scene. It stops the list where it
   // is, a glide or a touchpad's settle, as a flicking list stops under a
   // finger, and puts the cursor on the row, now in sight where the list
@@ -290,7 +302,8 @@ Flickable {
   // as for a row: a click within the double-click interval of the last,
   // at its place, does nothing, whatever button and whichever row is under
   // it by then, as the one sliding up into a removed row's place.
-  // Says whether the click acts.
+  // Says whether the click acts. The wheel, a key, another list, or a new
+  // open starts another gesture, so the next click acts (endClick).
   property real lastClickTime: 0
   property point lastClickPlace: Qt.point(-1, -1)
   function clickRow(symbol, x, y) {
@@ -305,6 +318,9 @@ Flickable {
     cancelFlick()
     cursorSymbol = symbol
     return true
+  }
+  function endClick() {
+    lastClickTime = 0
   }
 
   // Whether row `index` is whole in the list's view with it scrolled to
@@ -533,6 +549,7 @@ Flickable {
       places[before.listKey] = snappedY(wheelTarget())
       cancelDrag()
       cursorSymbol = ""
+      endClick()
       takeOver()
       layOut()
       contentY = clampY(places[view.listKey] || 0)
@@ -553,6 +570,7 @@ Flickable {
   // Shift+wheel move left half made.
   function reopen() {
     wheelMoving = ""
+    endClick()
     layOut()
   }
   Component.onCompleted: {

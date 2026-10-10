@@ -406,7 +406,7 @@ Item {
     var at = rows.indexOf(symbol)
     var successor = symbol === watchlist.cursorRow && at >= 0 ? (rows[at + 1] || rows[at - 1] || "") : ""
     service.removeSymbol(symbol, rows)
-    if (successor !== "") watchlist.select(successor)
+    if (successor !== "") watchlist.handTo(successor)
     offerUndo(symbol, listName)
   }
 

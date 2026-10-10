@@ -728,6 +728,9 @@ ShellRoot {
       var ctrlDouble = ctrlThen(function() {
         mouseDoubleClickSequence(body2, spot.x, spot.y, Qt.LeftButton, Qt.ControlModifier)
       })
+      // Past the double-click interval of the last click at this place:
+      // another click there within it would be the same click.
+      wait(Application.styleHints.mouseDoubleClickInterval)
       var ctrlThenClick = ctrlThen(function() {
         mouseClick(body2, spot.x, spot.y, Qt.LeftButton, Qt.ControlModifier)
         mouseClick(body2, spot.x, spot.y)
@@ -735,6 +738,7 @@ ShellRoot {
       harness.check("a Ctrl-double-click, or a click at once after a Ctrl-click, over All's tick leaves the symbol in All",
         ctrlDouble === "true,true,true" && ctrlThenClick === "true,true,true", ctrlDouble + " | " + ctrlThenClick)
 
+      wait(Application.styleHints.mouseDoubleClickInterval)
       var aaplRow = wl.rowItem("AAPL")
       mouseClick(aaplRow, aaplRow.width / 2, aaplRow.height / 2, Qt.RightButton)
       wait(150)

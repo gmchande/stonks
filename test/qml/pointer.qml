@@ -769,12 +769,16 @@ ShellRoot {
         stub.featuredSymbolChanged.disconnect(noteFeatured)
         var featuredOnce = featuredSeen.length > 0 && featuredSeen.every(function(s) { return s === partRow })
           && stub.featuredSymbol === partRow && body.watchlist.cursorRow === partRow
+        var stayedFeatured = body.watchlist.contentY === 17
         root.setFixtureWatchlist()
         wait(100)
         body.watchlist.contentY = 0
         wait(50)
+        // Off a row boundary too: the removal hands the cursor on and the
+        // list stays where the click stopped it.
+        body.watchlist.followBy(17)
         var shownBefore = body.watchlist.displayedSymbols.slice()
-        var thirdY = 2 * pitch + 20
+        var thirdY = 2 * pitch + 20 - 17
         mouseMove(body.watchlist, 12, thirdY - 2)
         mouseMove(body.watchlist, 12, thirdY)
         mouseClick(body.watchlist, 12, thirdY, Qt.RightButton)
@@ -784,9 +788,35 @@ ShellRoot {
         var shownAfter = body.watchlist.displayedSymbols
         var removedOnce = shownAfter.length === shownBefore.length - 1
           && shownAfter.indexOf(shownBefore[2]) < 0 && shownAfter.indexOf(shownBefore[3]) >= 0
-        root.check("a double-click on a part-scrolled row features only that row, and a right double-click removes one row",
-          featuredOnce && removedOnce,
-          featuredSeen.join(",") + " for " + partRow + " | " + shownBefore.length + " -> " + shownAfter.length)
+          && body.watchlist.cursorRow === shownBefore[3]
+        var stayedRemoved = body.watchlist.contentY === 17
+        root.check("a double-click on a part-scrolled row features only that row, and a right double-click removes one row, the list staying where the click stopped it",
+          featuredOnce && removedOnce && stayedFeatured && stayedRemoved,
+          featuredSeen.join(",") + " for " + partRow + " | " + shownBefore.length + " -> " + shownAfter.length
+            + " cursor " + body.watchlist.cursorRow + " | stayed " + stayedFeatured + "," + stayedRemoved)
+        root.setFixtureWatchlist()
+        wait(100)
+
+        // The wheel between two clicks at one place makes them two clicks:
+        // the second, mid-glide, stops the list and acts, and x then removes
+        // its row. From rows-review: the second was taken for a double-click's
+        // and dropped, and x removed the row the glide was heading for.
+        body.watchlist.contentY = 0
+        wait(50)
+        var clickedTwice = body.watchlist.displayedSymbols[2]
+        var twiceY = 2 * pitch + 20
+        mouseMove(body.watchlist, 12, twiceY - 2)
+        mouseMove(body.watchlist, 12, twiceY)
+        mouseClick(body.watchlist, 12, twiceY)
+        mouseWheel(body.watchlist, 12, twiceY, 0, -120, Qt.NoModifier)
+        mouseClick(body.watchlist, 12, twiceY)
+        wait(400)
+        var twiceCursor = body.watchlist.cursorRow
+        body.removeRow(twiceCursor)
+        wait(100)
+        root.check("a click after the wheel, at the last click's place, acts: x then removes its row",
+          twiceCursor === clickedTwice && body.watchlist.displayedSymbols.indexOf(clickedTwice) < 0,
+          twiceCursor + " for " + clickedTwice)
         root.setFixtureWatchlist()
         wait(100)
 
