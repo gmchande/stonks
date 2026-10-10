@@ -1224,6 +1224,37 @@ ShellRoot {
         root.check("in the list menu, a symbol's lists, and Manage lists, the wheel under a still pointer moves the cursor to the row then under it, until a key or a close stops it",
           wheels.every(function(w) { return w.indexOf("true,true,true ") === 0 }), wheels.join(" | "))
 
+        // A view showing through its surface's close moves no cursor as the
+        // pointer moves over it. From the rows review of the stale pointer
+        // fix: the pointer onto All moved all three views' cursors.
+        var closing = [
+          [function() { body.openListMenu() }, function() { body.closeListMenu() }, "listMenu", "listChoice"],
+          [function() { body.openSymbolLists("FIT1") }, function() { body.closeListViews() }, "symbolLists", "symbolListRow"],
+          [function() { body.openManageLists() }, function() { body.closeListViews() }, "manageLists", "manageRow"]
+        ].map(function(v) {
+          v[0]()
+          wait(100)
+          var view = root.find(body, v[2])
+          var rows = root.findAll(view, v[3])
+          var onTwo = rows[2].mapToItem(body, rows[2].width / 2, rows[2].height / 2)
+          var onAll = rows[0].mapToItem(body, rows[0].width / 2, rows[0].height / 2)
+          mouseMove(body, onTwo.x, onTwo.y - 2)
+          mouseMove(body, onTwo.x, onTwo.y)
+          wait(50)
+          var before = view.cursor
+          body.surfaceOpen = false
+          mouseMove(body, onAll.x, onAll.y - 2)
+          mouseMove(body, onAll.x, onAll.y)
+          wait(50)
+          var after = view.cursor
+          body.surfaceOpen = true
+          v[1]()
+          wait(50)
+          return (before === 2 && after === 2) + " " + v[2] + " " + before + "->" + after
+        })
+        root.check("a list view showing through its surface's close moves no cursor as the pointer passes",
+          closing.every(function(c) { return c.indexOf("true ") === 0 }), closing.join(" | "))
+
         console.log("POINTER DONE")
         done.exitCode = root.failures ? 1 : 0
         done.start()

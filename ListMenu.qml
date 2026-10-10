@@ -157,7 +157,8 @@ FocusScope {
 
   RowPointer {
     id: pointer
-    onMoved: function(x, y) { root.pointAt(x, y) }
+    // A view showing through its surface's close moves no cursor.
+    onMoved: function(x, y) { if (root.active) root.pointAt(x, y) }
   }
 
   Flickable {
