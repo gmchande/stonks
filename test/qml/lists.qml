@@ -723,6 +723,14 @@ ShellRoot {
       var deleteAt = center(harness.find(winsRowNow, "deleteAction"))
       mouseClick(body2, deleteAt.x, deleteAt.y)
       wait(50)
+      // The ask says its keys once, on its choices in the row; the key line
+      // under the rows says nothing meanwhile. Found in the polish board:
+      // the line repeated "⏎ delete · esc keep".
+      var askHint = harness.find(manage, "keyHints")
+      var asked = [harness.find(winsRowNow, "confirmDelete").visible, harness.find(winsRowNow, "keepList").visible,
+        askHint.visible ? JSON.stringify(askHint.text) : "no line"].join(",")
+      harness.check("deleting asks with its keys once, on the row's choices, and the key line says nothing",
+        asked === "true,true,no line", asked)
       var keepAt = center(harness.find(winsRowNow, "keepList"))
       mouseClick(body2, keepAt.x, keepAt.y)
       wait(50)

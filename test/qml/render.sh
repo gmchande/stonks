@@ -65,6 +65,12 @@ if [ $# -eq 0 ]; then
   for theme in tokyo-night catppuccin-latte hackerman white; do
     states="$states theme-smooth-$theme theme-retro-$theme"
   done
+  # The calendars' longest closures, in the popup and the smallest window.
+  for place in popup min-window; do
+    for market in tokyo london; do
+      states="$states $place-holiday-$market-smooth $place-holiday-$market-retro"
+    done
+  done
   # The pill at a larger text size, as `omarchy display text size 16` sets it.
   states="$states pill-sheet-large"
 fi

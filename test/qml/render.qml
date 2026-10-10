@@ -83,7 +83,16 @@ ShellRoot {
   readonly property bool nbisState: stateName.indexOf("popup-history-1w-") === 0
     || stateName.indexOf("popup-history-1m-") === 0
   readonly property bool nbisDayState: stateName.indexOf("popup-nbis-1d-") === 0
-  readonly property bool holidayState: stateName.indexOf("popup-holiday-") === 0
+  readonly property bool holidayState: /^popup-holiday-(smooth|retro)$/.test(stateName)
+  // <popup|min-window>-holiday-<tokyo|london>-<look>: the calendars' longest
+  // closures, at the exchange's noon, the listing's own saved day featured:
+  // Tokyo's Constitution Memorial Day observed (6 May 2026) and London's
+  // Christmas Day (substitute day) (27 December 2027).
+  readonly property var closure: {
+    var match = /^(?:popup|min-window)-holiday-(tokyo|london)-(smooth|retro)$/.exec(stateName)
+    return !match ? null : match[1] === "tokyo" ? { symbol: "7203.T", file: "7203-t-day", date: "2026-05-06" }
+      : { symbol: "SHEL.L", file: "shel-l-day", date: "2027-12-27" }
+  }
   // popup-overnight-<moment>-<symbol>-<look>: a saved moment from
   // test/fixtures/overnight, NBIS, SNOW, and RVII with Robinhood's prints;
   // at the live moment (Monday 5 October, 00:36), NBIS, ET, and TLN, on 1D
@@ -407,6 +416,20 @@ ShellRoot {
       stub.allDay = allDay
       stub.order = "manual"
       stub.featuredSymbol = root.overnight.symbol
+      return
+    }
+
+    if (root.closure) {
+      var closed = Qt.createQmlObject('import Quickshell.Io; FileView { blockLoading: true }', root)
+      closed.path = fixtureDir + "/" + root.closure.file + ".json"
+      var closedQuote = Quote.parseChart(JSON.parse(closed.text()))
+      closed.destroy()
+      root.now = Market.epochAt(Market.calendarFor(stub.calendars, closedQuote), root.closure.date, "12:00")
+      stub.symbols = [root.closure.symbol, "AAPL"]
+      stub.shown = stub.symbols.slice()
+      stub.quotes = { [root.closure.symbol]: closedQuote, AAPL: aapl }
+      stub.entries = { [root.closure.symbol]: { status: "ok", receivedAt: root.now }, AAPL: { status: "ok", receivedAt: root.now } }
+      stub.featuredSymbol = root.closure.symbol
       return
     }
 

@@ -56,7 +56,8 @@ BarWidget {
   onWarningTextChanged: Qt.callLater(function() {
     if (button.tooltipHovered && button.bar) button.bar.showTooltip(button, button.tooltipText)
   })
-  readonly property color trendColor: featured && featured.tone === "up" ? (plugin && plugin.trendColors ? plugin.trendColors.up : button.foreground)
+  readonly property color upColor: plugin && plugin.trendColors ? plugin.trendColors.up : button.foreground
+  readonly property color trendColor: featured && featured.tone === "up" ? upColor
     : featured && featured.tone === "down" ? Color.urgent : dimColor
   // Quieter than the bar's ink by the same rule as the popup's secondary
   // text, against the bar's own ground.
@@ -102,9 +103,14 @@ BarWidget {
       root.bar.shell.updateEntryInline(root.moduleName, entry)
   }
 
+  // A vertical bar draws the line, the arrow, and the text alike, the symbol
+  // over its change, so a middle-click there steps between that and the
+  // icon; a saved arrow or text stays saved, for a horizontal bar, until it
+  // does.
   function cycleBarStyle() {
     var ring = ["sparkline", "arrow", "text", "icon"]
-    root.persistBarStyle(ring[(ring.indexOf(barStyle) + 1) % ring.length])
+    root.persistBarStyle(root.vertical ? (root.iconOnly ? "sparkline" : "icon")
+      : ring[(ring.indexOf(barStyle) + 1) % ring.length])
   }
 
   // Shape contract for shell.summon/hide/toggle routing (Bar.findPanelWidget
@@ -284,14 +290,17 @@ BarWidget {
         fontSize: button.fontSize * 0.85
         color: button.foreground
       }
+      // Coloured by the figure it shows, a percentage whatever change the
+      // rows say: by its sign, and no colour once it shows 0.0%.
       OpticalGlyph {
         objectName: "pillDayChange"
         width: button.width
         height: Style.bar.iconSlot
-        text: root.featured ? Format.lookSigns(Format.pct(root.featured.pct), root.retro).replace("%", "") : "…"
+        text: root.featured ? Format.lookSigns(Format.narrowPct(root.featured.pct), root.retro) : "…"
         fontFamily: button.fontFamily
         fontSize: button.fontSize * 0.85
-        color: root.trendColor
+        color: !root.featured || Format.narrowPctShown(root.featured.pct).shown === 0 ? root.dimColor
+          : root.featured.pct > 0 ? root.upColor : Color.urgent
       }
     }
   }

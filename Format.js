@@ -127,10 +127,29 @@ function money(value, digits) {
 }
 
 function pct(value) {
-  if (!isFiniteNumber(value)) return "—"
+  return isFiniteNumber(value) ? percent(value, pctDigits(Math.abs(value))) : "—"
+}
+
+// A move as a vertical bar's pill has room for, about five characters
+// across its 28 px: one decimal under 10%, none from there. It is the rows'
+// figure (`pct`) rounded half up, in whole hundredths so no float can tip
+// it, so the two never disagree: the rows' +9.95% reads +10%, their +0.05%
+// +0.1%, however the quote's prices made it. `shown` is its size.
+function narrowPctShown(value) {
   var abs = Math.abs(value)
-  var digits = pctDigits(abs)
-  return signText(shownSign(value, digits)) + grouped(abs.toFixed(digits)) + "%"
+  var hundredths = Math.round(Number(abs.toFixed(pctDigits(abs))) * 100)
+  var tenths = Math.round(hundredths / 10)
+  return tenths >= 100 ? { digits: 0, shown: Math.round(hundredths / 100) } : { digits: 1, shown: tenths / 10 }
+}
+
+function narrowPct(value) {
+  if (!isFiniteNumber(value)) return "—"
+  var narrow = narrowPctShown(value)
+  return signText(narrow.shown === 0 ? 0 : value) + grouped(narrow.shown.toFixed(narrow.digits)) + "%"
+}
+
+function percent(value, digits) {
+  return signText(shownSign(value, digits)) + grouped(Math.abs(value).toFixed(digits)) + "%"
 }
 
 // A move in money, signed, in its listing's decimals (`moveDigits`).

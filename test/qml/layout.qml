@@ -7,6 +7,7 @@ import qs.Commons
 import "plugin/Chart.js" as Chart
 import "plugin/Fundamentals.js" as Fundamentals
 import "plugin/History.js" as History
+import "plugin/Market.js" as Market
 import "plugin/Overnight.js" as Overnight
 import "plugin/Quote.js" as Quote
 import "plugin/Settings.js" as Settings
@@ -286,10 +287,12 @@ ShellRoot {
     Item {
       id: surface
       property bool wide: false
+      // The window's width: the body's widest, or the window's minimum.
+      property int windowWidth: 720
       property int fixedHeight: 0
       x: 0
       y: 0
-      width: wide ? 720 : 448
+      width: wide ? windowWidth : 448
       height: fixedHeight > 0 ? fixedHeight : body.fittedHeight(730)
 
       StonksBody {
@@ -548,36 +551,62 @@ ShellRoot {
         root.check("a coin under a cent and a six-figure price each show their own decimals in the hero, both looks, the row, and a scrub",
           decimals.length === 0, decimals.join(" | "))
 
-        // The header's words keep room for its longest real states, the
-        // longest holidays in calendars.json included, in both looks at both
-        // widths, beside the look icon and the help mark. One is cut, by the
-        // owner's call: Tokyo's longest closure in the popup, 12 px short in
-        // retro before a New York reader's JST was added to it, and in smooth
-        // too since its words start after the animal as retro's do.
+        // The header's words keep room for its longest real states and for
+        // every closure in calendars.json, as Market names it, for a reader
+        // whose clock differs from the exchange's (its zone named): in both
+        // looks, in the popup and the window at its widest and its minimum
+        // width (App.qml), beside the look icon and the help mark. Found in
+        // the polish board: Tokyo's "Constitution Memorial Day observed"
+        // and London's "(substitute day)" closures were cut in the popup.
         var header = find(body, "statusText").parent
+        var calendars = JSON.parse(calendarFile.text())
+        var states = ["CLOSED · OPENS MON 09:30", "POWER HOUR · CLOSES IN 40M", "LUNCH BREAK · REOPENS 12:30 JST · IN 59M",
+          "OPENING BELL · CLOSES IN 6H 20M"]
+        var closures = 0
+        var unnamed = []
+        for (var calId in calendars.calendars) {
+          var cal = calendars.calendars[calId]
+          var listing = stub.quotes[["AAPL", "SHOP.TO", "7203.T", "SHEL.L"].filter(function(s) {
+            return Market.calendarFor(calendars, stub.quotes[s]) === cal
+          })[0]]
+          for (var day in cal.closures) {
+            var noon = Market.epochAt(cal, day, "12:00")
+            var said = Market.marketStatus(listing, noon, 0, calendars)
+            // Past the calendar's last day the header says the schedule is
+            // unavailable, with no time to name a zone for.
+            var next = Market.nextOpen(cal, noon)
+            var zone = next ? Market.zoneName(cal, Market.localDate(next.t, cal).offset) : ""
+            if (zone !== "" && said.slice(-zone.length) !== zone) said += " " + zone
+            if (said.indexOf(cal.closures[day].split(" ")[0] + " ") !== 0 || said.indexOf(" · ") < 0)
+              unnamed.push(calId + " " + day + " " + said)
+            states.push(said)
+            closures++
+          }
+        }
         var roomless = []
-        var longest = ["CLOSED · OPENS MON 09:30", "POWER HOUR · CLOSES IN 40M", "LUNCH BREAK · REOPENS 12:30 JST · IN 59M",
-          "OPENING BELL · CLOSES IN 6H 20M", "INDEPENDENCE DAY OBSERVED · OPENS MON 09:30",
-          "MARTIN LUTHER KING, JR. DAY · OPENS TUE 09:30", "CONSTITUTION MEMORIAL DAY OBSERVED · OPENS THU 09:00 JST"]
-        for (var hw = 0; hw < 2; hw++) {
-          surface.wide = hw === 1
+        for (var hw = 0; hw < 3; hw++) {
+          surface.wide = hw > 0
+          surface.windowWidth = hw === 1 ? 560 : 720
           for (var hlook = 0; hlook < 2; hlook++) {
             stub.retro = hlook === 1
-            for (var s = 0; s < longest.length; s++) {
-              header.statusText = longest[s]
-              wait(20)
+            for (var s = 0; s < states.length; s++) {
+              header.statusText = states[s]
+              wait(1)
               var words = find(body, "statusText")
               if (words.truncated || words.implicitWidth > words.width)
-                roomless.push((surface.wide ? "window " : "popup ") + (stub.retro ? "retro " : "smooth ") + longest[s])
+                roomless.push((surface.wide ? "window " + surface.width + " " : "popup ") + (stub.retro ? "retro " : "smooth ")
+                  + words.text + " (" + Math.ceil(words.implicitWidth) + " px in " + words.width + ")")
             }
           }
         }
         header.statusText = Qt.binding(function() { return body.headerText })
         surface.wide = false
+        surface.windowWidth = 720
         stub.retro = false
         wait(20)
-        root.check("the header's longest real states fit, holidays included, in both looks at both widths, but Tokyo's longest closure in the popup",
-          roomless.join(" | ") === "popup smooth CONSTITUTION MEMORIAL DAY OBSERVED · OPENS THU 09:00 JST | popup retro CONSTITUTION MEMORIAL DAY OBSERVED · OPENS THU 09:00 JST", roomless.join(" | "))
+        root.check("the header's longest real states and every closure in calendars.json fit, a zone named, in both looks, in the popup and the window at its widest and narrowest",
+          closures > 50 && unnamed.length === 0 && roomless.length === 0,
+          closures + " closures | " + unnamed.join(" | ") + " | " + roomless.join(" | "))
 
         // The list's header lines up with its rows and groups with them: its
         // name starts at the rows' text and its order word ends at the
@@ -1057,13 +1086,13 @@ ShellRoot {
 
         // Every key-hint row is one line, never elided or wrapped, inside the
         // surface, and names six keys at most: in both looks at both widths.
+        // Deleting a list has no key line: its row says its keys (lists.qml).
         var manage = find(body, "manageLists")
         var hintRows = [
           { name: "search", view: body.search, open: function() { body.startAdding() }, close: function() { body.cancelAdding() } },
           { name: "a symbol's lists", view: find(body, "symbolLists"), open: function() { body.openSymbolLists("MU") }, close: function() { body.closeListViews() } },
           { name: "manage lists", view: manage, open: function() { body.openManageLists() }, close: function() { body.closeListViews() } },
-          { name: "renaming a list", view: manage, open: function() { body.openManageLists(); manage.renaming = true }, close: function() { body.closeListViews() } },
-          { name: "deleting a list", view: manage, open: function() { body.openManageLists(); manage.confirming = true }, close: function() { body.closeListViews() } }
+          { name: "renaming a list", view: manage, open: function() { body.openManageLists(); manage.renaming = true }, close: function() { body.closeListViews() } }
         ]
         var badHints = []
         for (var hw = 0; hw < 2; hw++) {

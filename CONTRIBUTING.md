@@ -171,19 +171,23 @@ run time.
   add of the preview takes its answer: a quote, featured at once, or a
   failed first fetch, so the add is done there and its row says it failed.
 - `BarWidget.qml` — the pill; owns the popup loader. Middle click steps its
-  form: sparkline, arrow, text (the symbol, the row's price, and the change
-  on a horizontal bar; no room for the price on a vertical one), and icon,
-  Stonks' mark (`StonksMark`) alone in one icon slot on either bar, whose
-  hover names the symbol and its change. The sparkline's and the arrow's
-  hover names the company and the phase; the text's, which shows its words
-  already, says nothing. While a warning's "!" shows, every form's hover
-  says what it means, in the popup's words (`Figures.freshnessText`). The
-  shell copies a hover's words only as the pointer enters, so while it
+  form: sparkline, arrow, text (the symbol, the row's price, and the change),
+  and icon, Stonks' mark (`StonksMark`) alone in one icon slot on either
+  bar, whose hover names the symbol and its change. The sparkline's and the
+  arrow's hover names the company and the phase; the text's, which shows its
+  words already, says nothing. While a warning's "!" shows, every form's
+  hover says what it means, in the popup's words (`Figures.freshnessText`).
+  The shell copies a hover's words only as the pointer enters, so while it
   stays a warning that starts, ends, or changes its words goes to the bar
   again: an answer that lands takes the warning out of the bubble, and the
   text form's bubble with it. A new figure alone leaves an open bubble as
-  it opened, so a resting pointer sees no blink. It
-  reads its section from the bar's layout
+  it opened, so a resting pointer sees no blink. A vertical bar draws the
+  first three alike, the symbol over its change narrowed to five characters
+  from the rows' own figure (`Format.narrowPct`), so the two agree, and
+  coloured by it, so there a middle-click switches between that and the
+  icon, and a saved arrow or text stays saved for a horizontal bar until it
+  does.
+  It reads its section from the bar's layout
   (`bar.layoutConfig`): in the right section its form is `barStyleRight`,
   the icon until a middle-click there writes one, and elsewhere `barStyle`.
   Its right-click asks the window's host to toggle the window.
@@ -561,7 +565,11 @@ run time.
   unavailable instead of guessing. The header leads with the state
   ("CLOSED · OPENS MON 09:30"), not with what is missing, and while the
   opening bell, lunch lull, power hour, or closing bell lasts it leads with
-  that ("POWER HOUR · CLOSES IN 40M"). A countdown rounds up to the minute,
+  that ("POWER HOUR · CLOSES IN 40M"). On a holiday it leads with the
+  holiday as `calendars.json` names it, less "observed" or "(substitute
+  day)" (`Market.holidayName`), so the longest fits the popup beside its
+  next open; the file keeps its source's names, since it is renewed from
+  it. A countdown rounds up to the minute,
   so its last minute reads 1M. Every exchange time shown (the next open, the
   close, the lunch break's end, a scrub's "AT", "AS OF", the overnight
   print's, an intraday range's) is the exchange's clock, with its zone's
