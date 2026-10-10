@@ -29,10 +29,14 @@
 //                                      the X,Y,W,H box, from the next frame
 //                                      on, held there while the button is
 //                                      down
-//   bun frames.js turn[:0] FRAME@T... the header's animal crossfades to its
-//                                      new picture in about 160 ms, or with
-//                                      :0 changes at once, never through a
-//                                      blank or faint frame
+//   bun frames.js turn FRAME@T...     the header's animal crossfades to its
+//                                      new picture in about 160 ms, never
+//                                      through a blank or faint frame
+//   bun frames.js atonce FRAME@T...   a picture, the chart or the animal,
+//                                      changes at once: from the first
+//                                      picture to the last within a few
+//                                      frames of the mark, nothing between,
+//                                      never through a blank or faint frame
 //   bun frames.js self-check          wrong pictures fail, a right one passes
 //
 // A draw-in is read against its own first and last frames: a pixel is ink
@@ -97,16 +101,16 @@ function same(frames) {
       detail: "frame " + first + " at " + frames[first].t + " ms differs from the first" + (blankBefore ? ", which is blank" : "") }
 }
 
-// The header's animal turning, from the first frame's picture to the
-// last's, both of them an animal: neither may be the bare ground. A turn
-// (`turn`) crossfades: it leaves the first picture within a few frames of
-// the mark, shows the two mixed on three or more distinct frames, and rests
-// on the last from about 160 ms on. A change at once (`turn:0`) shows the
-// first picture until a few frames past the mark and the last from then on,
-// no mix and no way back. Neither shows a blank or faint frame: each
-// frame's strongest pixel stands at least a third as far from the ground as
-// the fainter picture's does, so a fade out and then in, through nothing,
-// fails.
+// A picture changing, from the first frame's to the last's, neither of them
+// the bare ground. The header's animal turning (`turn`) crossfades: it
+// leaves the first picture within a few frames of the mark, shows the two
+// mixed on three or more distinct frames, and rests on the last from about
+// 160 ms on. A change at once (`atonce`), the animal on a new symbol or the
+// chart getting around, shows the first picture until a few frames past
+// the mark and the last from then on, no mix and no way back. Neither
+// shows a blank or faint frame: each frame's strongest pixel stands at
+// least a third as far from the ground as the fainter picture's does, so a
+// fade out and then in, through nothing, fails.
 function turn(frames, atOnce) {
   if (frames.length < 2) return { ok: false, detail: frames.length + " frames grabbed" }
   const first = frames[0].image.data
@@ -382,6 +386,38 @@ function synthetic(shown, until = 480, uneven = null) {
   return frames
 }
 
+// One chart replaced by another, frame by frame, on the same 120 × 20 plot:
+// A and B, each a line and the area under it, in their own shapes and colours.
+// `alphas(x, t)` gives how strongly column x shows A and B, t ms after the
+// mark, each laid over the ground in turn. Frames start 48 ms before the
+// mark, as a harness grabs the chart at rest first.
+function charts(alphas, until = 400, uneven = null) {
+  const width = 120, height = 20
+  const lines = [
+    { top: x => 6 + Math.round(5 * Math.sin(x / 9)), line: [220, 220, 220], area: [80, 80, 80] },
+    { top: x => 10 + Math.round(6 * Math.cos(x / 7)), line: [90, 200, 120], area: [40, 90, 60] },
+  ]
+  const frames = []
+  for (let t = -48, k = 0; t <= until; t += uneven ? uneven[k++ % uneven.length] : 16) {
+    const data = Buffer.alloc(width * height * 3, 16)
+    for (let x = 0; x < width; x++) {
+      const weights = alphas(x / width, t)
+      for (let y = 0; y < height; y++) {
+        let c = [16, 16, 16]
+        lines.forEach((chart, i) => {
+          const top = chart.top(x)
+          if (y < top) return
+          const ink = y === top ? chart.line : chart.area
+          c = c.map((v, j) => v * (1 - weights[i]) + ink[j] * weights[i])
+        })
+        data.set(c.map(Math.round), (y * width + x) * 3)
+      }
+    }
+    frames.push({ t, image: { width, height, data } })
+  }
+  return frames
+}
+
 // A card drawn here, frame by frame: its ground from the top to its edge,
 // `edgeAt(t)`, on a 60 × 120 picture, the rows laid out to row 90 at once,
 // and a 14 px footer on the edge, painted in the card's ground when it
@@ -452,6 +488,25 @@ function selfCheck() {
   const cropRight = crop("0,0,100,20").ok && !crop("100,0,20,20").ok
   if (!cropRight) failed++
   console.log((cropRight ? "PASS " : "FAIL ") + "a crop is the same while only what is outside it changes, and not when what is inside does")
+  // The chart getting around: one chart, A, replaced by another, B. `alphas(x,
+  // t)` says how strongly column x shows each, t ms after the mark.
+  const swaps = [
+    ["changes at once", true, (x, t) => t >= 0 ? [0, 1] : [1, 0]],
+    ["changes at once, frames 9 to 50 ms apart", true, (x, t) => t >= 0 ? [0, 1] : [1, 0], 480, busy],
+    ["changes at once on the third frame after the mark", true, (x, t) => t >= 32 ? [0, 1] : [1, 0]],
+    ["draws in over 320 ms", false, (x, t) => t >= 0 ? [0, x < outCubic(t, 320) ? 1 : 0] : [1, 0]],
+    ["draws in over 32 ms", false, (x, t) => t >= 0 ? [0, x < outCubic(t, 32) ? 1 : 0] : [1, 0]],
+    ["crossfades in 160 ms", false, (x, t) => { const p = outCubic(t, 160); return t >= 0 ? [1 - p, p] : [1, 0] }],
+    ["changes at once through an empty plot", false, (x, t) => t < 0 ? [1, 0] : t < 16 ? [0, 0] : [0, 1]],
+    ["changes at once 200 ms after the mark", false, (x, t) => t >= 200 ? [0, 1] : [1, 0]],
+    ["changes at once, back for a frame at 160 ms", false, (x, t) => t >= 0 && (t < 160 || t >= 176) ? [0, 1] : [1, 0]],
+  ]
+  for (const [name, expected, alphas, until, uneven] of swaps) {
+    const verdict = turn(charts(alphas, until, uneven), true)
+    const right = verdict.ok === expected
+    if (!right) failed++
+    console.log((right ? "PASS " : "FAIL ") + "the chart " + name + (expected ? " passes" : " fails") + " judged at once — " + verdict.detail)
+  }
   // The card's edge, from 60 to 100 px or back.
   const ease = (t, length, from = 0) => 60 + 40 * outCubic(t, length, from)
   const edgeCases = [
@@ -566,7 +621,7 @@ else {
   const verdict = kind === "same" ? same(end === undefined ? frames : frames.map(f => ({ ...f, image: cropped(f.image, end) })))
     : kind === "drawin" ? drawin(frames, end === undefined ? 1 : end === "ink" ? end : Number(end))
     : kind === "edge" ? edge(frames, band) : kind === "edgeheld" ? edgeheld(frames)
-    : kind === "turn" ? turn(frames, end === "0")
+    : kind === "turn" ? turn(frames, false) : kind === "atonce" ? turn(frames, true)
     : kind === "press" ? press(frames, rest[0].split(",").map(Number), rest[1].split(",").map(Number))
     : { ok: false, detail: "unknown mode " + mode }
   console.log(JSON.stringify(verdict))

@@ -53,7 +53,7 @@ run time.
 - A script patches its copies of plugin files only through `patch_copy` (`lib.sh`), which stops the script before Quickshell starts when a patch changes nothing. The feed harnesses (`run.sh`, `history.sh`) and `overnight.sh`, whose later moments hold one symbol's day, patch a 200 ms retry pause into theirs.
 - An order of file events Quickshell can't be made to hold is stepped through a stand-in: `service.sh` patches `DataFileStandIn.qml` in for the data file's `FileView` in a second copy of `Service.qml`. The stand-in keeps only what Quickshell 0.3.1's `FileView` does there, each named from its source; a change to the data file's handling that leans on more of `FileView` adds it there first, from that source.
 - A check on motion reads it on its frames, from a change handler on the animated property, and a wait waits on an event (`within`, `tryVerify`); a fixed sleep into an animation or a debounce fails on a slow frame.
-- What a motion looks like is judged on rendered frames, not on the property behind it: `FrameGrab.qml` grabs an item on every frame and `frames.js` judges them (`frame_tools`, `lib.sh`), as `window-motion.sh` does for the draw-in, the window's first open in a fresh process (judged from its first painted frame: every canvas paints a frame late on a window's first show), a held chart, a day half gone (`aapl-noon`, AAPL's day cut at noon, its ink's end held against its newest print), the header's animal crossfading across the close and changing at once on a new symbol (`turn`, `turn:0`), and a closing surface, `layout.sh` for a live day held while the next chart loads, and `popup-motion.sh` for the popup card's edge (`edge`, `edgeheld`), its travel read from where the card stood before the mark. A property can move while the picture shows nothing. Offscreen, Qt renders on its own cadence while animations advance on QtCore's 16 ms clock, and `afterAnimating` fires on every render, so a frame is kept only when the clock has ticked since the last one, and timed by that tick, or by the mark when it came after: timed by the render, a late clock showed each moment later than it was, and a 160 ms edge read as 230 under the suite's load. `window-motion.sh` holds a draw-in's renders longer and longer on purpose, a busy machine, which frames timed by the render read as about 420 ms. `frames.js` reads a draw-in's length and start, and an edge's, from its frames' own curve, never from the mark, so a late start or a busy machine's uneven frames move neither; a draw-in is read across its ink's extent, taken from the last frame's own ink (`drawin:ink`), never from the painter, so a day partly gone is judged on its own sweep and a sweep that stops short and shows the rest at its end fails. `bun test/qml/frames.js self-check`, run by `test/all.sh`, shows wrong pictures failing it: 0, 160, and 400 ms, on even and uneven frames, a start 200 ms late, a chart that begins a quarter or 60% drawn, hidden ink, a slit, a chart cut short, whole at once, a tail, a half day swept across the whole plot, swept to 45% with the rest shown at its end, or cut short; an edge that jumps, never moves, takes 100, 240, or 400 ms, starts 200 ms late, jumps 60% at the mark, or shows rows through the footer riding it; an open that grows; an animal that turns in 60 or 320 ms, starts 200 ms late, changes at once where it should turn or turns where it should change at once, fades out and then in through nothing or away for good, or changes at once through a blank frame, 320 ms late, or back and forth; and a right draw-in in retro's whole columns, a half day swept to its newest print in either look, a right edge, and a right turn, on uneven frames too, passing. `window-motion.sh` runs the same capture and judge on a real draw-in made 160 ms, 400 ms, none, and one starting 60% drawn, and each fails.
+- What a motion looks like is judged on rendered frames, not on the property behind it: `FrameGrab.qml` grabs an item on every frame and `frames.js` judges them (`frame_tools`, `lib.sh`), as `window-motion.sh` does for an open's draw-in, the window's first open in a fresh process (judged from its first painted frame: every canvas paints a frame late on a window's first show), a symbol or range change and a held chart landing shown whole at once (`atonce`), a day half gone drawing in as the window opens (`aapl-noon`, AAPL's day cut at noon, its ink's end held against its newest print), the header's animal crossfading across the close and changing at once on a new symbol (`turn`, `atonce`), and a closing surface, `layout.sh` for a live day held while the next chart loads, and `popup-motion.sh` for the popup card's edge (`edge`, `edgeheld`), its travel read from where the card stood before the mark. A property can move while the picture shows nothing. Offscreen, Qt renders on its own cadence while animations advance on QtCore's 16 ms clock, and `afterAnimating` fires on every render, so a frame is kept only when the clock has ticked since the last one, and timed by that tick, or by the mark when it came after: timed by the render, a late clock showed each moment later than it was, and a 160 ms edge read as 230 under the suite's load. `window-motion.sh` holds a draw-in's renders longer and longer on purpose, a busy machine, which frames timed by the render read as about 420 ms. `frames.js` reads a draw-in's length and start, and an edge's, from its frames' own curve, never from the mark, so a late start or a busy machine's uneven frames move neither; a draw-in is read across its ink's extent, taken from the last frame's own ink (`drawin:ink`), never from the painter, so a day partly gone is judged on its own sweep and a sweep that stops short and shows the rest at its end fails. `bun test/qml/frames.js self-check`, run by `test/all.sh`, shows wrong pictures failing it: 0, 160, and 400 ms, on even and uneven frames, a start 200 ms late, a chart that begins a quarter or 60% drawn, hidden ink, a slit, a chart cut short, whole at once, a tail, a half day swept across the whole plot, swept to 45% with the rest shown at its end, or cut short; a chart that should change at once drawing in over 320 or 32 ms, crossfading, passing through an empty plot, changing 200 ms late, or back for a frame; an edge that jumps, never moves, takes 100, 240, or 400 ms, starts 200 ms late, jumps 60% at the mark, or shows rows through the footer riding it; an open that grows; an animal that turns in 60 or 320 ms, starts 200 ms late, changes at once where it should turn or turns where it should change at once, fades out and then in through nothing or away for good, or changes at once through a blank frame, 320 ms late, or back and forth; and a right draw-in in retro's whole columns, a half day swept to its newest print in either look, a chart changed at once, a right edge, and a right turn, on uneven frames too, passing. `window-motion.sh` runs the same capture and judge on the draw-in of a chart an open waited for, made 160 ms, 400 ms, none, and one starting 60% drawn, and each fails.
 - Visual checks are those renders (`test/qml/render.sh`). Whoever built a visible change tries it by hand before its pull request, the way a user would, through the everyday flows end to end whatever the change names: open the popup from the pill, add a symbol through search, switch lists, remove and undo, feature a row, change the range and look, and use the window. Motion is judged frame by frame from a recording; a screenshot can't show it.
 - A limit blamed on the shell is confirmed in its code (`/usr/share/omarchy/shell/`) before a change designs around it.
 
@@ -258,14 +258,16 @@ run time.
   handler reads it out of step. It measures the chart it owns (history,
   quote, geometry, the last print, where the moment sits) from that chart
   and the look alone; the body reads those measures and passes nothing back.
-  Every change of the chart it presents draws in from the left in 320 ms
+  A surface opening draws the chart on screen in from the left in 320 ms
   OutCubic, sweeping from the left edge to the newest drawn print, so a day
-  partly gone takes its whole time, whatever made it: a symbol from any
-  trigger, a range, a held
-  chart's replacement landing, a retry that lands, and a surface opening
-  (`revealChart`). It decides once per change of the body's view and first
-  ends the last motion (a draw-in, a replay). The painters draw what it
-  presents, as far as it has revealed, and decide nothing.
+  partly gone takes its whole time (`revealChart`); opened while the chart
+  asked for is on its way, it draws that chart in as it lands, unless a
+  symbol or range is asked for first. Every other change of the chart it presents
+  shows the new one whole at once, whatever made it: a symbol from any
+  trigger, a range, a held chart's replacement landing, and a retry that
+  lands. It decides once per change of the body's view and first ends the
+  last motion (a draw-in, a replay). The painters draw what it presents,
+  as far as it has revealed, and decide nothing.
 - `Watchlist.qml` — rows, drag, cursor, wheel, and scroll-to-row. One
   cursor, as in the shell's own panels (`Ui/CursorSurface.qml`): moving the
   pointer puts it on the row under it, the wheel on the row it brings under
@@ -709,7 +711,7 @@ run time.
   (`Settings.withRemovalUndone`, from the settings the service kept), with the
   quote the service kept, so it needs no fetch; its row joins at its place
   and the list eases it into view. A hero a removal or its undo
-  moves draws its chart in, as any change of the chart does. A hero
+  moves shows its chart whole at once, as any change of the chart does. A hero
   chosen since stays chosen. `u` takes back the service's last removal,
   from either surface, long after its note has gone, until the next change
   to what the lists hold (an add, a membership, a hand-made order, a list
@@ -792,7 +794,8 @@ run time.
   1M"), and while it is out the hero keeps the chart on show
   (`ChartMotion.chart`), the previous range or symbol, chart, figures, and
   info lines alike, open or shut, and takes no scrub or replay; when it
-  lands, or its first fetch fails, the new chart draws in. A range needs its history and the symbol's
+  lands, or its first fetch fails, the new chart shows whole at once, or
+  draws in when an open was waiting for it and nothing else was asked for since. A range needs its history and the symbol's
   quote, since the headline is never the last bar. A retry of a first fetch
   that failed keeps the day and "unavailable" on screen until an answer
   lands. Before any chart has been in, at a cold start, the hero is empty
@@ -920,12 +923,17 @@ run time.
   ends when the symbol or the range changes. A scrub or replay also ends
   when a refresh brings data that no longer covers it: a range's new
   history, or the day's next session, or its next calendar day.
-- One motion for every change of the chart, in both looks (`ChartMotion`):
-  it draws in from the left in 320 ms OutCubic, sweeping to the newest drawn
-  print (the painters' `inkRight`, `inkColumns`), whether the symbol (from
-  any trigger), the range, or a surface opening brought it, and nothing
-  slides or fades. A chart on its way holds the one on show whole and
-  still under "Loading"; the new one draws in when it lands.
+- One motion for the chart, in both looks (`ChartMotion`): a surface
+  opening draws it in from the left in 320 ms OutCubic, sweeping to the
+  newest drawn print (the painters' `inkRight`, `inkColumns`), as Omarchy's
+  windows animate as they appear. Getting around shows the new chart whole
+  at once, as Omarchy's workspaces switch: a symbol (from any trigger), a
+  range, an add, a removal or its undo, a search's preview, and a chart
+  landing after a hold. Nothing slides or fades. A chart on its way holds
+  the one on show whole and still under "Loading"; the new one shows whole
+  when it lands, or draws in when an open was waiting for it and nothing
+  else was asked for since. A replay
+  still drives the chart in behind its scrub.
 
 ## Style
 

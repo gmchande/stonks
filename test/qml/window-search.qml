@@ -116,9 +116,14 @@ ShellRoot {
       var hero = service.featuredSymbol
       var library = service.library.slice()
       var field = harness.find(body.search, "searchField")
+      // Draw-ins, and changes of the symbol whose chart is on show.
       var draws = 0
+      var changes = 0
       var onReveal = function() { if (body.motion.reveal === 0) draws++ }
+      var lastShown = body.chartSymbol
+      var onChart = function() { if (body.chartSymbol !== lastShown) { lastShown = body.chartSymbol; changes++ } }
       body.motion.revealChanged.connect(onReveal)
+      body.motion.chartChanged.connect(onChart)
       // Fetches from here on: earlier flows fetched these too.
       var calls = function(symbol, from) { return harness.calls(symbol) - (from || 0) }
       var before = { to: harness.calls("SHOP.TO"), shop: harness.calls("SHOP"), shhi: harness.calls("SHHI.NE") }
@@ -134,12 +139,13 @@ ShellRoot {
       keyClick(Qt.Key_Down)
       keyClick(Qt.Key_Up)
       draws = 0
+      changes = 0
       var previewed = within(3000, function() { return body.chartSymbol === "SHOP.TO" && !body.chartLoading })
       wait(100)
       var shown = [previewed, body.featured.priceText, body.search.resultIndex, service.featuredSymbol === hero,
-        service.library.indexOf("SHOP.TO") < 0, draws].join(",")
-      harness.check("↓ shows the chosen result on the hero, unadded, drawn in once, the featured symbol kept",
-        shown === "true,194.60,1,true,true,1", shown)
+        service.library.indexOf("SHOP.TO") < 0, changes, draws].join(",")
+      harness.check("↓ shows the chosen result on the hero, unadded, once and whole at once, the featured symbol kept",
+        shown === "true,194.60,1,true,true,1,0", shown)
       var fetched = [calls("SHOP.TO", before.to), calls("SHOP", before.shop), calls("SHHI.NE", before.shhi)].join(",")
       harness.check("only the result the choice rests on is fetched", fetched === "1,0,0", fetched)
       var stats = within(3000, function() { return !!body.yearLine && body.yearLine.facts.length > 0 && body.yearLine.facts[0].value !== "" })
@@ -169,6 +175,7 @@ ShellRoot {
       // featured symbol, and the chart on show neither changes nor redraws.
       var faded = false
       draws = 0
+      changes = 0
       // The result returned to above is asked for again once it rests.
       tryVerify(function() { return calls("SHOP.TO", before.to) === 2 && !!service.previewView.chart }, 3000)
       var beforeEnter = harness.calls("SHOP.TO")
@@ -182,25 +189,26 @@ ShellRoot {
       }
       tryVerify(function() { return !!row && watchlist.displayedSymbols.indexOf("SHOP.TO") >= 0 && row.resting }, 2000)
       wait(100)
-      var added = [service.featuredSymbol, body.adding, body.chartSymbol, draws, calls("SHOP.TO", beforeEnter)].join(",")
+      var added = [service.featuredSymbol, body.adding, body.chartSymbol, changes, draws, calls("SHOP.TO", beforeEnter)].join(",")
       harness.check("Enter adds the result on the hero with its quote: featured, the chart kept, nothing fetched again",
-        added === "SHOP.TO,false,SHOP.TO,0,0", added)
+        added === "SHOP.TO,false,SHOP.TO,0,0,0", added)
       harness.check("its row fades in at its place", faded, faded)
       row.opacityChanged.disconnect(onFade)
       service.removeSymbol("SHOP.TO")
       service.feature(hero)
       wait(400)
 
-      // Escape puts the featured symbol back, drawn in, and adds nothing.
+      // Escape puts the featured symbol back, whole at once, and adds nothing.
       searchShop(body, keys)
       keyClick(Qt.Key_Down)
       tryVerify(function() { return body.chartSymbol === "SHOP.TO" && !body.chartLoading && body.motion.reveal === 1 }, 3000)
       draws = 0
+      changes = 0
       keyClick(Qt.Key_Escape)
       wait(100)
-      var back = [body.adding, body.chartSymbol, draws, service.library.indexOf("SHOP.TO") < 0].join(",")
-      harness.check("Escape puts the featured symbol back on the hero, drawn in, and adds nothing",
-        back === "false," + hero + ",1,true", back)
+      var back = [body.adding, body.chartSymbol, changes, draws, service.library.indexOf("SHOP.TO") < 0].join(",")
+      harness.check("Escape puts the featured symbol back on the hero, whole at once, and adds nothing",
+        back === "false," + hero + ",1,0,true", back)
 
       // A lookup that fails says so on the hero; Enter adds it anyway, and
       // the hero goes back to what it showed. Its failed fetch was the add's
@@ -245,6 +253,7 @@ ShellRoot {
       service.removeSymbol("SHOP.TO")
       service.feature(hero)
       body.motion.revealChanged.disconnect(onReveal)
+      body.motion.chartChanged.disconnect(onChart)
       tryVerify(function() { return service.testFeed.firstRun.length + service.testFeed.refreshRun.length === 0 }, 5000)
       wait(400)
       harness.check("the lookup flow leaves All as it found it", harness.same(service.library, library),

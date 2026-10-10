@@ -505,24 +505,33 @@ ShellRoot {
       app.testKeyCatcher.forceActiveFocus()
       within(2000, function() { return partReveal && body.motion.reveal === 1 })
       body.motion.revealChanged.disconnect(watchReveal)
-      // The window moves as the popup does: it draws the chart in as it
-      // opens, and as a row is featured.
+      // The window draws the chart in as it opens; a row featured in it
+      // shows its chart whole at once.
       harness.check("the window draws the chart in as it opens",
         lowestReveal < 0.5 && partReveal && body.motion.reveal === 1, lowestReveal + "|" + partReveal + " -> " + body.motion.reveal)
       keyClick(Qt.Key_1)
-      harness.check("a row featured in the window draws its chart in",
-        service.featuredSymbol === "AAPL" && body.motion.reveal < 0.5, body.motion.reveal)
+      harness.check("a row featured in the window shows its chart whole at once",
+        service.featuredSymbol === "AAPL" && body.chartSymbol === "AAPL" && body.motion.reveal === 1,
+        body.chartSymbol + "|" + body.motion.reveal)
       wait(400)
       keyClick(Qt.Key_2)
       wait(400)
 
-      // A hero change from anywhere gets the window's motion, once: the
-      // pill's wheel, IPC's next and prev (Service.featureStep), a summon,
-      // and a summon that also changes the range each draw the chart in.
-      // Found in the code-quality review: with the window open, the wheel,
-      // IPC, and a summon swapped the chart in one frame.
-      var motions = []
-      var watchDrawIn = function() { if (body.motion.reveal === 0) motions.push("draw " + service.featuredSymbol) }
+      // A hero change from anywhere reaches the window's chart once, whole
+      // and at once: the pill's wheel, IPC's next and prev
+      // (Service.featureStep), a summon, and a summon that also changes the
+      // range. Found in the code-quality review: with the window open, the
+      // wheel, IPC, and a summon went around the window's motion.
+      var shows = []
+      var drawIns = 0
+      var shownKey = body.chart ? body.chart.symbol + "|" + body.chart.range : ""
+      var watchChart = function() {
+        var key = body.chart ? body.chart.symbol + "|" + body.chart.range : ""
+        if (key !== shownKey) shows.push(key)
+        shownKey = key
+      }
+      var watchDrawIn = function() { if (body.motion.reveal < 1) drawIns++ }
+      body.motion.chartChanged.connect(watchChart)
       body.motion.revealChanged.connect(watchDrawIn)
       var heroBeforeWheel = service.featuredSymbol
       mouseWheel(pill, pill.width / 2, pill.height / 2, 0, -120)
@@ -533,22 +542,23 @@ ShellRoot {
       wait(400)
       app.open(JSON.stringify({ symbol: "NVDA" }))
       wait(400)
-      var dayMotions = motions.join(",")
-      motions = []
+      var dayShows = shows.join(",")
+      shows = []
       app.open(JSON.stringify({ symbol: "AAPL", range: "1Y" }))
-      tryVerify(function() { return body.motion.reveal === 1 && harness.answered("AAPL|1Y") }, 5000)
-      var rangeMotions = motions.join(",")
-      motions = []
+      tryVerify(function() { return !body.chartLoading && harness.answered("AAPL|1Y") }, 5000)
+      var rangeShows = shows.join(",")
+      shows = []
       app.open(JSON.stringify({ symbol: "MSFT", range: "1D" }))
       wait(500)
-      var backMotions = motions.join(",")
+      var backShows = shows.join(",")
+      body.motion.chartChanged.disconnect(watchChart)
       body.motion.revealChanged.disconnect(watchDrawIn)
-      harness.check("the pill's wheel, IPC's step, and a summon each draw the window's chart in once",
+      harness.check("the pill's wheel, IPC's step, and a summon each change the window's chart once, at once",
         wheeledTo !== heroBeforeWheel && steppedTo === heroBeforeWheel
-          && dayMotions === ["draw " + wheeledTo, "draw " + steppedTo, "draw NVDA"].join(","),
-        heroBeforeWheel + "->" + wheeledTo + "->" + steppedTo + "|" + dayMotions)
-      harness.check("a summon that changes the range too draws the chart in once, either way",
-        rangeMotions === "draw AAPL" && backMotions === "draw MSFT", rangeMotions + " / " + backMotions)
+          && dayShows === [wheeledTo + "|1D", steppedTo + "|1D", "NVDA|1D"].join(",") && drawIns === 0,
+        heroBeforeWheel + "->" + wheeledTo + "->" + steppedTo + "|" + dayShows + "|" + drawIns + " draw-ins")
+      harness.check("a summon that changes the range too changes the chart once, at once, either way",
+        rangeShows === "AAPL|1Y" && backShows === "MSFT|1D" && drawIns === 0, rangeShows + " / " + backShows + "|" + drawIns + " draw-ins")
       service.setRange("1D")
       service.feature("MSFT")
       wait(350)
@@ -631,7 +641,7 @@ ShellRoot {
       harness.check("after it fails the window says the range is unavailable",
         within(8000, function() { return header.text === "1W UNAVAILABLE · R TO RETRY" }), header.text)
 
-      // Back to a symbol with history: the window draws its range once in.
+      // Back to a symbol with history: the window shows its range.
       keyClick(Qt.Key_1)
       harness.check("a symbol change in the window brings that symbol's range",
         service.featuredSymbol === "AAPL"
@@ -662,7 +672,7 @@ ShellRoot {
         blanked.length === 0 && !!body.featuredGeometry && body.motion.drawn === 1, blanked.join(","))
 
       // A range whose cache has run out still has its chart: featured, it
-      // draws in at once while the refetch is out. It opened blank until
+      // shows whole at once while the refetch is out. It opened blank until
       // the refetch landed, the first time after the laptop woke.
       keyClick(Qt.Key_2)
       tryVerify(function() { return harness.answered("MSFT|1M") && body.motion.drawn === 1 }, 5000)
@@ -675,30 +685,26 @@ ShellRoot {
       // state it is out in: the fake curl could answer before the check.
       holdMsft.running = true
       tryVerify(function() { return !holdMsft.running }, 2000)
-      // A frame part way in, while the refetch is still out, is the draw-in;
-      // a reveal set back to 0 alone is not.
-      var partWay = false
-      var watchPart = function() {
-        var reveal = body.motion.reveal
-        if (reveal > 0 && reveal < 1 && !!service.testHistoryFeed.wanted) partWay = true
-      }
-      body.motion.revealChanged.connect(watchPart)
       keyClick(Qt.Key_2)
       var stale = service.histories["MSFT|1M"]
       var out = service.testHistoryFeed.wanted
-      var loadingAtOnce = body.chartLoading
-      tryVerify(function() { return partWay }, 2000)
-      body.motion.revealChanged.disconnect(watchPart)
-      harness.check("a range with expired history draws in at once while its refetch is out",
-        partWay && !!out && out.key === "MSFT|1M" && !!stale.history && !loadingAtOnce,
-        partWay + "|" + (out ? out.key : "none") + "|" + !!stale.history + "|" + loadingAtOnce + "|" + body.motion.reveal)
+      var shown = [body.chartSymbol, body.chartRange, body.chartLoading, body.motion.reveal].join("|")
+      harness.check("a range with expired history shows whole at once while its refetch is out",
+        shown === "MSFT|1M|false|1" && !!out && out.key === "MSFT|1M" && !!stale.history,
+        shown + "|" + (out ? out.key : "none") + "|" + !!stale.history)
       releaseMsft.running = true
       tryVerify(function() { return harness.answered("MSFT|1M") && body.motion.drawn === 1 }, 5000)
       keyClick(Qt.Key_1)
       tryVerify(function() { return body.motion.drawn === 1 }, 2000)
 
       // r fetches every quote again, and the range on show, which the cache
-      // would otherwise have kept: AAPL's quote and its history.
+      // would otherwise have kept: AAPL's quote and its history. A user's
+      // refresh fetches only answers over 10 s old: these are aged past it,
+      // as a minute on the clock would, since the flows above take less.
+      var agedQuotes = {}
+      for (var s in service.testFeed.entries)
+        agedQuotes[s] = Object.assign({}, service.testFeed.entries[s], { answeredAt: service.testFeed.entries[s].answeredAt - 20 })
+      service.testFeed.entries = agedQuotes
       var aapl = harness.calls("AAPL")
       var aaplHistory = harness.calls("AAPL.history")
       var msft = harness.calls("MSFT")
@@ -1052,11 +1058,11 @@ ShellRoot {
 
       // While a chart loads, the hero keeps what was on screen, chart,
       // figures, and info lines alike, under "Loading", and the new chart
-      // draws in once it lands: from a range to another, cached or not, and
-      // on a symbol change on a range. Found by the owner on main: 1W to an
-      // uncached 6M showed the day's chart for a moment first. Every state
-      // the hero ends a turn in is recorded, the states a frame can show;
-      // SLOW's history answers after a second.
+      // shows whole once it lands: from a range to another, cached or not,
+      // and on a symbol change on a range. Found by the owner on main: 1W
+      // to an uncached 6M showed the day's chart for a moment first. Every
+      // state the hero ends a turn in is recorded, the states a frame can
+      // show; SLOW's history answers after a second.
       app.open("{}")
       wait(100)
       service.addSymbol("SLOW")
@@ -1077,8 +1083,8 @@ ShellRoot {
       // waits for `key` to land, and returns the states the hero took, "A"
       // for the one before, "B" for the one it settles on, "?" for any other,
       // run-length collapsed; how many held-A states said Loading and how many
-      // did not; and, once the new chart is up, whether it drew in and
-      // whether a replay or scrub ran on it.
+      // did not; and, once the new chart is up, whether it drew in rather
+      // than show whole, and whether a replay or scrub ran on it.
       var switchChart = function(change, key, during) {
         var a = sig()
         var seen = [a]
@@ -1122,27 +1128,27 @@ ShellRoot {
           loading: loadingUnderA > 0 && quietUnderA === 0, drewIn: drewIn, carried: carried }
       }
       var toSixMonths = switchChart(function() { service.setRange("6M") }, "SLOW|6M")
-      harness.check("1W to an uncached 6M keeps 1W under Loading until 6M lands, then draws 6M in",
-        toSixMonths.states === "AB" && toSixMonths.loading && toSixMonths.drewIn && !toSixMonths.carried, JSON.stringify(toSixMonths))
+      harness.check("1W to an uncached 6M keeps 1W under Loading until 6M lands, then shows 6M whole",
+        toSixMonths.states === "AB" && toSixMonths.loading && !toSixMonths.drewIn && !toSixMonths.carried, JSON.stringify(toSixMonths))
       var toCachedWeek = switchChart(function() { service.setRange("1W") }, "SLOW|1W")
-      harness.check("6M to a cached 1W goes straight to 1W", toCachedWeek.states === "AB", JSON.stringify(toCachedWeek))
+      harness.check("6M to a cached 1W goes straight to 1W, whole", toCachedWeek.states === "AB" && !toCachedWeek.drewIn, JSON.stringify(toCachedWeek))
       service.setRange("6M")
       tryVerify(function() { return harness.answered("SLOW|6M") && body.motion.drawn === 1 }, 5000)
       dropEntry("SLOW|1W")
-      // A held chart takes no replay: 1W draws in clean.
+      // A held chart takes no replay: 1W shows clean.
       var toUncachedWeek = switchChart(function() { service.setRange("1W") }, "SLOW|1W", function() {
         wait(50)
         body.replay(true)
       })
-      harness.check("6M to an uncached 1W keeps 6M under Loading until 1W lands, then draws 1W in, with no replay on the held chart",
-        toUncachedWeek.states === "AB" && toUncachedWeek.loading && toUncachedWeek.drewIn && !toUncachedWeek.carried
+      harness.check("6M to an uncached 1W keeps 6M under Loading until 1W lands, then shows 1W whole, with no replay on the held chart",
+        toUncachedWeek.states === "AB" && toUncachedWeek.loading && !toUncachedWeek.drewIn && !toUncachedWeek.carried
           && !body.motion.replayRunning && body.scrubT === 0, JSON.stringify(toUncachedWeek))
       service.feature("AAPL")
       tryVerify(function() { return harness.answered("AAPL|1W") && body.motion.drawn === 1 }, 5000)
       dropEntry("SLOW|1W")
       var toSlowWeek = switchChart(function() { service.feature("SLOW") }, "SLOW|1W")
-      harness.check("a symbol change on a range keeps the last symbol's chart and figures until the new one lands, then draws it in",
-        toSlowWeek.states === "AB" && toSlowWeek.loading && toSlowWeek.drewIn && !toSlowWeek.carried, JSON.stringify(toSlowWeek))
+      harness.check("a symbol change on a range keeps the last symbol's chart and figures until the new one lands, then shows it whole",
+        toSlowWeek.states === "AB" && toSlowWeek.loading && !toSlowWeek.drewIn && !toSlowWeek.carried, JSON.stringify(toSlowWeek))
       service.setRange("1D")
 
       // On the day, a symbol whose first fetch failed is an answer too: the

@@ -367,10 +367,10 @@ ShellRoot {
     }
   }
 
-  // The draw-in, on the flows the owner actually uses. `reveal` has to leave 1
-  // and come back to it; a trigger that never fires leaves it pinned at 1.
-  // While the view's chart is on its way, the last one shows whole: `reveal`
-  // holds at 1 the whole wait, and the new one draws in once it is in.
+  // The draw-in, on the flows the owner actually uses: an open draws it in,
+  // `reveal` leaving 1 and coming back; every other change shows the chart
+  // whole at once, `reveal` never leaving 1. While the view's chart is on
+  // its way, the last one shows whole: `reveal` holds at 1 the whole wait.
   property real lowestLoading: 1
   function waiting() {
     return panel.testBody.chartLoading && panel.testBody.motion.reveal === 1 && test.lowestLoading === 1
@@ -497,6 +497,13 @@ ShellRoot {
       test.lowest < 0.5 && panel.testBody.motion.reveal === 1 && test.drawLength >= 270 && test.drawLength < 380
         && also !== false,
       test.lowest + "|" + Math.round(test.drawLength))
+  }
+
+  // A change shown whole at once: `reveal` never left 1 since `begin`.
+  function atOnce(label, also) {
+    test.check(label + " shows the chart whole at once",
+      test.lowest === 1 && panel.testBody.motion.reveal === 1 && !panel.testBody.chartLoading && also !== false,
+      test.lowest + "|" + panel.testBody.motion.reveal + "|" + panel.testBody.chartLoading)
   }
 
   // A closing popup holds its picture through the card's fade: the card's
@@ -626,7 +633,7 @@ ShellRoot {
           test.begin("a cached range on a symbol change")
           panel.testBody.featureAt(1)
         } else if (test.step === 5) {
-          test.drew("a cached range on a symbol change", panel.featuredSymbol === "MSFT")
+          test.atOnce("a cached range on a symbol change", panel.featuredSymbol === "MSFT")
           service.histories = { "MSFT|1W": test.history("MSFT", "1W") }
           test.begin("an uncached range on a symbol change")
           panel.testBody.featureAt(0)
@@ -640,24 +647,29 @@ ShellRoot {
             "AAPL|1W": test.history("AAPL", "1W"), "MSFT|1W": test.history("MSFT", "1W")
           }
         } else if (test.step === 7) {
-          test.drew("an uncached range on a symbol change, once its response lands")
+          test.atOnce("an uncached range on a symbol change, once its response lands")
           panel.testBody.selectRange("1D")
           test.begin("the day on a symbol change")
           panel.testBody.featureAt(1)
         } else if (test.step === 8) {
-          test.drew("the day on a symbol change")
+          test.atOnce("the day on a symbol change")
           var motion = panel.testBody.motion
-          // To a range in hand the next chart draws in; to one on its way the
-          // chart on show holds whole and still. Found in the design review:
-          // the motion ran on under Loading.
-          panel.testBody.featureAt(0)
+          // A range change during an open's draw-in ends it: to a range in
+          // hand the next chart shows whole; to one on its way the chart on
+          // show holds whole and still. Found in the design review: the
+          // motion ran on under Loading.
+          panel.close()
+          panel.open()
+          var drawing = motion.reveal < 1
           panel.testBody.selectRange("1W")
-          var inHand = motion.reveal < 0.5
+          var inHand = drawing && motion.reveal === 1 && !panel.testBody.chartLoading && panel.testBody.chartRange === "1W"
           panel.testBody.selectRange("1D")
-          panel.testBody.featureAt(1)
+          panel.close()
+          panel.open()
+          drawing = motion.reveal < 1
           panel.testBody.selectRange("1M")
-          var onItsWay = panel.testBody.chartLoading && motion.reveal === 1
-          test.check("a range change mid draw-in: in hand it draws in, on its way it holds the chart whole and still",
+          var onItsWay = drawing && panel.testBody.chartLoading && motion.reveal === 1
+          test.check("a range change mid draw-in ends it: in hand the next chart shows whole, on its way the chart on show holds whole and still",
             inHand && onItsWay, inHand + "|" + onItsWay)
           panel.testBody.selectRange("1D")
           // Closing mid-replay keeps the chart as far as the replay had drawn it.
@@ -676,7 +688,8 @@ ShellRoot {
           // Closing mid draw-in keeps the chart as far as it had drawn for the
           // card's fade, and the next open draws in from the start.
           test.midDraw = function() { panel.close() }
-          panel.testBody.featureAt(0)
+          panel.close()
+          panel.open()
         } else if (test.step === 10) {
           var motion = panel.testBody.motion
           var closedAt = test.midAt
@@ -692,7 +705,6 @@ ShellRoot {
             panel.open()
             test.drawKept = motion.reveal === test.midAt
           }
-          panel.testBody.featureAt(1)
         } else if (test.step === 11) {
           test.setFixtureWatchlist()
         } else if (test.step === 12) {

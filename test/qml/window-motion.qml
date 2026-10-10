@@ -6,8 +6,9 @@ import "plugin" as Stonks
 
 // The window's chart in motion, through the real App and Service with real
 // Qt keys and pointer: what a draw-in and a scrub repaint, replays, the day
-// and the hero, every change's draw-in judged on rendered frames, and a
-// closing surface holding still. HOME and curl are scratch fixtures.
+// and the hero, an open's draw-in and every other change shown at once,
+// judged on rendered frames, and a closing surface holding still. HOME and
+// curl are scratch fixtures.
 ShellRoot {
   id: harness
 
@@ -69,6 +70,8 @@ ShellRoot {
   // Hold AAPL's history answer back, and let it go (see the fake curl).
   Process { id: holdAapl; command: ["touch", Quickshell.env("STONKS_FAKE_STATE") + "/AAPL.history.hold"] }
   Process { id: releaseAapl; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/AAPL.history.hold"] }
+  // Hold any symbol's history answers back, and let them go.
+  Process { id: historyHold }
   // AAPL's day cut at noon, and back (see the fake curl's overnight.set).
   Process { id: noonAapl; command: ["sh", "-c", "echo aapl-noon > \"$0/overnight.set\"", Quickshell.env("STONKS_FAKE_STATE")] }
   Process { id: wholeAapl; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/overnight.set"] }
@@ -213,9 +216,10 @@ ShellRoot {
       harness.check("the hero's change cycles the mode only on the day: not on 1W or 1M",
         targets === "false,false,true", targets)
 
-      // Retro's bell draws in with the columns, never ahead of them: as the
-      // window opens, and as the range comes back to the day. Found in the
-      // transition audit (data 3): it stood from the draw-in's first frame.
+      // Retro's bell draws in with the columns, never ahead of them, as the
+      // window opens, and shows with them as the range comes back to the
+      // day. Found in the transition audit (data 3): it stood from the
+      // draw-in's first frame.
       service.persist({ style: "retro" })
       // Found afresh each frame: a range change makes the ticks again.
       var bell = function() { return harness.find(body.chartItem, "retroBell") }
@@ -235,8 +239,156 @@ ShellRoot {
       within(5000, function() { return body.historyShown && !body.chartLoading && body.motion.reveal === 1 })
       var onDay = ahead(function() { service.setRange("1D") })
       service.persist({ style: "smooth" })
-      harness.check("retro's bell draws in with the columns: on an open and on a range change back to the day",
+      harness.check("retro's bell draws in with the columns on an open, and is there with them on a range change back to the day",
         onOpen === "0,true" && onDay === "0,true", onOpen + " | " + onDay)
+    }
+
+    // `symbol`'s history answers held back (true) or let go (false).
+    function holdHistory(symbol, held) {
+      var path = Quickshell.env("STONKS_FAKE_STATE") + "/" + symbol + ".history.hold"
+      historyHold.command = held ? ["touch", path] : ["rm", "-f", path]
+      historyHold.running = true
+      tryVerify(function() { return !historyHold.running }, 2000)
+    }
+
+    // An open waiting on its chart owes that chart a draw-in, and nothing
+    // else: getting around before it lands shows the chart asked for whole,
+    // at once when it is in memory, or as it lands when it is still out. A
+    // row, a number key, a range step, a summon, an add, a removal and its
+    // undo, and a search preview, each both ways, from an open on a month
+    // held back. Found in Grok's review of #14: each drew in, at once onto
+    // a chart in memory, or as one still out landed.
+    function openDebts(body, watchlist, keys) {
+      var dropEntry = function(key) {
+        var next = Object.assign({}, service.testHistoryFeed.entries)
+        delete next[key]
+        service.testHistoryFeed.entries = next
+      }
+      var keyOf = function() { return body.chart ? body.chart.symbol + "|" + body.chart.range : "" }
+      // Each wait says what it waited for when it gives up, so the check
+      // that reads it is the one that fails.
+      var stuck = []
+      var settled = function(at) {
+        if (!within(8000, function() {
+          return !body.chartLoading && body.motion.drawn === 1 && !service.testHistoryFeed.busy && !watchlist.settling
+        })) stuck.push("unsettled " + at + " on " + keyOf())
+      }
+      // `key`'s chart fetched and kept, shown once on the way; a symbol not
+      // in All waits for its own `before` to add it.
+      var inMemory = function(key) {
+        var parts = key.split("|")
+        if (service.library.indexOf(parts[0]) < 0) return
+        if (service.histories[key] && service.histories[key].status === "ok") return
+        service.feature(parts[0])
+        service.setRange(parts[1])
+        if (!within(8000, function() { return !!service.histories[key] && service.histories[key].status === "ok" }))
+          stuck.push(key + " never in")
+        settled("in " + key)
+      }
+      // `act` from an open waiting on the hero's month, onto `target`'s
+      // chart (symbol|range), in memory or still out; `before` readies the
+      // hero, and the target too where it decides it.
+      var debt = function(name, target, cached, act, before) {
+        stuck = []
+        app.open("{}")
+        service.setRange("1M")
+        settled("first")
+        if (cached) inMemory(target)
+        if (before) before()
+        service.setRange("1M")
+        settled("before")
+        var hero = service.featuredSymbol
+        // The day on show as it closes, so the open's month is another chart.
+        service.setRange("1D")
+        settled("on the day")
+        app.close()
+        dropEntry(hero + "|1M")
+        if (!cached) dropEntry(target)
+        holdHistory(hero, true)
+        app.open(JSON.stringify({ range: "1M" }))
+        var waiting = body.chartLoading && body.motion.opening
+        var lowest = 1
+        var watch = function() { lowest = Math.min(lowest, body.motion.reveal) }
+        body.motion.revealChanged.connect(watch)
+        act()
+        var shownAt = within(3000, function() { return cached ? keyOf() === target && !body.chartLoading
+          : body.chartLoading && body.motion.view.featured + "|" + body.motion.view.range === target })
+        holdHistory(hero, false)
+        var landed = within(6000, function() { return keyOf() === target && !body.chartLoading })
+        settled("after")
+        body.motion.revealChanged.disconnect(watch)
+        var ok = waiting && shownAt && landed && lowest === 1 && stuck.length === 0
+        return (ok ? "ok " : "FAILED ") + name + (cached ? " in memory" : " still out") + " from " + hero + "|1M: waiting " + waiting
+          + ", " + (cached ? "shown at once " : "held ") + shownAt + ", landed " + landed + " on " + keyOf()
+          + ", lowest " + lowest.toFixed(2) + (stuck.length ? ", " + stuck.join(", ") : "")
+      }
+      var nextRow = function(symbol) {
+        var rows = watchlist.displayedSymbols
+        var at = rows.indexOf(symbol)
+        return rows[at + 1] || rows[at - 1]
+      }
+      var results = []
+      ;[true, false].forEach(function(cached) {
+        results.push(debt("a row", "DOWN|1M", cached, function() {
+          var row = watchlist.rowItem("DOWN")
+          mouseClick(row, row.width / 2, row.height / 2)
+        }, function() { service.feature("AAPL") }))
+        results.push(debt("a number key", "MSFT|1M", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_1 + watchlist.displayedSymbols.indexOf("MSFT"))
+        }, function() { service.feature("AAPL") }))
+        results.push(debt("a range step", "AAPL|1W", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_BracketLeft)
+        }, function() { service.feature("AAPL") }))
+        results.push(debt("a summon", "DOWN|1M", cached, function() {
+          app.open(JSON.stringify({ symbol: "DOWN" }))
+        }, function() { service.feature("AAPL") }))
+        // SLOW, added before and removed, keeps its month in memory; an add
+        // is featured once its quote is in and its row has joined.
+        results.push(debt("an add", "SLOW|1M", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_A)
+          body.search.picked("SLOW")
+        }, function() {
+          if (cached) {
+            service.addSymbol("SLOW")
+            tryVerify(function() { return service.arriving.length === 0 }, 5000)
+            inMemory("SLOW|1M")
+            service.removeSymbol("SLOW")
+          }
+          service.feature("AAPL")
+        }))
+        service.removeSymbol("SLOW")
+        settled()
+        var successor = nextRow("AAPL")
+        results.push(debt("a removal", successor + "|1M", cached, function() {
+          body.removeRow("AAPL")
+        }, function() { service.feature("AAPL") }))
+        service.undoRemoval("AAPL")
+        settled()
+        // The removal takes AAPL, the hero, which hands the hero to MSFT;
+        // its undo, with no hero chosen since, brings AAPL back as the hero.
+        results.push(debt("an undo", "AAPL|1M", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_U)
+        }, function() {
+          service.feature("AAPL")
+          settled()
+          body.removeRow("AAPL")
+        }))
+        results.push(debt("a search preview", "MSFT|1M", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_A)
+          body.previewTo("MSFT")
+        }, function() { service.feature("AAPL") }))
+        body.cancelAdding()
+      })
+      service.setRange("1D")
+      service.feature("AAPL")
+      settled()
+      harness.check("an open waiting on its chart owes no other a draw-in: a row, a number key, a range step, a summon, an add, a removal, its undo, and a search preview each show the chart asked for whole, in memory or as it lands — "
+        + results.join(" || "), results.every(function(r) { return /^ok /.test(r) }))
     }
 
     // Each change of chart ends the last one's motion first: a running
@@ -279,14 +431,26 @@ ShellRoot {
         return at
       }
 
-      // A range change during a running draw-in: to a range in hand the new
-      // chart draws in from its start; to one on its way the one on show
-      // stands whole until it lands. As the window opens. Found in the
-      // transition audit (ranges 8) and cubic's review of #24: the new chart
-      // appeared part drawn, or the held one kept drawing in under Loading.
-      var midDrawIn = function(start, toKey, cached) {
+      // How low the draw-in goes from now until `rest` is done: 1 when the
+      // chart showed whole throughout.
+      var lowestUntilRest = function() {
+        var lowest = body.motion.reveal
+        var watch = function() { lowest = Math.min(lowest, body.motion.reveal) }
+        body.motion.revealChanged.connect(watch)
+        rest()
+        body.motion.revealChanged.disconnect(watch)
+        return lowest
+      }
+
+      // A range change during an open's draw-in ends it: a range in hand
+      // shows whole at once; one on its way holds the one on show whole
+      // until it lands, and then shows whole too. Found in the transition
+      // audit (ranges 8) and cubic's review of #24: the new chart appeared
+      // part drawn, or the held one kept drawing in under Loading.
+      var midDrawIn = function(toKey, cached) {
         if (!cached) dropEntry(toKey)
-        start()
+        app.close()
+        app.open("{}")
         var after = -1
         var held = false
         var from = midway("drawn", 0.2, 0.9, function() {
@@ -294,26 +458,23 @@ ShellRoot {
           after = body.motion.drawn
           held = body.chartLoading
         })
-        // A new draw-in starts over, below where the last one had reached.
-        var ok = from > 0 && (cached ? after < from : after === 1 && held)
-        rest()
+        var lowest = lowestUntilRest()
+        var ok = from > 0 && after === 1 && held === !cached && lowest === 1
         service.setRange("1W")
         rest()
-        return ok + " " + from.toFixed(2) + "->" + after.toFixed(2)
+        return ok + " " + from.toFixed(2) + "->" + after.toFixed(2) + ", lowest " + lowest.toFixed(2)
       }
-      var openToCached = midDrawIn(function() { app.close(); app.open("{}") }, "AAPL|1M", true)
-      var openToUncached = midDrawIn(function() { app.close(); app.open("{}") }, "AAPL|1M", false)
-      harness.check("a range change mid draw-in draws the next chart from its start, or holds the one on show whole while it loads",
+      var openToCached = midDrawIn("AAPL|1M", true)
+      var openToUncached = midDrawIn("AAPL|1M", false)
+      harness.check("a range change mid draw-in ends it and shows the next chart whole: at once in hand, or as it lands after holding the one on show",
         [openToCached, openToUncached].every(function(r) { return /^true /.test(r) }),
         [openToCached, openToUncached].join(" | "))
 
-      // A symbol change draws the new chart in from its start: a row
-      // featured during a running draw-in or replay starts it over, the
-      // replay ended. As the window opens, after a range change, and
-      // mid-replay.
+      // A row featured during an open's draw-in or a replay ends it, and
+      // its chart shows whole at once, the replay ended.
       service.setRange("1D")
       rest()
-      var startsOver = function(start) {
+      var cutShort = function(start) {
         var target = watchlist.displayedSymbols.filter(function(s) { return s !== service.featuredSymbol })[0]
         var after = -1
         var replaying = true
@@ -323,30 +484,58 @@ ShellRoot {
           after = body.motion.drawn
           replaying = body.motion.replayRunning
         })
-        rest()
-        return (cut > 0 && after < cut && !replaying) + " " + target + " " + cut.toFixed(2) + "->" + after.toFixed(2)
+        var lowest = lowestUntilRest()
+        return (cut > 0 && after === 1 && !replaying && lowest === 1) + " " + target + " " + cut.toFixed(2) + "->" + after.toFixed(2)
+          + ", lowest " + lowest.toFixed(2)
       }
-      var afterOpen = startsOver(function() { app.close(); app.open("{}") })
-      var afterRange = startsOver(function() { service.setRange("1W"); rest(); service.setRange("1D") })
-      var midReplay = startsOver(function() { body.replay(false) })
-      harness.check("a row featured mid draw-in or mid-replay draws its chart in from the start: after an open, a range change, and in a replay",
-        /^true /.test(afterOpen) && /^true /.test(afterRange) && /^true /.test(midReplay),
-        afterOpen + " | " + afterRange + " | " + midReplay)
+      var afterOpen = cutShort(function() { app.close(); app.open("{}") })
+      var midReplay = cutShort(function() { body.replay(false) })
+      harness.check("a row featured mid draw-in or mid-replay ends it and shows its chart whole at once: after an open, and in a replay",
+        /^true /.test(afterOpen) && /^true /.test(midReplay), afterOpen + " | " + midReplay)
       rest()
+
+      // An open whose chart is on its way, left for the chart already on
+      // show before it lands, owes nothing more: the next change shows
+      // whole. Found in review: the open stayed owed, and the next symbol
+      // drew in.
+      service.feature("AAPL")
+      service.setRange("1D")
+      rest()
+      dropEntry("AAPL|1M")
+      holdAapl.running = true
+      tryVerify(function() { return !holdAapl.running }, 2000)
+      app.close()
+      app.open(JSON.stringify({ symbol: "AAPL", range: "1M" }))
+      var heldOpen = body.chartLoading && body.motion.reveal === 1
+      service.setRange("1D")
+      var backOnShow = !body.chartLoading && body.chartRange === "1D"
+      releaseAapl.running = true
+      tryVerify(function() { return !releaseAapl.running && !service.testHistoryFeed.busy }, 5000)
+      body.featureSymbol(watchlist.displayedSymbols.filter(function(s) { return s !== "AAPL" })[0])
+      var lowestAfter = lowestUntilRest()
+      harness.check("an open left for the chart on show before its own lands draws nothing in on the next change",
+        heldOpen && backOnShow && lowestAfter === 1, heldOpen + "|" + backOnShow + "|" + lowestAfter.toFixed(2))
     }
 
-    // The draw-in as it is rendered: the hero chart grabbed on every frame,
-    // its ink advancing from the left over several distinct frames and
-    // whole in about 320 ms, for a symbol change and a range change, in both
-    // looks. Judged on the pictures (frames.js), not on `reveal`. Found in
-    // the motion audit: #33's checks proved a property moved, while its
-    // 160 ms fade read as no motion at all.
+    // The chart as it is rendered, the hero grabbed on every frame and
+    // judged on the pictures (frames.js), not on `reveal`. Getting around, a
+    // symbol or a range change, shows the whole new chart on the frame it
+    // changes, in both looks; an open draws it in from the left over about
+    // 320 ms. Found in the motion audit: #33's checks proved a property
+    // moved, while its 160 ms fade read as no motion at all.
     function drawInFrames(body, keys) {
+      // A draw-in that `change` starts, judged from the frame `reveal`
+      // leaves whole.
       var run = function(name, change, busyMachine) {
         grab.source = body.chartItem
         busy.target = busyMachine ? body.chartItem.Window.window : null
         harness.busySince = 0
         grab.begin(name)
+        // A few frames at rest first, grabbed: a paint still owed from the
+        // change before (a look, a symbol) would land on the draw-in's first
+        // frame and make it start part drawn.
+        var atRest = grab.frames.length
+        tryVerify(function() { return grab.frames.length >= atRest + 3 && grab.waiting === 0 }, 2000)
         // The draw-in starts as the chart's reveal leaves whole.
         var started = false
         var marked = function() {
@@ -370,51 +559,93 @@ ShellRoot {
         tryVerify(function() { return grab.verdict !== null }, 10000)
         return grab.verdict
       }
-      var results = []
+      var rest = function() { tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000) }
+      // What an open does to the chart, in a window already showing, after
+      // frames at rest: filmed through a close and an open, which leave no
+      // frames at rest, the draw-in read 3 to 28 ms early, against a judge
+      // that fails it from 24. The window's first open, above, is filmed
+      // through the real open from its first painted frame, and a summon
+      // that opens it on a chart on its way, below.
+      var opens = function() { body.motion.revealChart() }
+      // A change of the chart on screen that `change` makes, judged at once
+      // from the frame the chart changes: a few frames at rest first, and
+      // 400 ms after it.
+      var atOnce = function(name, change) {
+        grab.source = body.chartItem
+        grab.begin(name)
+        var at = grab.frames.length
+        // Grabbed, not only asked for: a grab takes the picture a render
+        // later, and frames asked for just before the change showed it.
+        tryVerify(function() { return grab.frames.length >= at + 3 && grab.waiting === 0 }, 2000)
+        grab.start = Date.now() + 100000
+        var marked = false
+        var mark = function() { if (!marked) { marked = true; grab.markStart() } }
+        body.motion.chartChanged.connect(mark)
+        change()
+        tryVerify(function() {
+          return marked && !body.chartLoading && grab.frames.length > 0 && grab.frames[grab.frames.length - 1].at - grab.start >= 400
+        }, 5000)
+        grab.end()
+        body.motion.chartChanged.disconnect(mark)
+        tryVerify(function() { return grab.waiting === 0 }, 3000)
+        grab.judge("atonce")
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        return grab.verdict
+      }
+      var line = function(label, verdict) { return label + " " + (verdict.ok ? "ok" : "FAILED") + ": " + verdict.detail }
+      var shown = []
+      var opened = []
       ;["smooth", "retro"].forEach(function(look) {
         service.persist({ style: look })
         service.setRange("1D")
         service.feature("AAPL")
-        tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000)
+        rest()
+        opened.push(line(look + " open", run("open-" + look, opens)))
         keys.forceActiveFocus()
-        // The number key of the first row that is not AAPL's.
-        var other = body.watchlist.displayedSymbols.findIndex(function(s) { return s !== "AAPL" })
-        var symbol = run("symbol-" + look, function() { keyClick(Qt.Key_1 + other) })
-        var range = run("range-" + look, function() { keyClick(Qt.Key_BracketRight) })
-        results.push(look + " symbol " + (symbol.ok ? "ok" : "FAILED") + ": " + symbol.detail)
-        results.push(look + " range " + (range.ok ? "ok" : "FAILED") + ": " + range.detail)
+        // The number key of DOWN's row: MSFT and NVDA draw AAPL's day here
+        // (the fake curl's), the same picture.
+        var other = body.watchlist.displayedSymbols.indexOf("DOWN")
+        shown.push(line(look + " symbol", atOnce("symbol-" + look, function() { keyClick(Qt.Key_1 + other) })))
+        rest()
+        shown.push(line(look + " range", atOnce("range-" + look, function() { keyClick(Qt.Key_BracketRight) })))
+        rest()
       })
-      // The same on a busy machine: a range change back, in smooth.
+      // An open on a busy machine, in smooth.
       service.persist({ style: "smooth" })
-      tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000)
-      var busyRange = run("range-busy", function() { keyClick(Qt.Key_BracketLeft) }, true)
-      harness.check("on a busy machine, whose animation clock ticks later and later, the chart still reads as drawing in over about 320 ms"
-        + (busyRange.ok ? " — " + busyRange.detail.replace(/^edge [^|]*\| /, "") : ""), busyRange.ok, busyRange.detail)
+      rest()
+      var busyOpen = run("open-busy", opens, true)
+      harness.check("on a busy machine, whose animation clock ticks later and later, an open still reads as drawing in over about 320 ms"
+        + (busyOpen.ok ? " — " + busyOpen.detail.replace(/^edge [^|]*\| /, "") : ""), busyOpen.ok, busyOpen.detail)
 
       // Loading holds still: while the chart asked for is on its way, the
-      // one on show is the same picture on every frame; when it lands, it
-      // draws in. From the day, in both looks, AAPL's month dropped and its
-      // answer held back. With a live mark on the held day, layout.sh. The
-      // draw-in that lands is the real one unless a check makes it wrong:
-      // `wrong.from` where it starts, `wrong.ms` how long it takes.
+      // one on show is the same picture on every frame; when it lands it
+      // shows whole on that frame, or, when an open asked for it, draws in.
+      // From the day, in both looks, AAPL's month dropped and its answer
+      // held back: asked for in the open window, or by a summon that opens
+      // it. With a live mark on the held day, layout.sh. The draw-in an
+      // open's chart lands with is the real one unless a check makes it
+      // wrong: `wrong.from` where it starts, `wrong.ms` how long it takes.
       var right = { from: body.motion.testDrawIn.from, ms: body.motion.testDrawIn.duration }
-      var holds = function(look, wrong) {
+      var holds = function(look, viaOpen, wrong) {
         service.persist({ style: look })
         service.feature("AAPL")
         service.setRange("1D")
-        tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000)
+        rest()
         var entries = Object.assign({}, service.testHistoryFeed.entries)
         delete entries["AAPL|1M"]
         service.testHistoryFeed.entries = entries
         holdAapl.running = true
         tryVerify(function() { return !holdAapl.running }, 2000)
+        if (viaOpen) app.close()
         grab.source = body.chartItem
-        grab.begin("loading-" + look)
+        grab.begin((viaOpen ? "open-loading-" : "loading-") + look)
         grab.start = Date.now() + 100000
-        var started = false
-        var marked = function() { if (!started && body.motion.reveal < 1) { started = true; grab.markStart() } }
-        body.motion.revealChanged.connect(marked)
-        service.setRange("1M")
+        // Marked as the chart asked for lands, whatever it does then.
+        var marked = false
+        var mark = function() { if (!marked && !body.chartLoading) { marked = true; grab.markStart() } }
+        body.motion.chartChanged.connect(mark)
+        if (viaOpen) app.open(JSON.stringify({ symbol: "AAPL", range: "1M" }))
+        else service.setRange("1M")
         var loading = body.chartLoading
         var heldFrames = grab.frames.length
         // Long enough for the halo's ripple and the cap's blink to show.
@@ -423,39 +654,45 @@ ShellRoot {
         body.motion.testDrawIn.from = (wrong || right).from
         body.motion.testDrawIn.duration = (wrong || right).ms
         releaseAapl.running = true
-        tryVerify(function() { return !body.chartLoading && body.motion.reveal === 1 }, 5000)
-        var settledAt = grab.frames.length
-        tryVerify(function() { return grab.frames.length >= settledAt + 4 }, 2000)
+        tryVerify(function() {
+          return marked && !body.chartLoading && body.motion.reveal === 1
+            && grab.frames.length > 0 && grab.frames[grab.frames.length - 1].at - grab.start >= 400
+        }, 5000)
         grab.end()
         body.motion.testDrawIn.from = right.from
         body.motion.testDrawIn.duration = right.ms
-        body.motion.revealChanged.disconnect(marked)
+        body.motion.chartChanged.disconnect(mark)
         tryVerify(function() { return grab.waiting === 0 }, 3000)
         grab.judge("same", grab.framesBefore())
         tryVerify(function() { return grab.verdict !== null }, 10000)
         var held = grab.verdict
-        grab.judge("drawin:ink")
+        grab.judge(viaOpen ? "drawin:ink" : "atonce")
         tryVerify(function() { return grab.verdict !== null }, 10000)
         var landed = grab.verdict
         return { held: held.ok && loading && stillLoading, heldDetail: held.detail, landed: landed }
       }
       ;["smooth", "retro"].forEach(function(look) {
-        var run = holds(look, null)
-        results.push(look + " held " + (run.held ? "ok" : "FAILED") + ": " + run.heldDetail)
-        results.push(look + " landed " + (run.landed.ok ? "ok" : "FAILED") + ": " + run.landed.detail)
+        var inWindow = holds(look, false, null)
+        shown.push(look + " held " + (inWindow.held ? "ok" : "FAILED") + ": " + inWindow.heldDetail)
+        shown.push(line(look + " landed", inWindow.landed))
+        var onOpen = holds(look, true, null)
+        opened.push(look + " held " + (onOpen.held ? "ok" : "FAILED") + ": " + onOpen.heldDetail)
+        opened.push(line(look + " landed", onOpen.landed))
       })
       service.persist({ style: "smooth" })
       service.setRange("1D")
-      // The numbers stay in the line, pass or fail: they are the proof.
-      harness.check("the chart draws in from the left over about 320 ms, as rendered: a symbol and a range change, smooth and retro; a chart on its way holds the one on show, the same picture on every frame, then draws in — "
-        + results.join(" || "), results.every(function(r) { return / ok: /.test(r) }))
+      // The numbers stay in the lines, pass or fail: they are the proof.
+      harness.check("a symbol or range change shows the whole chart on the frame it changes, as rendered, smooth and retro; a chart on its way holds the one on show, the same picture on every frame, then shows whole as it lands — "
+        + shown.join(" || "), shown.every(function(r) { return / ok: /.test(r) }))
+      harness.check("an open draws the chart in from the left over about 320 ms, as rendered, smooth and retro: at once, or, while its chart is on its way, holding the one on show still until it lands — "
+        + opened.join(" || "), opened.every(function(r) { return / ok: /.test(r) }))
 
       // The same capture and judge fail a wrong draw-in where the flaky
       // reading was, retro after a loading hold: the real animation made
       // 160 ms, 400 ms, none, and one that starts 60% drawn and draws the
       // rest in 224 ms.
       var wrong = [{ from: 0, ms: 160 }, { from: 0, ms: 400 }, { from: 0, ms: 0 }, { from: 0.6, ms: 224 }].map(function(w) {
-        var run = holds("retro", w)
+        var run = holds("retro", true, w)
         return "from " + w.from + " in " + w.ms + " ms " + (run.landed.ok ? "PASSED" : "failed") + ": " + run.landed.detail
       })
       service.persist({ style: "smooth" })
@@ -464,15 +701,15 @@ ShellRoot {
         wrong.every(function(r) { return / failed: /.test(r) }))
 
       // A day half gone: AAPL's cut at noon, its ink ending about halfway
-      // along the plot, the rest of the day to come. Its draw-in sweeps to
-      // its newest print, so it takes its whole 320 ms; swept across the
-      // whole plot, the ink would be whole in about 66 ms. In both looks,
-      // retro's in whole columns. The judge reads the ink's extent from the
-      // settled picture, and the step holds it against the newest print's
-      // place, short of the dot or a column: a sweep that stops short of the
-      // print and shows the rest at its end fails either way.
-      // A user's refresh fetches only answers over 10 s old: these are aged
-      // past it, as a minute on the clock would.
+      // along the plot, the rest of the day to come. An open's draw-in
+      // sweeps to its newest print, so it takes its whole 320 ms; swept
+      // across the whole plot, the ink would be whole in about 66 ms. In
+      // both looks, retro's in whole columns. The judge reads the ink's
+      // extent from the settled picture, and the step holds it against the
+      // newest print's place, short of the dot or a column: a sweep that
+      // stops short of the print and shows the rest at its end fails either
+      // way. A user's refresh fetches only answers over 10 s old: these are
+      // aged past it, as a minute on the clock would.
       var refetch = function() {
         var aged = {}
         for (var s in service.testFeed.entries)
@@ -491,9 +728,9 @@ ShellRoot {
       ;["smooth", "retro"].forEach(function(look) {
         service.persist({ style: look })
         service.setRange("1D")
-        service.feature(body.watchlist.displayedSymbols.filter(function(s) { return s !== "AAPL" })[0])
-        tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000)
-        var half = run("half-day-" + look, function() { service.feature("AAPL") })
+        service.feature("AAPL")
+        rest()
+        var half = run("half-day-" + look, opens)
         var points = body.featuredGeometry.points
         var newest = points[points.length - 1].x
         var inkEnd = half.inkEnd || 0
@@ -509,7 +746,7 @@ ShellRoot {
         var q = service.quotes.AAPL
         return q.points[q.points.length - 1].t >= 1788278400 && !service.testFeed.busy
       }, 8000)
-      harness.check("a day half gone, AAPL at noon, draws in over about 320 ms, sweeping to its newest print, smooth and retro — "
+      harness.check("a day half gone, AAPL at noon, draws in over about 320 ms as the window opens, sweeping to its newest print, smooth and retro — "
         + halves.join(" || "), halves.every(function(r) { return / ok /.test(r) }))
     }
 
@@ -552,7 +789,7 @@ ShellRoot {
         + (scrubbed.ok ? " — " + scrubbed.detail : ""), above.length > 0 && below.length > 0 && scrubbed.ok,
         above.length + " prints above, " + below.length + " below: " + scrubbed.detail)
       body.motion.scrubT = 0
-      var featured = run("animal-symbol", "turn:0", function() { service.feature("DOWN") })
+      var featured = run("animal-symbol", "atonce", function() { service.feature("DOWN") })
       harness.check("a new symbol changes the animal at once"
         + (featured.ok ? " — " + featured.detail : ""), featured.ok && body.animal.kind === "bear", body.animal.kind + ": " + featured.detail)
       service.setRange(rangeBefore)
@@ -820,6 +1057,7 @@ ShellRoot {
 
       dayAndHero(body, watchlist, keys)
       motionEnds(body, watchlist, keys)
+      openDebts(body, watchlist, keys)
       drawInFrames(body, keys)
       animalFrames(body)
       closingHolds(body, watchlist, keys)
