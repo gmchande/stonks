@@ -46,7 +46,7 @@ run time.
 - `test/qml/fetch-day.sh`, run by hand and not by `test/all.sh` (it takes minutes), counts a weekday and a weekend of glances for a long list's shape through the real Service and window, and estimates the bytes: the numbers a change to fetching is weighed by.
 - A render fails when its log has a runtime error or a Qt warning naming a plugin file, or it wrote no fresh picture: `render.qml` exits 0 once it has grabbed a frame. It grabs 300 ms in; the live dot, retro's live cap, and a text cursor never settle, so a render that shows one changes with that wait.
 - Count fake-curl calls through a new `FileView` for each read; after `reload()`, `text()` can still return the old count.
-- The popup's window (`PanelWindow`) does not load on the offscreen platform. Popup flows drive the real `Panel` in `popup.sh`, under the Wayland session, without mapping it: the script patches `open: false` into its copy of `Panel.qml`. An unmapped pill has no bar window to place a card from, so `popup.sh` copies the shell's `Ui` and lets its `KeyboardPanel` take the bar window and the pill's spot from the flow; the shell's own placement runs on them. An unmapped popup renders no frames, so `popup-motion.sh` puts its copy of `Panel.qml`'s card in `CardWindow.qml`, a plain window around the shell's own `BorderSurface` that copies only what lives on `KeyboardPanel` itself, its lines named in its comment: keep them in step when the shell changes.
+- The popup's window (`PanelWindow`) does not load on the offscreen platform. Popup flows drive the real `Panel` in `popup.sh`, under the Wayland session, without mapping it: the script patches `open: false` into its copy of `Panel.qml`. An unmapped pill has no bar window to place a card from, so `popup.sh` copies the shell's `Ui` and lets its `KeyboardPanel` take the bar window and the pill's spot from the flow; the shell's own placement runs on them. A second pill sits on an item the flow hands its card as the bar window's content, so the shell places the card from the pill's own spot as the pill changes width. An unmapped popup renders no frames, so `popup-motion.sh` puts its copy of `Panel.qml`'s card in `CardWindow.qml`, a plain window around the shell's own `BorderSurface` that copies only what lives on `KeyboardPanel` itself, its lines named in its comment: keep them in step when the shell changes.
 - `keys.sh` presses every key the key sheet draws and the README's table lists, with real keys through the real popup (in `CardWindow.qml`) and window, a row ending "(popup)" or "(window)" on that surface alone, and fails on a key that changes nothing the surface shows. A new key goes in the README's table; one that needs something to act on (a range to step back from, a removal to undo) gets that in the walk's `setups`.
 - A script patches its copies of plugin files only through `patch_copy` (`lib.sh`), which stops the script before Quickshell starts when a patch changes nothing. The feed harnesses (`run.sh`, `history.sh`) and `overnight.sh`, whose later moments hold one symbol's day, patch a 200 ms retry pause into theirs.
 - A check on motion reads it on its frames, from a change handler on the animated property, and a wait waits on an event (`within`, `tryVerify`); a fixed sleep into an animation or a debounce fails on a slow frame.
@@ -178,12 +178,16 @@ run time.
 - `Panel.qml` — the popup: lifecycle, keys, look, and the popup layout. The
   card is placed under its pill in whatever section of the bar it sits (the
   shell's `KeyboardPanel` without `centerOnBar`, which put it at the bar's
-  centre). The first visit there ever shows the body's first-run hint, on
-  opening or once the service is ready if it opened first, and has the
-  service save `hinted`, so no visit after it, a restart included, shows
-  it again. A visit whose footer shows a notice ahead of the hint (the data
-  file can't be read, an update waits) neither shows nor saves it; the
-  next visit without one does. Its height is the list's whole rows under
+  centre), where the pill was as it opened from closed: the shell follows
+  its anchor live (`KeyboardPanel`'s `cardOrigin`), so the anchor is a
+  stand-in held there, and nothing pressed in the open popup (`c` into
+  "open", a narrower featured symbol) moves it sideways; the next open
+  takes the pill's new place. The first visit there ever shows the body's
+  first-run hint, on opening or once the service is ready if it opened
+  first, and has the service save `hinted`, so no visit after it, a
+  restart included, shows it again. A visit whose footer shows a notice
+  (the data file can't be read, an update waits) neither shows nor saves
+  it; the next visit without one does. Its height is the list's whole rows under
   the cap (`StonksBody.fittedHeight`). The header's `?` (or the key) swaps
   everything under the header for the key sheet, and the popup takes the
   sheet's height. While the card is open, its edge eases to a new height
@@ -266,12 +270,14 @@ run time.
   starts with the day's animal and ends in the look and `?`. The listing
   line names its currency once: a pair's name that ends with it ("Bitcoin
   USD") is not followed by it again (`Figures.listingMeta`). The footer
-  says a note in the foreground for a
-  moment; under it, until what it says is fixed, a notice, in the
+  says a note in the foreground for a moment, held while the pointer is on
+  it, a removal's with "click or u to undo" said whole, so a long list name
+  is what gets cut; under it, until what it says is fixed, a notice, in the
   foreground too: "grvc.stonks.json can't be read, so changes aren't being
   saved", whose click does nothing, ahead of "Updated to x · restart the
-  shell", whose click restarts it; or the body's `hint` quietly, on two
-  lines, for the visit.
+  shell", whose click restarts it. Above it, quietly, the body's `hint` for
+  the visit, a line of its own that never takes the place of "+ Add a
+  symbol" and takes no click.
 - `LookIcon.qml` — the look a click switches to, as a small line chart, the
   way a button shows what pressing it does (the chart already shows the
   current look): Stonks' mark (`Cells.markPoints`) in cells (`StonksMark`)
@@ -603,14 +609,19 @@ run time.
 - All always keeps one symbol (`Settings.canRemove`); a refused removal says
   why in the footer for a moment. A removal by `x` (or Delete in the
   window), a right- or middle-click on a row, or unticking All in a
-  symbol's lists names the symbol in the footer for five seconds,
-  and `u` or a click on that note puts it back where it was in every list
+  symbol's lists names the symbol in the footer for five seconds, longer
+  while the pointer is on the note, and `u`, or a click on that note, puts
+  it back where it was in every list
   (`Settings.withRemovalUndone`, from the settings the service kept), with the
   quote the service kept, so it needs no fetch; its row joins at its place
   and the list eases it into view. A hero a removal or its undo
   moves draws its chart in, as any change of the chart does. A hero
-  chosen since stays chosen, and the offer stands only while it is the
-  service's last removal: a newer one on another surface drops it.
+  chosen since stays chosen. `u` takes back the service's last removal,
+  from either surface, long after its note has gone, until the next change
+  to what the lists hold (an add, a membership, a hand-made order, a list
+  made, renamed, moved, or deleted; `Settings.sameLists`), which ends the
+  offer and the note with it; a sort, a switch, a feature, or a close
+  keeps it. With nothing to take back, `u` says "Nothing to undo".
   Unticking a named list in the checklist offers no undo; the checklist
   stays open to tick it again. The order and the change mode are separate
   settings: sorting ranks the rows and never changes their figures. Each list
