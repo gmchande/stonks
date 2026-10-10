@@ -250,9 +250,13 @@ function printClock(quote, t, calendars) {
 // when the exchange has said. "Closes in" already says it is open. After
 // the bell the phase stands on its own, with the regular close named so
 // 16:00 is never mistaken for the end of after-hours trading. While
-// scrubbing, where in the day the finger is.
+// scrubbing, where in the day the finger is: at the close's own time, the
+// closing bell, when it reads the close (`Quote.readingAt`).
 function marketStatus(quote, now, scrubT, calendars) {
-  if (scrubT) return "At " + printClock(quote, scrubT, calendars) + " · " + phaseLabel(scrubPhase(quote, scrubT))
+  if (scrubT) {
+    var read = Quote.readingAt(quote, scrubT)
+    return "At " + printClock(quote, read.t, calendars) + " · " + phaseLabel(read.close ? "closing" : scrubPhase(quote, scrubT))
+  }
   var cal = calendarFor(calendars, quote)
   var brk = cal ? breakUntil(cal, now) : null
   if (brk) {

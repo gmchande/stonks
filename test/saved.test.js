@@ -63,7 +63,7 @@ test("parseChart drops a null close, even on the newest bar the stray filter nev
   expect(M.parseChart(json).points.map(p => p.t)).toEqual(quote.points.map(p => p.t).filter(t => t !== gone))
 })
 
-test("across every saved intraday response the filter drops only those five bars", () => {
+test("across every saved intraday response the filter drops only those nine bars", () => {
   const days = [
     ["aapl.json", []],
     ["aapl-2026-09-04-day-prepost.json", []],
@@ -73,7 +73,10 @@ test("across every saved intraday response the filter drops only those five bars
     ["btc-usd-day.json", []],
     ["nbis-2026-09-11-day-prepost.json", [1789158000]],
     ["spy-2026-09-11-day-prepost.json", [1789156800]],
-    ["msft-2026-09-11-day-prepost.json", [1789157100, 1789162200, 1789162500]]
+    ["msft-2026-09-11-day-prepost.json", [1789157100, 1789162200, 1789162500]],
+    // BRK-B's after hours on Friday 2 October: 520.93, 489.66, 500.31, and
+    // 489.66 between 502.80 and 502.65, 30, 5, 10, and 10 minutes apart.
+    ["overnight/sweep-2026-10-03-1200/brk-b.json", [1790973900, 1790974200, 1790974800, 1790975400]]
   ]
   for (const [name, expected] of days) {
     const json = fixture(name)
@@ -93,6 +96,11 @@ test("across every saved intraday response the filter drops only those five bars
   const msft = M.parseChart(fixture("msft-2026-09-11-day-prepost.json"))
   expect(msft.points.filter(p => [1789157400, 1789161900, 1789162800].indexOf(p.t) >= 0).map(p => p.p))
     .toEqual([495.3218, 495.4, 495.0108])
+  // RVII's after hours on Thursday 1 October: 21.63 at 18:25 and 21.30 at
+  // 18:40 after 21.50 at 18:20, and the bar after opens back at 21.50: a thin
+  // stock's own trades, BRK-B's shape two bars long. A mixed run is three.
+  const rvii = M.parseChart(fixture("overnight/night/rvii.json"))
+  expect(rvii.points.filter(p => p.t === 1790893500 || p.t === 1790894400).map(p => p.p)).toEqual([21.63, 21.3])
 })
 
 test("the headline is Yahoo's regular-market quote with its own time; the chart only stands in", () => {
@@ -127,6 +135,18 @@ test("a bucket stamped at the bell is post-market, and the quote a second later 
   // The closing quote one second after the bell is still the regular quote,
   // not the bell bucket's 319.92.
   expect(M.headlineQuote(sep4)).toEqual({ price: 319.97, t: sep4Reg.end + 1, source: "quote" })
+})
+
+test("after the close, the session's last print reads the close at the bell, and the bucket after it reads itself", () => {
+  // London on Wednesday 7 October, fetched 14:55 New York: its last regular
+  // bucket is 16:25 at 3,646.50, its close 3,648.00 stamped 17:20:32 BST,
+  // after its 16:30 and 16:35 buckets.
+  const london = M.parseChart(fixture("overnight/sweep-2026-10-07-1455/shel.l.json"))
+  const bell = london.session.regular.end
+  expect(london.marketTime).toBeGreaterThan(bell)
+  expect(M.readingAt(london, bell - 300)).toEqual({ price: 3648, t: bell, close: true })
+  expect(M.marketStatus(london, 0, bell - 300, calendars)).toBe("At 16:30 BST · Closing bell")
+  expect(M.readingAt(london, bell)).toEqual({ price: 3657, t: bell, close: false })
 })
 
 test("the day is drawn whole, and its range holds the previous close", () => {

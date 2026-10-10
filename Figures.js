@@ -141,8 +141,8 @@ function listBreadth(symbols, quotes, scrubT, mode) {
   var out = { up: 0, flat: 0, down: 0, none: 0 }
   for (var i = 0; i < symbols.length; i++) {
     var quote = quotes[symbols[i]]
-    var head = quote ? Quote.headlineQuote(quote) : null
-    var price = quote ? (scrubT ? Quote.priceAt(quote, scrubT) : (head ? head.price : null)) : null
+    var read = quote ? (scrubT ? Quote.readingAt(quote, scrubT) : Quote.headlineQuote(quote)) : null
+    var price = read ? read.price : null
     var chg = quote ? Quote.change(quote, price, mode) : null
     if (!chg || chg.pct === null) out.none++
     else out[Format.changeTone(chg, mode, quote.priceDigits)]++
@@ -151,19 +151,19 @@ function listBreadth(symbols, quotes, scrubT, mode) {
 }
 
 // The one projection every price on screen comes from. The headline is
-// the regular-market quote; a non-zero scrubT reads the sample at that
-// moment. dayUp is always versus the previous close, so the chart fill does
-// not flip when the change mode does, and it is the direction at the moment
-// shown, as a range's is. dayTone is that change's tone, flat when it rounds
-// to nothing, so the bull and bear follow a scrub and a replay, and a flat
-// day has neither.
+// the regular-market quote; a non-zero scrubT reads that moment of the day
+// (`Quote.readingAt`). dayUp is always versus the previous close, so the
+// chart fill does not flip when the change mode does, and it is the
+// direction at the moment shown, as a range's is. dayTone is that change's
+// tone, flat when it rounds to nothing, so the bull and bear follow a scrub
+// and a replay, and a flat day has neither.
 // It carries no drawing: a line is drawn from its quote, so it redraws when
 // the quote does, not with the clock or the change mode. Nor does it read
 // the clock, so a row is not derived again every second. Pass the
 // already-snapped scrub time.
 function rowModel(quote, scrubT, changeMode) {
-  var head = Quote.headlineQuote(quote)
-  var price = scrubT ? Quote.priceAt(quote, scrubT) : (head ? head.price : null)
+  var read = scrubT ? Quote.readingAt(quote, scrubT) : Quote.headlineQuote(quote)
+  var price = read ? read.price : null
   var chg = Quote.change(quote, price, changeMode)
   var direction = Quote.change(quote, price, "pct")
   return {
@@ -171,7 +171,7 @@ function rowModel(quote, scrubT, changeMode) {
     name: quote.name,
     price: price,
     priceText: Format.money(price, quote.priceDigits),
-    asOf: scrubT ? scrubT : (head ? head.t : null),
+    asOf: read ? read.t : null,
     // Null stays null: an unavailable change must not read as unchanged.
     pct: chg.pct,
     tone: Format.changeTone(chg, changeMode, quote.priceDigits),
