@@ -745,10 +745,12 @@ run time.
   where the listing's clock is not the reader's, its time sits beside the
   symbol (`Market.listingClock`), named by the exchange's city where Stonks
   knows it, else by its zone, so never a wrong city; the words then name no
-  zone. A listing with no calendar has only its answer's offset, so its
-  clock shows only from an answer of the last hour, never one held across
-  a change of clocks. A warning or an "As of" stays, the words waiting
-  behind it; the clock, the market's and not the quote's, shows over them.
+  zone. A listing with no calendar has only its answer's offset (Qt's
+  JavaScript knows no other zone's rules), so its clock shows only from an
+  answer of the last 20 minutes, the slowest refresh's: in the minutes
+  after its clocks change and before the next answer it can still be an
+  hour out. A warning or an "As of" stays, the words waiting behind it;
+  the clock, the market's and not the quote's, shows over them.
   Only the pointer starts the rest, by a move or the wheel, so a sweep
   shows no words and keys never do; a key moving the cursor off the row,
   the rows moving it from under the pointer (Shift+J, another order), the

@@ -262,12 +262,15 @@ var CITIES = {
 // "CEST 09:55" where Stonks knows no city for the exchange. "" where the
 // reader keeps the listing's time, and for a cryptocurrency, which keeps
 // no exchange's hours. A listing with no calendar has only its answer's
-// offset, an hour out once its clocks change, so it shows a clock only
-// from an answer received (`receivedAt`) in the last hour.
+// offset, an hour out once its clocks change, and Qt's JavaScript knows no
+// other zone's rules, so it shows a clock only from an answer received
+// (`receivedAt`) in the last 20 minutes, the slowest refresh's while a
+// surface is open: past a change of clocks, the next answer brings the new
+// offset.
 function listingClock(quote, now, calendars, receivedAt) {
   if (!quote || quote.crypto) return ""
   var cal = quote.calendar || calendarFor(calendars, quote)
-  if (!cal && !(now - receivedAt < 3600)) return ""
+  if (!cal && !(now - receivedAt < 20 * 60)) return ""
   var offset = cal ? localDate(now, cal).offset : quote.gmtoffset
   if (offset === Format.readerOffset(now)) return ""
   var place = CITIES[quote.exchange] || (cal ? zoneName(cal, offset, quote) : quote.zoneName || Format.offsetName(offset))

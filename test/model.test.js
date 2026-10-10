@@ -127,11 +127,11 @@ test("a listing's clock names its exchange's city where Stonks knows it, else it
   expect(M.marketStatus(jpx, holiday, 0, calendars, true)).toBe("Constitution Memorial Day · opens Thu 09:00")
   expect(M.marketStatus(jpx, holiday, 0, calendars, true, true)).toBe("Closed · opens Thu 09:00")
   // No calendar and no city Stonks knows: Frankfurt's zone, never Berlin,
-  // by the answer's offset, so only from an answer of the last hour: one
-  // held across a change of clocks would be an hour out.
+  // by the answer's offset, so only from an answer of the last refresh's 20
+  // minutes: one held across a change of clocks would be an hour out.
   const xetra = { symbol: "SAP.DE", exchange: "XETRA", timezoneName: "Europe/Berlin", gmtoffset: 7200, zoneName: "CEST", crypto: false }
   expect(M.listingClock(xetra, lunch, calendars, lunch - 600)).toBe("CEST 05:00")
-  expect(M.listingClock(xetra, lunch, calendars, lunch - 3600)).toBe("")
+  expect(M.listingClock(xetra, lunch, calendars, lunch - 20 * 60)).toBe("")
   expect(M.listingClock(xetra, lunch, calendars, 0)).toBe("")
   // An index on New York's calendar, an exchange with no city of its own.
   const index = { symbol: "^GSPC", exchange: "S&P", timezoneName: "America/New_York", gmtoffset: -14400, crypto: false }
