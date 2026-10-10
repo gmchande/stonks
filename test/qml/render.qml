@@ -87,36 +87,61 @@ ShellRoot {
   // <popup|min-window>-holiday-<tokyo|london>-<look>: the calendars' longest
   // closures, at the exchange's noon, the listing's own saved day featured:
   // Tokyo's Constitution Memorial Day observed (6 May 2026) and London's
-  // Christmas Day (substitute day) (27 December 2027).
+  // Christmas Day (substitute day) (27 December 2027); with -hover, under a
+  // resting pointer, AAPL featured.
   readonly property var closure: {
-    var match = /^(?:popup|min-window)-holiday-(tokyo|london)-(smooth|retro)$/.exec(stateName)
-    return !match ? null : match[1] === "tokyo" ? { symbol: "7203.T", file: "7203-t-day", date: "2026-05-06" }
-      : { symbol: "SHEL.L", file: "shel-l-day", date: "2027-12-27" }
+    var match = /^(?:popup|min-window)-holiday-(tokyo|london)(-hover)?-(smooth|retro)$/.exec(stateName)
+    return !match ? null : match[1] === "tokyo" ? { symbol: "7203.T", file: "7203-t-day", date: "2026-05-06", hover: !!match[2] }
+      : { symbol: "SHEL.L", file: "shel-l-day", date: "2027-12-27", hover: !!match[2] }
   }
+  // The row a -hover state's pointer rests on.
+  readonly property string hoverSymbol: overnight && overnight.hover ? overnight.symbol : closure && closure.hover ? closure.symbol : ""
+  // A resting pointer's words and clock are never cut: the render fails
+  // where either is elided, and says where the row is and what each reads,
+  // at its width and the room it has.
+  function hoverCut() {
+    var row = body.watchlist.rowItem(hoverSymbol)
+    var said = []
+    var cut = []
+    for (var i = 0; i < row.children.length; i++) {
+      var text = row.children[i]
+      if (["rowClock", "rowMoment", "rowName"].indexOf(text.objectName) < 0 || !text.visible) continue
+      said.push(text.objectName + " \"" + text.text + "\" " + Math.ceil(text.implicitWidth) + "/" + Math.floor(text.width) + " px")
+      if (text.truncated) cut.push(text.objectName)
+    }
+    var at = row.mapToItem(null, 0, 0)
+    console.log("hover " + requested + " at " + [Math.round(at.x), Math.round(at.y), Math.round(row.width), Math.round(row.height)].join(",")
+      + ": " + said.join(", "))
+    if (cut.length) console.error("Error: the resting pointer's " + cut.join(" and ") + " cut short")
+  }
+
   // popup-overnight-<moment>-<symbol>-<look>: a saved moment from
   // test/fixtures/overnight, NBIS, SNOW, and RVII with Robinhood's prints;
   // at the live moment (Monday 5 October, 00:36), NBIS, ET, and TLN, on 1D
   // or on 1M (-1m), at rest or scrubbed (-1m-scrub); at a dated moment
-  // (<date>-<hhmm>, New York), NBIS alone, on 1D at rest or scrubbed to its
-  // last print (-scrub). Robinhood trades every one of them all day there.
-  // <popup|window>-sweep-<moment>-<symbol>-<look>: the listing sweep's
-  // moments (sweep-<date>-<hhmm>), every kind of listing on 1D at rest:
-  // NBIS, PSIX, SPY, BLDP, the S&P 500 (gspc), BTC-USD, SHEL.L, and 7203.T,
-  // with Robinhood's saved answers on which it trades all day.
-  // <popup|window>-sweep-own-<shel.l|7203.t>-<look>: the 7 October 14:55
-  // sweep with London before its session, or Tokyo at lunch, from that
-  // listing's own saved day, at a clock inside that moment.
+  // (<date>-<hhmm>, New York), NBIS alone, on 1D at rest, scrubbed to its
+  // last print (-scrub), or under a resting pointer (-hover). Robinhood
+  // trades every one of them all day there.
+  // <popup|window|min-window>-sweep-<moment>-<symbol>[-hover]-<look>: the
+  // listing sweep's moments (sweep-<date>-<hhmm>), every kind of listing on
+  // 1D at rest: NBIS, PSIX, SPY, BLDP, the S&P 500 (gspc), BTC-USD, SHEL.L,
+  // and 7203.T, with Robinhood's saved answers on which it trades all day.
+  // -hover: the pointer resting on that listing's row, listed first, the
+  // next one featured.
+  // <popup|window|min-window>-sweep-own-<shel.l|7203.t>[-hover]-<look>: the
+  // 7 October 14:55 sweep with London before its session, or Tokyo at
+  // lunch, from that listing's own saved day, at a clock inside that moment.
   readonly property var overnight: {
-    var match = /^popup-overnight-(day|night|sunday|live|\d{4}-\d\d-\d\d-\d{4})-(nbis|snow|rvii|et|tln)(-1m|-1m-scrub|-scrub)?-(smooth|retro)$/.exec(stateName)
+    var match = /^popup-overnight-(day|night|sunday|live|\d{4}-\d\d-\d\d-\d{4})-(nbis|snow|rvii|et|tln)(-1m|-1m-scrub|-scrub|-hover)?-(smooth|retro)$/.exec(stateName)
     if (match) return { moment: match[1], symbol: match[2].toUpperCase(), month: match[3] === "-1m" || match[3] === "-1m-scrub",
-      scrub: !!match[3] && match[3] !== "-1m", dated: /^\d/.test(match[1]), sweep: false }
-    match = /^(?:popup|window)-sweep-own-(shel\.l|7203\.t)-(smooth|retro)$/.exec(stateName)
+      scrub: !!match[3] && match[3].indexOf("scrub") >= 0, hover: match[3] === "-hover", dated: /^\d/.test(match[1]), sweep: false }
+    match = /^(?:popup|window|min-window)-sweep-own-(shel\.l|7203\.t)(-hover)?-(smooth|retro)$/.exec(stateName)
     if (match) return { moment: "2026-10-07-1455", symbol: match[1].toUpperCase(), month: false, scrub: false, dated: true, sweep: true,
-      own: match[1] === "shel.l" ? { file: "shel-l-day", at: Date.UTC(2026, 9, 2, 5, 30) / 1000 }
+      hover: !!match[2], own: match[1] === "shel.l" ? { file: "shel-l-day", at: Date.UTC(2026, 9, 2, 5, 30) / 1000 }
         : { file: "7203-t-day", at: Date.UTC(2026, 9, 2, 2, 45) / 1000 } }
-    match = /^(?:popup|window)-sweep-(\d{4}-\d\d-\d\d-\d{4})-(nbis|psix|spy|bldp|gspc|btc-usd|shel\.l|7203\.t|shib-usd|ry\.to|brk-a|brk-b)-(smooth|retro)$/.exec(stateName)
+    match = /^(?:popup|window|min-window)-sweep-(\d{4}-\d\d-\d\d-\d{4})-(nbis|psix|spy|bldp|gspc|btc-usd|shel\.l|7203\.t|shib-usd|ry\.to|brk-a|brk-b)(-hover)?-(smooth|retro)$/.exec(stateName)
     return match ? { moment: match[1], symbol: match[2] === "gspc" ? "^GSPC" : match[2].toUpperCase(), month: false, scrub: false,
-      dated: true, sweep: true } : null
+      dated: true, sweep: true, hover: !!match[3] } : null
   }
   // popup-fill-<day>-<look>[-<theme>]: the 1D wash on an up day (SPY 11
   // Sep), a down day (AAPL 4 Sep), and a day across its baseline (NBIS 11
@@ -373,7 +398,7 @@ ShellRoot {
       var listed = looked ? ["NBIS", "PSIX", "SPY", "BLDP", "^GSPC", "BTC-USD", "SHIB-USD", "SHEL.L", "7203.T", "RY.TO", "BRK-A", "BRK-B"]
         : root.overnight.sweep ? ["NBIS", "PSIX", "SPY", "BLDP", "^GSPC", "BTC-USD", "SHEL.L", "7203.T"]
         : live ? ["NBIS", "ET", "TLN"] : root.overnight.dated ? ["NBIS"] : ["NBIS", "SNOW", "RVII"]
-      if (looked) listed = [root.overnight.symbol].concat(listed.filter(function(s) { return s !== root.overnight.symbol }))
+      if (looked || root.overnight.hover) listed = [root.overnight.symbol].concat(listed.filter(function(s) { return s !== root.overnight.symbol }))
       // The US listings: Robinhood's word on which it trades all day, saved
       // with the sweep's moments, and every one at the moments before them.
       var us = looked ? ["NBIS", "PSIX", "SPY", "BLDP", "BRK-A", "BRK-B"]
@@ -415,7 +440,7 @@ ShellRoot {
       stub.nights = nights
       stub.allDay = allDay
       stub.order = "manual"
-      stub.featuredSymbol = root.overnight.symbol
+      stub.featuredSymbol = root.overnight.hover ? listed[1] || listed[0] : root.overnight.symbol
       return
     }
 
@@ -429,7 +454,7 @@ ShellRoot {
       stub.shown = stub.symbols.slice()
       stub.quotes = { [root.closure.symbol]: closedQuote, AAPL: aapl }
       stub.entries = { [root.closure.symbol]: { status: "ok", receivedAt: root.now }, AAPL: { status: "ok", receivedAt: root.now } }
-      stub.featuredSymbol = root.closure.symbol
+      stub.featuredSymbol = root.closure.hover ? "AAPL" : root.closure.symbol
       return
     }
 
@@ -562,6 +587,12 @@ ShellRoot {
 
   Component.onCompleted: {
     load()
+    // -hover: the pointer at rest on a row, its moment shown whole.
+    if (root.hoverSymbol) Qt.callLater(function() {
+      body.watchlist.cursorSymbol = root.hoverSymbol
+      body.watchlist.restingSymbol = root.hoverSymbol
+      body.watchlist.settleRows()
+    })
     if (root.searchState) {
       body.adding = true
       body.search.results = Search.parseSearch(JSON.parse(searchFile.text()))
@@ -973,10 +1004,13 @@ ShellRoot {
     Timer {
       interval: 300
       running: true
-      onTriggered: frame.grabToImage(function(result) {
-        result.saveToFile(root.outPath)
-        exitTimer.start()
-      })
+      onTriggered: {
+        if (root.hoverSymbol) root.hoverCut()
+        frame.grabToImage(function(result) {
+          result.saveToFile(root.outPath)
+          exitTimer.start()
+        })
+      }
     }
   }
 
