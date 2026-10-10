@@ -24,8 +24,17 @@ Item {
   property int now: Math.floor(Date.now() / 1000)
   // A symbol whose fundamentals were asked for before its first quote.
   property string pendingFundamentals: ""
-  // What the last removal took and the settings from just before it.
+  // What the last removal took and the settings from just before it, on
+  // offer until the next change to what the lists hold, however it comes: a
+  // change here, on either surface, or in the data file.
   property var lastRemoval: null
+  property string listsHeld: ""
+  onDataSettingsChanged: {
+    var held = Settings.listsHeld(root.dataSettings)
+    if (held === root.listsHeld) return
+    root.listsHeld = held
+    root.lastRemoval = null
+  }
   // Symbols just added whose first answer is not in: neither a quote nor a
   // first fetch that failed for good. They are members, saved and fetched,
   // but no list shows them until then.
@@ -659,8 +668,8 @@ Item {
 
   // A removal remembers the settings before it, the hero it left, and the
   // symbol's quote, so it can be taken back as it was without undoing
-  // anything chosen since. It is the one
-  // removal on offer, whichever surface made it.
+  // anything chosen since. It is the one removal on offer, whichever surface
+  // made it, until the next change to the lists.
   function remove(symbol, next) {
     var before = root.dataSettings
     var quote = feed.quotes[symbol] || null

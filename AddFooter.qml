@@ -4,11 +4,14 @@ import qs.Ui
 import "Tones.js" as Tones
 
 // Pinned "+ Add a symbol" bar. Surfaces own the add flow. For a moment it can
-// carry a note instead, in the foreground, when a key was refused; until
-// what it says is fixed, a notice, in the foreground too, under any note,
-// whose click is the surface's (`acts`); or, quiet as the label, a hint for
-// the visit. It is painted in its surface's ground, so riding a growing edge
-// it covers the rows it passes.
+// carry a note instead, in the foreground: why a key did nothing, or what a
+// removal took, with what a click does about it (`noteAction`), said whole
+// so a long list name is what gets cut. It stays while the pointer is on
+// it (`hovered`). Until what it says is fixed, a notice, in the foreground
+// too, under any note, whose click is the surface's (`acts`). A hint for the
+// visit is a quiet line of its own above the bar, which it never replaces,
+// and takes no click. It is painted in its surface's ground, so riding a
+// growing edge it covers the rows it passes.
 Item {
   id: root
 
@@ -18,6 +21,7 @@ Item {
   property string fontFamily: Style.font.family
   property int rowHeight: Style.space(30)
   property string note: ""
+  property string noteAction: ""
   property string notice: ""
   property string hint: ""
   // A click does something: the add, an undo, or the notice's own action.
@@ -25,9 +29,14 @@ Item {
   property string label: "+  Add a symbol"
   property color ground: "transparent"
 
+  readonly property bool hovered: addMouse.containsMouse
+
   signal clicked()
 
-  implicitHeight: rowHeight + Style.space(6)
+  // The hint's lines and the gap under them, above the bar; none without one.
+  readonly property int hintHeight: hint !== "" ? hintText.implicitHeight + Style.space(6) : 0
+
+  implicitHeight: hintHeight + rowHeight + Style.space(6)
   height: implicitHeight
 
   Rectangle {
@@ -35,32 +44,62 @@ Item {
     color: root.ground
   }
 
-  PanelSeparator {
+  Text {
+    id: hintText
+    objectName: "footerHint"
+    visible: root.hint !== ""
     anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    // A line wider than the card, at a theme's own spacing, wraps; the hint
+    // takes the height it needs.
+    wrapMode: Text.WordWrap
+    horizontalAlignment: Text.AlignHCenter
+    textFormat: Text.PlainText
+    text: root.hint
+    color: root.dim
+    font.family: root.fontFamily
+    font.pixelSize: Style.font.bodySmall
+  }
+
+  PanelSeparator {
+    y: root.hintHeight
     foreground: root.foreground
     strength: 0.08
   }
 
   Rectangle {
     anchors.fill: parent
-    anchors.topMargin: Style.space(6)
+    anchors.topMargin: root.hintHeight + Style.space(6)
     radius: root.retro ? 0 : Style.cornerRadius
     color: root.acts && addMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
 
-    Text {
-      objectName: "footerText"
+    Row {
       anchors.centerIn: parent
-      width: Math.min(implicitWidth, parent.width - Style.space(20))
-      elide: Text.ElideRight
-      // The hint is longer than the popup is wide: it says its last part on
-      // a second line, in the footer's height.
-      horizontalAlignment: Text.AlignHCenter
-      lineHeight: text.indexOf("\n") >= 0 ? 0.9 : 1
-      textFormat: Text.PlainText
-      text: root.note !== "" ? root.note : root.notice !== "" ? root.notice : root.hint !== "" ? root.hint : root.label
-      color: root.note !== "" || root.notice !== "" ? root.foreground : root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
+
+      Text {
+        objectName: "footerText"
+        width: Math.min(implicitWidth, root.width - Style.space(20) - (noteAction.visible ? noteAction.implicitWidth : 0))
+        elide: Text.ElideRight
+        // Cut short, it ends against its action, not a gap's width away.
+        horizontalAlignment: Text.AlignRight
+        textFormat: Text.PlainText
+        text: root.note !== "" ? root.note : root.notice !== "" ? root.notice : root.label
+        color: root.note !== "" || root.notice !== "" ? root.foreground : root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      Text {
+        id: noteAction
+        objectName: "footerAction"
+        visible: root.note !== "" && root.noteAction !== ""
+        textFormat: Text.PlainText
+        text: root.noteAction
+        color: root.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
     }
 
     MouseArea {

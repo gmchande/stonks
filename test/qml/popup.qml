@@ -63,7 +63,7 @@ ShellRoot {
     }
     function refresh() { test.refreshes++ }
     function fetchFundamentals(symbol) { test.fundamentalsCalls++ }
-    function persist(values) {}
+    function persist(values) { if (values.changeMode !== undefined) changeMode = values.changeMode }
     function feature(symbol) { featuredSymbol = symbol }
     function setRange(value) { range = value }
     function surfaceShown(surface, open) { if (open) test.opensTold++ }
@@ -111,6 +111,20 @@ ShellRoot {
     bar: api
     settings: ({ id: "grvc.stonks", barStyle: "sparkline" })
   }
+  // A second real pill, on a stand-in for its bar window's content: an
+  // unmapped window has no content item to place a card from. The shell's
+  // placement runs whole on it, from the pill's spot there.
+  Item {
+    id: placedBar
+    width: 1200
+    height: Style.bar.sizeHorizontal
+    Stonks.BarWidget {
+      id: placedPill
+      x: 400
+      bar: api
+      settings: ({ id: "grvc.stonks", barStyle: "text" })
+    }
+  }
   // The real data service and a popup on it, for what must outlive a
   // restart: the first-run hint. HOME is the harness's scratch one, with no
   // data file, as on a fresh install. The popup opens at once, while the
@@ -131,6 +145,8 @@ ShellRoot {
     openedUnready = !hintService.pluginsReady
     hintPanel.open()
   }
+  property string removedEarlier: ""
+  property string noteSaid: ""
   QtObject {
     id: hintShell
     function serviceFor() { return { service: test.hintService, updates: hintUpdates } }
@@ -166,6 +182,20 @@ ShellRoot {
   }
   function footerText(panel) {
     return String(test.find(test.find(panel.testBody, "footer"), "footerText").text)
+  }
+  readonly property string hintStart: "Drag the pill to move it along the bar"
+  // The first visit's hint as its line above the footer shows it; "" with
+  // none.
+  function hintLine(panel) {
+    var line = test.find(test.find(panel.testBody, "footer"), "footerHint")
+    return line && line.visible ? String(line.text) : ""
+  }
+  // The hint's line ends above the footer's words.
+  function hintAbove(panel) {
+    var footer = test.find(panel.testBody, "footer")
+    var line = test.find(footer, "footerHint")
+    var words = test.find(footer, "footerText")
+    return !!line && line.mapToItem(footer, 0, line.height).y <= words.mapToItem(footer, 0, 0).y
   }
   function restartsAsked() {
     var view = Qt.createQmlObject('import Quickshell.Io; FileView { blockLoading: true; printErrors: false }', test)
@@ -842,17 +872,21 @@ ShellRoot {
           panel.testContentHeightChanged.disconnect(test.recordHeight)
           test.edgeFrames.destroy()
           panel.close()
-          // The first popup visit on a fresh install shows the hint in the
-          // footer's place, though it opened before the service was ready;
-          // the next open does not.
-          var firstHint = test.hintPanel.testBody.hint
+          // The first popup visit on a fresh install shows the hint, though
+          // it opened before the service was ready, as a line of its own
+          // above the footer, which still says "+ Add a symbol"; the next
+          // open does not. It used to take the footer's place.
+          var firstHint = test.hintLine(test.hintPanel)
+          var firstFooter = test.footerText(test.hintPanel)
+          var firstAbove = test.hintAbove(test.hintPanel)
           test.hintPanel.close()
           test.hintPanel.open()
-          var secondHint = test.hintPanel.testBody.hint
+          var secondHint = test.hintLine(test.hintPanel)
           test.hintPanel.close()
-          test.check("the first popup visit shows the hint, opened before the service was ready, and the next does not",
-            test.openedUnready && firstHint.indexOf("Drag the pill anywhere") === 0 && secondHint === "",
-            test.openedUnready + "|" + firstHint + "|" + secondHint)
+          test.check("the first popup visit shows the hint above \"+ Add a symbol\", opened before the service was ready, and the next does not",
+            test.openedUnready && firstHint.indexOf(test.hintStart) === 0 && firstFooter === "+  Add a symbol" && firstAbove
+              && secondHint === "",
+            [test.openedUnready, firstHint, firstFooter, firstAbove, secondHint].join("|"))
         } else if (test.step === 28) {
           // A restart, of the service and the popup, reads that it has shown
           // from the data file: the first open after it shows no hint.
@@ -875,7 +909,7 @@ ShellRoot {
           var onReadyOpen = test.hintPanel.testBody.hint
           test.hintPanel.close()
           test.check("an open with the service ready shows the hint when the file has not",
-            onReadyOpen.indexOf("Drag the pill anywhere") === 0 && test.hintService.hinted, onReadyOpen)
+            onReadyOpen.indexOf(test.hintStart) === 0 && test.hintService.hinted, onReadyOpen)
           test.hintPanel.close()
         } else if (test.step === 30) {
           // The data file goes bad by hand while the popup is closed.
@@ -959,11 +993,11 @@ ShellRoot {
           if (test.hold(!writer.running)) return
           var savedBehindUpdate = test.savedSettings().hinted
           test.hintPanel.open()
-          var hintAfterUpdate = test.footerText(test.hintPanel)
+          var hintAfterUpdate = test.hintLine(test.hintPanel)
           test.hintPanel.close()
           test.check("a first open behind the update notice records no hint, and the next open shows and records it",
             test.hintBehind === test.updateNotice && savedBehindUpdate === false
-              && hintAfterUpdate.indexOf("Drag the pill anywhere") === 0 && test.hintService.hinted,
+              && hintAfterUpdate.indexOf(test.hintStart) === 0 && test.hintService.hinted,
             [test.hintBehind, savedBehindUpdate, hintAfterUpdate, test.hintService.hinted].join("|"))
           test.hintService.persist({ hinted: false })
         } else if (test.step === 39) {
@@ -980,15 +1014,104 @@ ShellRoot {
           if (test.hold(!test.hintService.settingsUnreadable)) return
           var behindFile = test.hintService.hinted
           test.hintPanel.open()
-          var hintAfterFile = test.footerText(test.hintPanel)
+          var hintAfterFile = test.hintLine(test.hintPanel)
           test.hintPanel.close()
           test.check("a first open behind the file notice records no hint, and the next open shows and records it",
             test.hintBehind === test.fileNotice + "|false" && behindFile === false
-              && hintAfterFile.indexOf("Drag the pill anywhere") === 0 && test.hintService.hinted,
+              && hintAfterFile.indexOf(test.hintStart) === 0 && test.hintService.hinted,
             [test.hintBehind, behindFile, hintAfterFile, test.hintService.hinted].join("|"))
         } else if (test.step === 42) {
           if (test.hold(test.savedSettings().hinted === true)) return
           test.check("and the hint shown is saved", test.savedSettings().hinted === true)
+        } else if (test.step === 43) {
+          // Nothing pressed in the open popup moves it sideways: c into
+          // "open", which widens the pill, and a narrower featured symbol
+          // leave the card where it opened; the next open takes the pill's
+          // new place. Seen live: the card moved about 15 px on c.
+          var held = placedPill.panel
+          var placed = held.testCard
+          // The pill's own window is unmapped, so the bar window the held
+          // anchor and the card read is the item the pill sits on, and its
+          // row lays out on asking.
+          var barWindow = { width: placedBar.width, height: Style.bar.sizeHorizontal, screen: Quickshell.screens[0], contentItem: placedBar }
+          held.testHeldAnchor.barWindow = barWindow
+          placed.anchorWindow = barWindow
+          var pillRow = test.find(placedPill, "pillSymbol").parent
+          var pillWidth = function() { pillRow.forceLayout(); return placedPill.width }
+          service.quotes = Object.assign({}, service.quotes, { MU: test.sampleQuote("MU", 50) })
+          service.changeMode = "pct"
+          service.feature("AAPL")
+          var before = pillWidth()
+          held.open()
+          var openedAt = placed.cardOrigin.x
+          held.testKeyCatcher.textKey("c")
+          held.testKeyCatcher.textKey("c")
+          var mode = service.changeMode
+          var widened = pillWidth()
+          var afterOpenMode = placed.cardOrigin.x
+          service.feature("MU")
+          var narrowed = pillWidth()
+          var afterFeature = placed.cardOrigin.x
+          held.close()
+          held.open()
+          var reopenedAt = placed.cardOrigin.x
+          var expected = Math.round(placedPill.x + narrowed / 2 - placed.contentWidth / 2)
+          held.close()
+          service.changeMode = "pct"
+          test.check("c into open and a narrower featured symbol leave the open card where it opened, and the next open takes the pill's new place",
+            mode === "open" && widened > before && narrowed < widened
+              && afterOpenMode === openedAt && afterFeature === openedAt && reopenedAt === expected && reopenedAt !== openedAt,
+            [mode, "AAPL " + before + " → " + widened + ", MU " + narrowed,
+              "card x " + openedAt + " → " + afterOpenMode + " → " + afterFeature, "reopened " + reopenedAt + " (expected " + expected + ")"].join(", "))
+          // A removal's undo outlives its note: u long after it, with the
+          // footer back on the add, still takes it back.
+          test.hintPanel.open()
+          test.removedEarlier = test.hintService.library[0]
+          test.hintPanel.testBody.removeRow(test.removedEarlier)
+          test.noteSaid = test.footerText(test.hintPanel)
+        } else if (test.step === 44) {
+          var labelBack = test.footerText(test.hintPanel).indexOf("+  Add a symbol") === 0
+          if (test.hold(labelBack)) return
+          var gone = test.removedEarlier
+          var goneMeanwhile = test.hintService.library.indexOf(gone) < 0
+          test.hintPanel.testKeyCatcher.textKey("u")
+          var back = test.hintService.library.indexOf(gone) >= 0
+          test.check("u after the note has gone, the footer back on the add, still takes the removal back",
+            test.noteSaid === "Removed " + gone && labelBack && goneMeanwhile && back,
+            [test.noteSaid, labelBack, goneMeanwhile, back].join("|"))
+          // Until the next change to the lists: a new list ends the offer,
+          // and u says there is nothing to undo.
+          test.hintPanel.testBody.removeRow(gone)
+          test.hintService.createList("Undo ends")
+          test.hintPanel.testKeyCatcher.textKey("u")
+          var said = test.footerText(test.hintPanel)
+          var stillGone = test.hintService.library.indexOf(gone) < 0
+          test.hintService.deleteList("Undo ends")
+          test.check("after the next change to the lists u puts nothing back, and the footer says why",
+            stillGone && said === "Nothing to undo", stillGone + "|" + said)
+          // A change in the data file is a change too, when it changes what
+          // the lists hold; one that changes only the view keeps the offer.
+          test.removedEarlier = test.hintService.library[0]
+          test.hintPanel.testBody.removeRow(test.removedEarlier)
+          test.writeFile(test.dataPath, JSON.stringify(Object.assign({}, test.hintService.dataSettings, { range: "1Y" })))
+        } else if (test.step === 45) {
+          if (test.hold(test.hintService.range === "1Y")) return
+          test.hintPanel.testKeyCatcher.textKey("u")
+          var backAfterView = test.hintService.library.indexOf(test.removedEarlier) >= 0
+          test.check("a data file that changes only the view keeps the undo",
+            test.hintService.range === "1Y" && backAfterView, test.hintService.range + "|" + backAfterView)
+          test.hintPanel.testBody.removeRow(test.removedEarlier)
+          var lists = test.hintService.dataSettings.lists.concat([{ name: "Made elsewhere", symbols: [] }])
+          test.writeFile(test.dataPath, JSON.stringify(Object.assign({}, test.hintService.dataSettings, { lists: lists })))
+        } else if (test.step === 46) {
+          var madeElsewhere = test.hintService.lists.some(function(l) { return l.name === "Made elsewhere" })
+          if (test.hold(madeElsewhere)) return
+          test.hintPanel.testKeyCatcher.textKey("u")
+          var saidAfterFile = test.footerText(test.hintPanel)
+          var goneAfterFile = test.hintService.library.indexOf(test.removedEarlier) < 0
+          test.hintPanel.close()
+          test.check("a list made in the data file ends the undo, as a list made here does",
+            madeElsewhere && goneAfterFile && saidAfterFile === "Nothing to undo", [madeElsewhere, goneAfterFile, saidAfterFile].join("|"))
           console.log("POPUP DONE")
           exitTimer.exitCode = test.failures ? 1 : 0
           exitTimer.start()

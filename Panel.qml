@@ -61,6 +61,14 @@ Panel {
   readonly property bool serviceReady: !!service && service.pluginsReady === true
   onServiceReadyChanged: offerHint()
 
+  // The card's place along the bar, held from an open from closed until the
+  // next; an open during the close fade keeps it, since the card is still on
+  // screen.
+  HeldAnchor {
+    id: heldAnchor
+    pill: root.anchorItem
+  }
+
   // The views reset as the popup opens, before its first frame, not as it
   // closes: the card fades out showing what you were looking at. Shown
   // first, so the body reads the service again (its held inputs) and the
@@ -76,6 +84,7 @@ Panel {
       offerHint()
       if (fading) easeEdge()
       else {
+        heldAnchor.hold()
         edgeEase.stop()
         root.cardHeight = root.fittedCardHeight
       }
@@ -125,7 +134,7 @@ Panel {
 
   KeyboardPanel {
     id: panel
-    anchorItem: root.anchorItem
+    anchorItem: heldAnchor
     owner: root.barIdentity
     bar: root.bar
     open: root.opened

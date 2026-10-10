@@ -34,6 +34,12 @@ if [ $# -eq 0 ]; then
   for day in 2026-10-07-1455-psix 2026-10-07-1455-nbis 2026-10-07-0100-bldp 2026-10-07-1455-btc-usd; do
     states="$states window-sweep-$day-smooth window-sweep-$day-retro"
   done
+  # The footer's notes in both looks and both surfaces: a refusal, and a
+  # removal's offer from a long list name, under the first visit's hint too.
+  for look in smooth retro; do
+    states="$states popup-note-undo-$look window-note-undo-$look popup-hint-undo-$look"
+  done
+  states="$states popup-note-retro"
   # The theme gallery: Omarchy's default, a light theme whose green is under
   # 3:1, and two where up falls back to the foreground. `render.sh
   # theme-<look>-<theme>` renders any other installed theme.

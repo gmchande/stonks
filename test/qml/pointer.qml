@@ -175,6 +175,12 @@ ShellRoot {
       symbols = next
       shown = Settings.sortedSymbols(next, quotes, order)
       if (featuredSymbol === symbol) featuredSymbol = next[0] || ""
+      lastRemoval = { symbol: symbol }
+    }
+    property string undone: ""
+    function undoRemoval(symbol) {
+      undone = symbol
+      lastRemoval = null
     }
     function setManualOrder(next) { symbols = next.slice(); shown = next.slice(); order = "manual" }
     function addSymbol(symbol) {
@@ -217,6 +223,17 @@ ShellRoot {
       surfaceOpen: true
       chartHeight: Style.space(190)
       rangeOptions: ["1D", "1Y"]
+    }
+
+    // A pill on this window, which maps offscreen, and the popup card's held
+    // anchor on it: the one place the anchor finds a real bar window.
+    Row {
+      Item { width: 200; height: 1 }
+      Item { id: pillStandIn; width: 150; height: 30 }
+    }
+    HeldAnchor {
+      id: heldAnchor
+      pill: pillStandIn
     }
 
     TestCase {
@@ -885,6 +902,57 @@ ShellRoot {
         wait(2700)
         root.check("the note clears on its own", body.note === "")
 
+        // A removal's note stays while the pointer rests on it, past its five
+        // seconds, and a click then takes the removal back: it never turns
+        // into the add under the pointer. Once the pointer leaves, it has its
+        // moment again. Found in the first-run review: a slow click on the
+        // note opened search.
+        root.setQuotes(["FIT1", "FIT2"], [101, 102])
+        wait(200)
+        var footer = root.find(body, "footer")
+        var onNote = footer.mapToItem(body, footer.width / 2, footer.height / 2 + Style.space(3))
+        mouseMove(body, onNote.x, onNote.y)
+        wait(50)
+        body.removeRow("FIT2")
+        wait(5600)
+        var action = root.find(footer, "footerAction")
+        var held = body.note + "|" + (action ? action.text : "no action") + "|" + footer.hovered
+        mouseClick(body, onNote.x, onNote.y)
+        wait(50)
+        root.check("a removal's note stays under the pointer past its moment, and a click on it then undoes",
+          held === "Removed FIT2| · click or u to undo|true" && stub.undone === "FIT2" && !body.adding,
+          held + "|" + stub.undone + "|" + body.adding)
+        root.setQuotes(["FIT1", "FIT2"], [101, 102])
+        wait(200)
+        body.removeRow("FIT2")
+        wait(5600)
+        var stillHeld = body.note
+        mouseMove(body, body.width / 2, 20)
+        wait(1000)
+        var leftAMoment = body.note
+        tryVerify(function() { return body.note === "" }, 6000)
+        root.check("once the pointer leaves, the note has its moment again, then goes",
+          stillHeld === "Removed FIT2" && leftAMoment === "Removed FIT2" && body.note === "",
+          stillHeld + "|" + leftAMoment + "|" + body.note)
+
+        // The popup card's held anchor finds the pill's bar window through
+        // the pill and sits on its content, where the shell measures an
+        // anchor, and stays where the pill was held as the pill widens. Found
+        // in review: it found its window through the card, which finds its
+        // window through it, so neither had one and the card opened in the
+        // screen's corner.
+        heldAnchor.hold()
+        var heldAt = heldAnchor.x + "+" + heldAnchor.width
+        pillStandIn.width = 200
+        var widened = heldAnchor.x + "+" + heldAnchor.width
+        heldAnchor.hold()
+        var heldAgain = heldAnchor.x + "+" + heldAnchor.width
+        pillStandIn.width = 150
+        root.check("the popup's held anchor sits on the pill's bar window, where the pill was held, until held again",
+          heldAnchor.QsWindow.window === window && heldAnchor.parent === window.contentItem
+            && heldAt === "200+150" && widened === heldAt && heldAgain === "200+200",
+          [heldAnchor.QsWindow.window === window, heldAnchor.parent === window.contentItem, heldAt, widened, heldAgain].join("|"))
+
         console.log("POINTER DONE")
         done.exitCode = root.failures ? 1 : 0
         done.start()
@@ -900,7 +968,7 @@ ShellRoot {
   }
 
   Timer {
-    interval: 25000
+    interval: 40000
     running: true
     onTriggered: {
       console.log("FAIL pointer harness timed out")

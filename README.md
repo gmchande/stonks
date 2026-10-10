@@ -144,7 +144,7 @@ scrubs leave the watchlist rows on today,
 and the rows always show the day's change.
 Click a row to feature it; right-click (or middle-click) removes it, and
 the footer says what went: `u`, or a click on that note, puts it back where
-it was, in every list that held it. The
+it was, in every list that held it, until you next change a list. The
 featured row is filled, the keyboard cursor is a bar down the left edge and
 rests on the featured row (or the first row, when the featured symbol is not
 in this list) until you move it, and the row under the pointer is faintly
