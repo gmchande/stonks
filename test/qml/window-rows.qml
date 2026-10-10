@@ -714,9 +714,18 @@ ShellRoot {
       wait(200)
       app.open("{}")
       wait(200)
-      harness.check("a reopened window's cursor rests on the featured row, not the last visit's",
+      // The pointer moved while the window was closed: the compositor
+      // reports it where it now rests, over another row, then again a pixel
+      // off. Neither is a move. From Grok's review of #19: the second moved
+      // the cursor onto that row.
+      var restingOn = watchlist.displayedSymbols.filter(function(s) { return s !== service.featuredSymbol })[0]
+      var restRow = watchlist.rowItem(restingOn)
+      mouseMove(restRow, restRow.width / 2 + 30, restRow.height / 2)
+      mouseMove(restRow, restRow.width / 2 + 30, restRow.height / 2 + 1)
+      wait(50)
+      harness.check("a reopened window's cursor rests on the featured row, not the last visit's, nor under a pointer reported again",
         leftOn !== service.featuredSymbol && watchlist.cursorRow === service.featuredSymbol,
-        leftOn + " -> " + watchlist.cursorRow + " for " + service.featuredSymbol)
+        leftOn + " -> " + watchlist.cursorRow + " for " + service.featuredSymbol + ", pointer on " + restingOn)
 
       // The key sheet showing and going again under a resting pointer moves
       // no cursor: the rows come back with the cursor the keys left, closed

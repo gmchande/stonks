@@ -13,12 +13,12 @@ HoverHandler {
   property point scenePosition: Qt.point(-1, -1)
   // Whether the pointer was already here at its last place.
   property bool within: false
-  // Set as the view opens or shows again (rest). When the pointer is first
-  // seen near where this handler last saw it, it never moved: it rests
-  // there until it leaves that place by the drag distance, Qt's own measure
-  // of a hand that means to move. Qt and the compositor can report a
-  // resting pointer again as the view comes back, a pixel or so off. A
-  // pointer first seen anywhere else has moved, and starts there as usual.
+  // Set as the view opens or shows again (rest): the first place the
+  // pointer is seen at after that is where it rests, and reports within
+  // `jitter` of it are that resting pointer, no move: the compositor can
+  // report it again a pixel off as the view comes back. The first report
+  // farther away is a hand's move, and counts.
+  readonly property real jitter: 2
   property bool resting: false
   property point restPlace: Qt.point(-1, -1)
 
@@ -31,19 +31,11 @@ HoverHandler {
     within = false
   }
 
-  function nearTo(a, b) {
-    var near = Application.styleHints.startDragDistance
-    return Math.abs(a.x - b.x) <= near && Math.abs(a.y - b.y) <= near
-  }
-
   onPointChanged: {
     var next = point.scenePosition
     if (resting && hovered) {
-      if (!within) {
-        if (nearTo(next, scenePosition)) restPlace = next
-        else resting = false
-      }
-      if (resting && nearTo(next, restPlace)) {
+      if (!within) restPlace = next
+      if (Math.abs(next.x - restPlace.x) <= jitter && Math.abs(next.y - restPlace.y) <= jitter) {
         scenePosition = next
         within = true
         return
