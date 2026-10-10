@@ -133,9 +133,12 @@ function pct(value) {
 // A move as a vertical bar's pill has room for, about five characters
 // across its 28 px: one decimal under 10%, none from there, by the figure
 // shown, so 9.96 reads "+10%".
+function narrowPctDigits(value) {
+  return Number(Math.abs(value).toFixed(1)) >= 10 ? 0 : 1
+}
+
 function narrowPct(value) {
-  if (!isFiniteNumber(value)) return "—"
-  return percent(value, Number(Math.abs(value).toFixed(1)) >= 10 ? 0 : 1)
+  return isFiniteNumber(value) ? percent(value, narrowPctDigits(value)) : "—"
 }
 
 function percent(value, digits) {

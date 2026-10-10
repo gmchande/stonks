@@ -289,6 +289,8 @@ BarWidget {
         fontSize: button.fontSize * 0.85
         color: button.foreground
       }
+      // Coloured by the figure it shows: a move that rounds to 0.0% here is
+      // no move, and takes no colour, though the rows' 0.04% does.
       OpticalGlyph {
         objectName: "pillDayChange"
         width: button.width
@@ -296,7 +298,8 @@ BarWidget {
         text: root.featured ? Format.lookSigns(Format.narrowPct(root.featured.pct), root.retro) : "…"
         fontFamily: button.fontFamily
         fontSize: button.fontSize * 0.85
-        color: root.trendColor
+        color: root.featured && Format.shownSign(root.featured.pct, Format.narrowPctDigits(root.featured.pct)) === 0
+          ? root.dimColor : root.trendColor
       }
     }
   }

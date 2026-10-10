@@ -1214,31 +1214,36 @@ ShellRoot {
             + pill.implicitHeight + " px tall")
         pill.settings = settingsBefore
       }
-      // There the line, the arrow, and the text draw alike, so every
-      // middle-click changes what shows: the symbol over its change, then
-      // the mark, and back. A saved arrow draws as the others do there, and
-      // as the arrow again on a horizontal bar. Found in a render: two of
-      // four middle-clicks changed nothing.
+      // There the line, the arrow, and the text draw alike: a saved arrow
+      // draws as the others do, and as the arrow again once the bar is
+      // horizontal, as nothing has written over it. Every middle-click there
+      // changes what shows: the symbol over its change, then the mark, and
+      // back, which is the line; the one setting cannot also keep the
+      // arrow. Found in a render: two of four middle-clicks changed nothing.
       pill.settings = Object.assign({}, settingsBefore, { barStyle: "arrow" })
       var drawn = function() {
-        return pill.barStyle + " " + (harness.find(pill, "pillMark").visible ? "mark" : harness.find(pill, "pillDaySymbol").visible ? "stacked" : "nothing")
+        return pill.barStyle + " " + (harness.find(pill, "pillMark").visible ? "mark" : harness.find(pill, "pillDaySymbol").visible ? "stacked"
+          : harness.find(pill, "pillArrow").visible ? "arrow" : "nothing")
       }
       var walk = [drawn()]
+      barApi.vertical = false
+      barApi.barSize = 0
+      walk.push(drawn())
+      barApi.vertical = true
+      barApi.barSize = Style.bar.sizeVertical
       for (var vclick = 0; vclick < 3; vclick++) {
         mouseClick(pill, pill.width / 2, pill.height / 2, Qt.MiddleButton)
         harness.middleClicks++
         walk.push(drawn())
       }
-      pill.settings = Object.assign({}, settingsBefore, { barStyle: "arrow" })
       barApi.vertical = false
       barApi.barSize = 0
-      var arrowAgain = harness.find(pill, "pillArrow").visible
       pill.settings = settingsBefore
       service.persist({ style: "smooth" })
       harness.check("a vertical bar shows the day on 6M, in its colour, its change with its % across the bar, in both looks, and the icon form as the mark alone in one slot",
         verticalWrong.length === 0, verticalWrong.join(" | "))
-      harness.check("on a vertical bar every middle-click changes what shows, and a saved arrow is the arrow again on a horizontal bar",
-        walk.join(",") === "arrow stacked,icon mark,sparkline stacked,icon mark" && arrowAgain, walk.join(",") + " | arrow " + arrowAgain)
+      harness.check("a saved arrow is the arrow again on a horizontal bar, and on a vertical one every middle-click changes what shows",
+        walk.join(",") === "arrow stacked,arrow arrow,icon mark,sparkline stacked,icon mark", walk.join(","))
 
       // In the bar's right section, among its bare icons, the pill shows its
       // icon until a middle-click there picks another form, which it keeps

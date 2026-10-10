@@ -183,9 +183,10 @@ run time.
   text form's bubble with it. A new figure alone leaves an open bubble as
   it opened, so a resting pointer sees no blink. A vertical bar draws the
   first three alike, the symbol over its change narrowed to five characters
-  (`Format.narrowPct`), so there a middle-click switches between that and
-  the icon, and a saved arrow or text stays saved for a horizontal bar until
-  it does. It reads its section from the bar's layout
+  (`Format.narrowPct`) and coloured by that figure, so there a middle-click
+  switches between that and the icon, and a saved arrow or text stays saved
+  for a horizontal bar until it does.
+  It reads its section from the bar's layout
   (`bar.layoutConfig`): in the right section its form is `barStyleRight`,
   the icon until a middle-click there writes one, and elsewhere `barStyle`.
   Its right-click asks the window's host to toggle the window.
