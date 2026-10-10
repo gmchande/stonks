@@ -261,8 +261,8 @@ run time.
   A surface opening draws the chart on screen in from the left in 320 ms
   OutCubic, sweeping from the left edge to the newest drawn print, so a day
   partly gone takes its whole time (`revealChart`); opened while the chart
-  asked for is on its way, it draws that chart in as it lands, the first
-  to land after the open. Every other change of the chart it presents
+  asked for is on its way, it draws that chart in as it lands, unless a
+  symbol or range is asked for first. Every other change of the chart it presents
   shows the new one whole at once, whatever made it: a symbol from any
   trigger, a range, a held chart's replacement landing, and a retry that
   lands. It decides once per change of the body's view and first ends the
@@ -795,7 +795,7 @@ run time.
   (`ChartMotion.chart`), the previous range or symbol, chart, figures, and
   info lines alike, open or shut, and takes no scrub or replay; when it
   lands, or its first fetch fails, the new chart shows whole at once, or
-  draws in when an open was waiting for it. A range needs its history and the symbol's
+  draws in when an open was waiting for it and nothing else was asked for since. A range needs its history and the symbol's
   quote, since the headline is never the last bar. A retry of a first fetch
   that failed keeps the day and "unavailable" on screen until an answer
   lands. Before any chart has been in, at a cold start, the hero is empty
@@ -931,7 +931,8 @@ run time.
   range, an add, a removal or its undo, a search's preview, and a chart
   landing after a hold. Nothing slides or fades. A chart on its way holds
   the one on show whole and still under "Loading"; the new one shows whole
-  when it lands, or draws in when an open was waiting for it. A replay
+  when it lands, or draws in when an open was waiting for it and nothing
+  else was asked for since. A replay
   still drives the chart in behind its scrub.
 
 ## Style

@@ -15,5 +15,5 @@ scratch_home v1-data.json grvc.stonks.json
 patch_copy plugin/ChartMotion.qml '/^  property real reveal: 1$/a\  property alias testDrawIn: drawInAnim'
 frame_tools
 export QT_QPA_PLATFORM=offscreen
-run_qs 110
+run_qs 170
 finish "WINDOW MOTION DONE"

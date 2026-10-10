@@ -70,6 +70,8 @@ ShellRoot {
   // Hold AAPL's history answer back, and let it go (see the fake curl).
   Process { id: holdAapl; command: ["touch", Quickshell.env("STONKS_FAKE_STATE") + "/AAPL.history.hold"] }
   Process { id: releaseAapl; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/AAPL.history.hold"] }
+  // Hold any symbol's history answers back, and let them go.
+  Process { id: historyHold }
   // AAPL's day cut at noon, and back (see the fake curl's overnight.set).
   Process { id: noonAapl; command: ["sh", "-c", "echo aapl-noon > \"$0/overnight.set\"", Quickshell.env("STONKS_FAKE_STATE")] }
   Process { id: wholeAapl; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/overnight.set"] }
@@ -239,6 +241,154 @@ ShellRoot {
       service.persist({ style: "smooth" })
       harness.check("retro's bell draws in with the columns on an open, and is there with them on a range change back to the day",
         onOpen === "0,true" && onDay === "0,true", onOpen + " | " + onDay)
+    }
+
+    // `symbol`'s history answers held back (true) or let go (false).
+    function holdHistory(symbol, held) {
+      var path = Quickshell.env("STONKS_FAKE_STATE") + "/" + symbol + ".history.hold"
+      historyHold.command = held ? ["touch", path] : ["rm", "-f", path]
+      historyHold.running = true
+      tryVerify(function() { return !historyHold.running }, 2000)
+    }
+
+    // An open waiting on its chart owes that chart a draw-in, and nothing
+    // else: getting around before it lands shows the chart asked for whole,
+    // at once when it is in memory, or as it lands when it is still out. A
+    // row, a number key, a range step, a summon, an add, a removal and its
+    // undo, and a search preview, each both ways, from an open on a month
+    // held back. Found in Grok's review of #14: each drew in, at once onto
+    // a chart in memory, or as one still out landed.
+    function openDebts(body, watchlist, keys) {
+      var dropEntry = function(key) {
+        var next = Object.assign({}, service.testHistoryFeed.entries)
+        delete next[key]
+        service.testHistoryFeed.entries = next
+      }
+      var keyOf = function() { return body.chart ? body.chart.symbol + "|" + body.chart.range : "" }
+      // Each wait says what it waited for when it gives up, so the check
+      // that reads it is the one that fails.
+      var stuck = []
+      var settled = function(at) {
+        if (!within(8000, function() {
+          return !body.chartLoading && body.motion.drawn === 1 && !service.testHistoryFeed.busy && !watchlist.settling
+        })) stuck.push("unsettled " + at + " on " + keyOf())
+      }
+      // `key`'s chart fetched and kept, shown once on the way; a symbol not
+      // in All waits for its own `before` to add it.
+      var inMemory = function(key) {
+        var parts = key.split("|")
+        if (service.library.indexOf(parts[0]) < 0) return
+        if (service.histories[key] && service.histories[key].status === "ok") return
+        service.feature(parts[0])
+        service.setRange(parts[1])
+        if (!within(8000, function() { return !!service.histories[key] && service.histories[key].status === "ok" }))
+          stuck.push(key + " never in")
+        settled("in " + key)
+      }
+      // `act` from an open waiting on the hero's month, onto `target`'s
+      // chart (symbol|range), in memory or still out; `before` readies the
+      // hero, and the target too where it decides it.
+      var debt = function(name, target, cached, act, before) {
+        stuck = []
+        app.open("{}")
+        service.setRange("1M")
+        settled("first")
+        if (cached) inMemory(target)
+        if (before) before()
+        service.setRange("1M")
+        settled("before")
+        var hero = service.featuredSymbol
+        // The day on show as it closes, so the open's month is another chart.
+        service.setRange("1D")
+        settled("on the day")
+        app.close()
+        dropEntry(hero + "|1M")
+        if (!cached) dropEntry(target)
+        holdHistory(hero, true)
+        app.open(JSON.stringify({ range: "1M" }))
+        var waiting = body.chartLoading && body.motion.opening
+        var lowest = 1
+        var watch = function() { lowest = Math.min(lowest, body.motion.reveal) }
+        body.motion.revealChanged.connect(watch)
+        act()
+        var shownAt = within(3000, function() { return cached ? keyOf() === target && !body.chartLoading
+          : body.chartLoading && body.motion.view.featured + "|" + body.motion.view.range === target })
+        holdHistory(hero, false)
+        var landed = within(6000, function() { return keyOf() === target && !body.chartLoading })
+        settled("after")
+        body.motion.revealChanged.disconnect(watch)
+        var ok = waiting && shownAt && landed && lowest === 1 && stuck.length === 0
+        return (ok ? "ok " : "FAILED ") + name + (cached ? " in memory" : " still out") + " from " + hero + "|1M: waiting " + waiting
+          + ", " + (cached ? "shown at once " : "held ") + shownAt + ", landed " + landed + " on " + keyOf()
+          + ", lowest " + lowest.toFixed(2) + (stuck.length ? ", " + stuck.join(", ") : "")
+      }
+      var nextRow = function(symbol) {
+        var rows = watchlist.displayedSymbols
+        var at = rows.indexOf(symbol)
+        return rows[at + 1] || rows[at - 1]
+      }
+      var results = []
+      ;[true, false].forEach(function(cached) {
+        results.push(debt("a row", "DOWN|1M", cached, function() {
+          var row = watchlist.rowItem("DOWN")
+          mouseClick(row, row.width / 2, row.height / 2)
+        }, function() { service.feature("AAPL") }))
+        results.push(debt("a number key", "MSFT|1M", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_1 + watchlist.displayedSymbols.indexOf("MSFT"))
+        }, function() { service.feature("AAPL") }))
+        results.push(debt("a range step", "AAPL|1W", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_BracketLeft)
+        }, function() { service.feature("AAPL") }))
+        results.push(debt("a summon", "DOWN|1M", cached, function() {
+          app.open(JSON.stringify({ symbol: "DOWN" }))
+        }, function() { service.feature("AAPL") }))
+        // SLOW, added before and removed, keeps its month in memory; an add
+        // is featured once its quote is in and its row has joined.
+        results.push(debt("an add", "SLOW|1M", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_A)
+          body.search.picked("SLOW")
+        }, function() {
+          if (cached) {
+            service.addSymbol("SLOW")
+            tryVerify(function() { return service.arriving.length === 0 }, 5000)
+            inMemory("SLOW|1M")
+            service.removeSymbol("SLOW")
+          }
+          service.feature("AAPL")
+        }))
+        service.removeSymbol("SLOW")
+        settled()
+        var successor = nextRow("AAPL")
+        results.push(debt("a removal", successor + "|1M", cached, function() {
+          body.removeRow("AAPL")
+        }, function() { service.feature("AAPL") }))
+        service.undoRemoval("AAPL")
+        settled()
+        // The removal takes AAPL, the hero, which hands the hero to MSFT;
+        // its undo, with no hero chosen since, brings AAPL back as the hero.
+        results.push(debt("an undo", "AAPL|1M", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_U)
+        }, function() {
+          service.feature("AAPL")
+          settled()
+          body.removeRow("AAPL")
+        }))
+        results.push(debt("a search preview", "MSFT|1M", cached, function() {
+          keys.forceActiveFocus()
+          keyClick(Qt.Key_A)
+          body.previewTo("MSFT")
+        }, function() { service.feature("AAPL") }))
+        body.cancelAdding()
+      })
+      service.setRange("1D")
+      service.feature("AAPL")
+      settled()
+      harness.check("an open waiting on its chart owes no other a draw-in: a row, a number key, a range step, a summon, an add, a removal, its undo, and a search preview each show the chart asked for whole, in memory or as it lands — "
+        + results.join(" || "), results.every(function(r) { return /^ok /.test(r) }))
     }
 
     // Each change of chart ends the last one's motion first: a running
@@ -907,6 +1057,7 @@ ShellRoot {
 
       dayAndHero(body, watchlist, keys)
       motionEnds(body, watchlist, keys)
+      openDebts(body, watchlist, keys)
       drawInFrames(body, keys)
       animalFrames(body)
       closingHolds(body, watchlist, keys)

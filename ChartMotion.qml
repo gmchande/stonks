@@ -77,8 +77,8 @@ Item {
   // How much of the chart is drawn, 0..1: a replay draws it in behind its
   // scrub, and otherwise the draw-in says.
   readonly property real drawn: replayX >= 0 ? replayX : reveal
-  // A surface opened while its chart was on its way: the first chart to
-  // land is the open's, and draws in.
+  // A surface opened while its chart was on its way: that chart, left
+  // alone, draws in as it lands.
   property bool opening: false
 
   // The view as this piece last saw it. Each change of the view is compared
@@ -100,13 +100,16 @@ Item {
     // A replay and a scrub belong to the chart they started on, and to data
     // that still covers their moment.
     if (moved || asked || (refreshed && scrubT && !covers(next, scrubT))) clearScrub()
+    // A symbol or range asked for since the open is getting around: the
+    // open owes it no motion.
+    if (asked) opening = false
     if (moved && opening && surfaceOpen) drawIn()
     else if (moved || asked) {
       drawInAnim.stop()
       reveal = 1
     }
-    // The open's chart is on screen, drawn in or the one already shown: the
-    // open owes no more motion.
+    // The open's own chart is on screen, drawn in or the one already shown:
+    // the open owes no more motion.
     if (!loading) opening = false
   }
 
