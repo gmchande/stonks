@@ -2,53 +2,48 @@
 
 // What the key sheet shows. Knows nothing of how the keys are handled.
 
-// The key sheet behind the header's ?: every binding, grouped by what it
-// touches. The mouse can do all of it too; this is the list for people who
-// would rather not reach for it.
-function hintGroups(surface, order) {
-  var navigate = [
+// The key sheet behind the header's ?: the everyday keys, grouped by what
+// they touch, and the mouse in two lines. The README's table holds every key;
+// the doubles and the shell's own keys are left to it, so the sheet stays
+// short enough to read at a glance. J K and a row's drag show only where they
+// act, on manual order.
+function sheet(order) {
+  var manual = Settings.normalizeOrder(order) === "manual"
+  var rows = [
     { key: "↑ ↓", does: "Move the row cursor" },
     { key: "⏎", does: "Feature the cursor row" },
-    { key: "1–9", does: "Feature that row" }
-  ]
-  if (surface !== "window") navigate.push({ key: "tab", does: "Next panel on the bar" })
-  var watchlist = [
-    { key: "a  +", does: "Add a symbol" },
+    { key: "1–9", does: "Feature that row" },
+    { key: "a", does: "Add a symbol" },
     { key: "x", does: "Remove the cursor row" },
-    { key: "u", does: "Undo a removal" },
-    { key: "o", does: "Cycle the list order" }
+    { key: "u", does: "Undo a removal" }
   ]
-  if (Settings.normalizeOrder(order) !== "manual") watchlist.push({ key: "O", does: "Reverse the order" })
-  if (Settings.normalizeOrder(order) === "manual") {
-    watchlist.push({ key: "J K", does: "Move the cursor row" })
-    watchlist.push({ key: "⇧ wheel", does: "Move the hovered row" })
-    watchlist.push({ key: "drag", does: "Move a row by hand" })
+  if (manual) rows.push({ key: "J K", does: "Move the cursor row" })
+  return {
+    groups: [
+      { title: "Rows", rows: rows },
+      { title: "Chart", rows: [
+        { key: "← →", does: "Scrub one chart step" },
+        { key: "[ ]", does: "Change the chart range" },
+        { key: "p", does: "Replay the shown chart" }
+      ]},
+      { title: "Lists", rows: [
+        { key: "w", does: "Open the list menu" },
+        { key: "o", does: "Cycle the list order" },
+        { key: ", .", does: "Step through the lists" }
+      ]},
+      { title: "Look", rows: [
+        { key: "s", does: "Switch smooth and retro" },
+        // The change mode is the day's: on a range the hero shows the period,
+        // so c changes the rows and, on the day, the hero.
+        { key: "c", does: "Cycle the day's change" },
+        { key: "r", does: "Refresh quotes" }
+      ]}
+    ],
+    mouse: { title: "Mouse", rows: [
+      // Each fits one line of the popup at the shell's usual text size.
+      { key: "pill", does: "Wheel steps · middle changes form · right opens the window" },
+      { key: "row", does: manual ? "Ctrl-click opens its lists · drag moves it" : "Ctrl-click opens its lists" }
+    ]},
+    note: "esc closes · every key is in the README"
   }
-  return [
-    { title: "Navigate", rows: navigate },
-    { title: "Chart", rows: [
-      { key: "← →", does: "Scrub one chart step" },
-      { key: "p", does: "Replay the shown chart" },
-      { key: "P", does: "Replay in slow motion" },
-      { key: "esc", does: "Clear the scrub" }
-    ]},
-    { title: "Range", rows: [
-      { key: "[ ]", does: "Change the chart range" }
-    ]},
-    { title: "Lists", rows: [
-      { key: ", .", does: "Step lists, scroll kept" },
-      { key: "w", does: "Open the list menu" },
-      { key: "W", does: "Manage lists" },
-      { key: "m", does: "The cursor row's lists" }
-    ]},
-    { title: "Watchlist", rows: watchlist },
-    { title: "Look", rows: [
-      { key: "s", does: "Switch smooth and retro" },
-      // The change mode is the day's: on a range the hero shows the period,
-      // so c changes the rows and, on the day, the hero.
-      { key: "c", does: "Cycle the day's change" },
-      { key: "r", does: "Refresh quotes" },
-      { key: "?", does: "This sheet; esc closes" }
-    ]}
-  ]
 }

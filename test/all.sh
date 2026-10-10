@@ -119,6 +119,7 @@ start "window rows harness" bash test/qml/window-rows.sh
 start "pointer harness" bash test/qml/pointer.sh
 start "popup harness" bash test/qml/popup.sh
 start "popup motion harness" bash test/qml/popup-motion.sh
+start "keys harness" bash test/qml/keys.sh
 start "nothing-jumps layout harness" bash test/qml/layout.sh
 start "quote queue harness" bash test/qml/run.sh
 start "tophat guards (no screen)" bash test/tophat.sh self-check

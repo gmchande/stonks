@@ -269,10 +269,7 @@ ShellRoot {
         var beside = helpMark.mapToItem(body, helpMark.width + 8, helpMark.height / 2)
         mouseClick(body, beside.x, beside.y)
         wait(50)
-        var popupKeys = root.findAll(root.find(body, "helpSheet"), "helpKey")
-          .filter(function(key) { return key.visible }).map(function(key) { return key.text })
-        root.check("a click beside the help mark opens the sheet, which draws the bar's Tab",
-          body.showingHelp && popupKeys.indexOf("tab") >= 0)
+        root.check("a click beside the help mark opens the sheet", body.showingHelp)
         mouseClick(body, beside.x, beside.y)
         wait(50)
         root.check("and closes it again", !body.showingHelp)

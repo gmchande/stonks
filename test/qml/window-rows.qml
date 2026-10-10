@@ -778,20 +778,18 @@ ShellRoot {
         service.order === "pct" && service.symbols.join(",") === before
           && service.featuredSymbol === "AAPL" && watchlist.dragSymbol === "")
 
-      // The sheet draws what this window binds: never the bar's Tab, the
-      // reversal only on a sorted order, and the move keys only on manual.
-      // No ⌃ click: m opens a row's lists from the keys, and the Mac's mark
-      // read wrong here (design pass 3).
-      var common = ["↑ ↓", "⏎", "1–9", "← →", "p", "P", "esc", "[ ]", ", .", "w", "W", "m",
-        "a  +", "x", "u", "o"]
-      var look = ["s", "c", "r", "?"]
+      // The sheet draws the everyday keys, the same in the window as in the
+      // popup: never the bar's Tab or a double such as O, and the move keys
+      // only on manual, where they act.
+      var rows = ["↑ ↓", "⏎", "1–9", "a", "x", "u"]
+      var rest = ["← →", "[ ]", "p", "w", "o", ", .", "s", "c", "r"]
       var sortedHelp = helpKeys(keys, body)
       service.persist({ order: "manual" })
       wait(50)
       var manualHelp = helpKeys(keys, body)
-      harness.check("the window help, opened through ?, draws its keys, O only on a sorted order and the move keys only on manual",
-        harness.same(sortedHelp, common.concat(["O"], look))
-          && harness.same(manualHelp, common.concat(["J K", "⇧ wheel", "drag"], look)),
+      harness.check("the window help, opened through ?, draws the everyday keys, J K only on manual",
+        harness.same(sortedHelp, rows.concat(rest))
+          && harness.same(manualHelp, rows.concat(["J K"], rest)),
         sortedHelp + " | " + manualHelp)
 
       watchlist.cursorSymbol = "AAPL"

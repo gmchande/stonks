@@ -54,7 +54,6 @@ Item {
   property bool landingShows: false
   // The surface's own colour, which a moving row carries.
   property color ground: Color.background
-  property string surfaceKind: "popup"
   property var rangeOptions: History.historyRanges()
 
   // A view that had the keys has let them go: the surface takes them back.
@@ -262,7 +261,7 @@ Item {
   readonly property bool rowsShown: !showingHelp && !searching && !listViewOpen
   // While any of these is open it has the keys, not the surface.
   readonly property bool ownsKeys: adding || listMenuOpen || listViewOpen
-  readonly property var hints: KeySheet.hintGroups(surfaceKind, order)
+  readonly property var keySheet: KeySheet.sheet(order)
   // The rows' mood, for the rule under the list name; it follows the scrub
   // as the rows do, and names its list, so the rule tells a switch from a
   // change. Read from the view, list and rows at once: `symbols` may not
@@ -959,7 +958,7 @@ Item {
     anchors.rightMargin: root.margins
     anchors.topMargin: root.bandGap
     anchors.bottomMargin: root.margins
-    groups: root.hints
+    sheet: root.keySheet
     foreground: root.foreground
     dim: root.dim
     fontFamily: root.fontFamily
