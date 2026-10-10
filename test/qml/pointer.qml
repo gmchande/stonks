@@ -1010,6 +1010,25 @@ ShellRoot {
         root.check("the scrollbar is absent when every row fits",
           !body.watchlist.ScrollBar.vertical.visible)
 
+        // On the body as the popup and the window both host it, a right-click
+        // on a row shows its lists and removes nothing; nor does a
+        // middle-click, nor a click at once after the right-click. (The
+        // popup's own harness has no pointer: its window is never mapped.)
+        var fitRow = body.watchlist.rowItem("FIT2")
+        var fitAt = fitRow.mapToItem(body, fitRow.width / 2, fitRow.height / 2)
+        var membershipsBefore = stub.memberships.length
+        mouseClick(body, fitAt.x, fitAt.y, Qt.MiddleButton)
+        mouseClick(body, fitAt.x, fitAt.y, Qt.RightButton)
+        var listsShown = body.listsSymbol
+        mouseClick(body, fitAt.x, fitAt.y)
+        wait(50)
+        root.check("a right-click on a row shows its lists, and it, a middle-click, and a click at once after it remove nothing",
+          listsShown === "FIT2" && body.listsSymbol === "FIT2" && stub.symbols.join(",") === "FIT1,FIT2"
+            && stub.memberships.length === membershipsBefore,
+          listsShown + "|" + body.listsSymbol + "|" + stub.symbols + "|" + stub.memberships.slice(membershipsBefore))
+        body.closeListViews()
+        wait(50)
+
         // x removes a row; the last one stays, and the footer says why for a
         // moment.
         body.removeRow("FIT2")
