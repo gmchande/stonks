@@ -19,7 +19,9 @@
 // `quote` is Yahoo's, as it came: the headline and the day's figures. `day`
 // is what the 1D chart draws and a scrub of it reads, the quote itself
 // outside the US; `latest` is the newest print of all, for the line under
-// the price, or null where the quote's own last print is it.
+// the price, or null where the quote's own last print is it; `allDay`,
+// whether Robinhood has said it trades the listing all day, so its nights
+// trade (`Overnight.marketAsleep`).
 // `histories` holds answers only (HistoryFeed): history in hand is drawn
 // while a refetch is out and after one fails. A first fetch that failed is
 // an answer too: a quote's, on any range, shows the symbol with no quote and
@@ -30,11 +32,12 @@ function viewChart(symbol, range, quotes, entries, histories, nights, allDay, ca
   var quote = quotes[symbol] || null
   var quoteFailed = !quote && !!entries[symbol] && entries[symbol].status === "failed"
   if (!quote && !quoteFailed) return null
-  var chart = { symbol: symbol, range: range, quote: quote, day: quote, latest: null, history: null, failed: false }
+  var chart = { symbol: symbol, range: range, quote: quote, day: quote, latest: null, history: null, failed: false, allDay: false }
   if (quote && Overnight.hasOvernight(quote, calendars)) {
     // A listing never asked of Robinhood (`allDay` null, a preview outside
     // All) has Yahoo's own day.
     var tradability = allDay ? allDay[symbol] : { allDay: false }
+    chart.allDay = !!tradability && tradability.allDay
     var night = nights[symbol]
     if (tradability && !tradability.allDay) chart.day = Overnight.sessionDay(quote)
     else if (tradability && night) {

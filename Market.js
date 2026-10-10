@@ -304,6 +304,32 @@ function inRegularSession(quote, now, calendars) {
   return segs.some(function(seg) { return now >= seg.start && now < seg.end })
 }
 
+// Whether a quote's own market is in its pre-market or after hours now:
+// Yahoo's periods; or, for a quote held from an earlier day, whose periods,
+// its bars' and its current ones, don't describe today, the listing's own
+// extended hours, as long as its periods have them before and after its
+// regular session (an index's have none), around today's segments in its
+// calendar, so an early close's after hours ends as early; less a
+// published closure.
+function inExtendedHours(quote, now, calendars) {
+  if (!quote || quote.crypto || calendarQuiet(calendars, quote, now)) return false
+  var phase = sessionPhase(quote, now)
+  if (phase === "pre" || phase === "post") return true
+  var cal = calendarFor(calendars, quote)
+  var date = cal ? dateStringOf(localDate(now, cal)) : ""
+  var described = cal && [quote.session, quote.current].some(function(p) {
+    return !!p && !!p.regular && dateStringOf(localDate(p.regular.start, cal)) === date
+  })
+  var segs = cal && !described ? segmentsOn(cal, date) : []
+  var s = quote.session
+  if (!segs.length || !s.regular) return false
+  var open = segs[0].start
+  var close = segs[segs.length - 1].end
+  var pre = !!s.pre && now >= open - (s.regular.start - s.pre.start) && now < open
+  var post = !!s.post && now >= close && now < close + (s.post.end - s.regular.end)
+  return pre || post
+}
+
 // Whether a stock, ETF, or index is kept fresh with nothing open: through
 // its regular session; and a listing with no calendar to say when that is
 // (an index's), on the slow clock once every period its quote knows is

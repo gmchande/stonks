@@ -46,14 +46,14 @@ run time.
 - Each `quickshell_run` gives its Quickshell a runtime folder of its own (`XDG_RUNTIME_DIR`), linking every entry of the session's but `quickshell/`, and removes it as the run ends, however it ends: Quickshell 0.3.1 leaves each instance's folder, with its logs, in `$XDG_RUNTIME_DIR/quickshell`, and tens of thousands of test runs filled the session's. Its name is short and in `/tmp`, whatever `TMPDIR` says: Hyprland's sockets under it must fit a Unix socket's 107 bytes. A run whose folder can't be made never starts Quickshell, and one whose Quickshell says it saved in the session's folder fails; `crash-check.sh` proves these with its stand-in.
 - A harness ends Quickshell only through `HarnessExit.qml` (set its `exitCode`, then start it), which waits until no `TestCase` is running; `test/boundaries.sh` fails any other `Qt.exit` or `Qt.quit` under `test/`. An exit during QtTest's `wait()` tears the engine down inside that wait and aborts with a core dump, so a harness keeps no watchdog of its own: its script's `run_qs` timeout is its one timeout, and the TERM that ends it leaves no core (Quickshell 0.3.1 doesn't handle TERM).
 - `test/qml/fetch-day.sh`, run by hand and not by `test/all.sh` (it takes minutes), counts a weekday and a weekend of glances for a long list's shape through the real Service and window, and estimates the bytes: the numbers a change to fetching is weighed by.
-- A render fails when its log has a runtime error or a Qt warning naming a plugin file, or it wrote no fresh picture: `render.qml` exits 0 once it has grabbed a frame. It grabs 300 ms in; the live dot, retro's live cap, and a text cursor never settle, so a render that shows one changes with that wait.
+- A render fails when its log has a runtime error or a Qt warning naming a plugin file, or it wrote no fresh picture: `render.qml` exits 0 once it has grabbed a frame. It grabs 300 ms in; the live dot, retro's live cap, and a text cursor never settle, so a render that shows one changes with that wait. A popup render holds the body as the card does: inset by the card's padding, with no margins of its own, clipped at its edges, so what the real popup cuts off (the sleeping animal's "z" drawn above the header once) is cut off there too.
 - Count fake-curl calls through a new `FileView` for each read; after `reload()`, `text()` can still return the old count.
 - The popup's window (`PanelWindow`) does not load on the offscreen platform. Popup flows drive the real `Panel` in `popup.sh`, under the Wayland session, without mapping it: the script patches `open: false` into its copy of `Panel.qml`. An unmapped pill has no bar window to place a card from, so `popup.sh` copies the shell's `Ui` and lets its `KeyboardPanel` take the bar window and the pill's spot from the flow; the shell's own placement runs on them. A second pill sits on an item the flow hands its card and its `HeldAnchor` as the bar window's content, so the shell places the card from the pill's own spot as the pill changes width; `pointer.sh`, whose window maps offscreen, shows a `HeldAnchor` finding a real bar window through its pill. An unmapped popup renders no frames, so `popup-motion.sh` puts its copy of `Panel.qml`'s card in `CardWindow.qml`, a plain window around the shell's own `BorderSurface` that copies only what lives on `KeyboardPanel` itself, its lines named in its comment: keep them in step when the shell changes.
 - `keys.sh` presses every key the key sheet draws and the README's table lists, with real keys through the real popup (in `CardWindow.qml`) and window, a row ending "(popup)" or "(window)" on that surface alone, and fails on a key that changes nothing the surface shows. A new key goes in the README's table; one that needs something to act on (a range to step back from, a removal to undo) gets that in the walk's `setups`.
 - A script patches its copies of plugin files only through `patch_copy` (`lib.sh`), which stops the script before Quickshell starts when a patch changes nothing. The feed harnesses (`run.sh`, `history.sh`) and `overnight.sh`, whose later moments hold one symbol's day, patch a 200 ms retry pause into theirs.
 - An order of file events Quickshell can't be made to hold is stepped through a stand-in: `service.sh` patches `DataFileStandIn.qml` in for the data file's `FileView` in a second copy of `Service.qml`. The stand-in keeps only what Quickshell 0.3.1's `FileView` does there, each named from its source; a change to the data file's handling that leans on more of `FileView` adds it there first, from that source.
 - A check on motion reads it on its frames, from a change handler on the animated property, and a wait waits on an event (`within`, `tryVerify`); a fixed sleep into an animation or a debounce fails on a slow frame.
-- What a motion looks like is judged on rendered frames, not on the property behind it: `FrameGrab.qml` grabs an item on every frame and `frames.js` judges them (`frame_tools`, `lib.sh`), as `window-motion.sh` does for the draw-in, the window's first open in a fresh process (judged from its first painted frame: every canvas paints a frame late on a window's first show), a held chart, a day half gone (`aapl-noon`, AAPL's day cut at noon, its ink's end held against its newest print), the header's animal crossfading across the close and changing at once on a new symbol (`turn`, `turn:0`), and a closing surface, `layout.sh` for a live day held while the next chart loads, and `popup-motion.sh` for the popup card's edge (`edge`, `edgeheld`), its travel read from where the card stood before the mark. A property can move while the picture shows nothing. Offscreen, Qt renders on its own cadence while animations advance on QtCore's 16 ms clock, and `afterAnimating` fires on every render, so a frame is kept only when the clock has ticked since the last one, and timed by that tick, or by the mark when it came after: timed by the render, a late clock showed each moment later than it was, and a 160 ms edge read as 230 under the suite's load. `window-motion.sh` holds a draw-in's renders longer and longer on purpose, a busy machine, which frames timed by the render read as about 420 ms. `frames.js` reads a draw-in's length and start, and an edge's, from its frames' own curve, never from the mark, so a late start or a busy machine's uneven frames move neither; a draw-in is read across its ink's extent, taken from the last frame's own ink (`drawin:ink`), never from the painter, so a day partly gone is judged on its own sweep and a sweep that stops short and shows the rest at its end fails. `bun test/qml/frames.js self-check`, run by `test/all.sh`, shows wrong pictures failing it: 0, 160, and 400 ms, on even and uneven frames, a start 200 ms late, a chart that begins a quarter or 60% drawn, hidden ink, a slit, a chart cut short, whole at once, a tail, a half day swept across the whole plot, swept to 45% with the rest shown at its end, or cut short; an edge that jumps, never moves, takes 100, 240, or 400 ms, starts 200 ms late, jumps 60% at the mark, or shows rows through the footer riding it; an open that grows; an animal that turns in 60 or 320 ms, starts 200 ms late, changes at once where it should turn or turns where it should change at once, fades out and then in through nothing or away for good, or changes at once through a blank frame, 320 ms late, or back and forth; and a right draw-in in retro's whole columns, a half day swept to its newest print in either look, a right edge, and a right turn, on uneven frames too, passing. `window-motion.sh` runs the same capture and judge on a real draw-in made 160 ms, 400 ms, none, and one starting 60% drawn, and each fails.
+- What a motion looks like is judged on rendered frames, not on the property behind it: `FrameGrab.qml` grabs an item on every frame and `frames.js` judges them (`frame_tools`, `lib.sh`), as `window-motion.sh` does for the draw-in, the window's first open in a fresh process (judged from its first painted frame: every canvas paints a frame late on a window's first show), a held chart, a day half gone (`aapl-noon`, AAPL's day cut at noon, its ink's end held against its newest print), the header's animal crossfading across the close and changing at once on a new symbol (`turn`, `turn:0`), its eyes closing as the clock closes its market, over 320 ms in smooth and in two steps in retro (`turn:320`, `steps:320`), and asleep at once on letting go of a scrub, a new symbol, a first quote landing after the close, or an open after it, and a closing surface, `layout.sh` for a live day held while the next chart loads, and `popup-motion.sh` for the popup card's edge (`edge`, `edgeheld`), its travel read from where the card stood before the mark. A property can move while the picture shows nothing. Offscreen, Qt renders on its own cadence while animations advance on QtCore's 16 ms clock, and `afterAnimating` fires on every render, so a frame is kept only when the clock has ticked since the last one, and timed by that tick, or by the mark when it came after: timed by the render, a late clock showed each moment later than it was, and a 160 ms edge read as 230 under the suite's load. `window-motion.sh` holds a draw-in's renders longer and longer on purpose, a busy machine, which frames timed by the render read as about 420 ms. `frames.js` reads a draw-in's length and start, and an edge's, from its frames' own curve, never from the mark, so a late start or a busy machine's uneven frames move neither; a draw-in is read across its ink's extent, taken from the last frame's own ink (`drawin:ink`), never from the painter, so a day partly gone is judged on its own sweep and a sweep that stops short and shows the rest at its end fails. `bun test/qml/frames.js self-check`, run by `test/all.sh`, shows wrong pictures failing it: 0, 160, and 400 ms, on even and uneven frames, a start 200 ms late, a chart that begins a quarter or 60% drawn, hidden ink, a slit, a chart cut short, whole at once, a tail, a half day swept across the whole plot, swept to 45% with the rest shown at its end, or cut short; an edge that jumps, never moves, takes 100, 240, or 400 ms, starts 200 ms late, jumps 60% at the mark, or shows rows through the footer riding it; an open that grows; an animal that turns in 60 or 320 ms, starts 200 ms late, changes at once where it should turn or turns where it should change at once, fades out and then in through nothing or away for good, or changes at once through a blank frame, 320 ms late, or back and forth; eyes that close in 160 or 640 ms, or that shut at once, close smoothly, or step at the mark where they should step halfway; and a right draw-in in retro's whole columns, a half day swept to its newest print in either look, a right edge, a right turn, on uneven frames too, and a right close in either look, passing. `window-motion.sh` runs the same capture and judge on a real draw-in made 160 ms, 400 ms, none, and one starting 60% drawn, and each fails.
 - Visual checks are those renders (`test/qml/render.sh`). Whoever built a visible change tries it by hand before its pull request, the way a user would, through the everyday flows end to end whatever the change names: open the popup from the pill, add a symbol through search, switch lists, remove and undo, feature a row, change the range and look, and use the window. Motion is judged frame by frame from a recording; a screenshot can't show it.
 - A limit blamed on the shell is confirmed in its code (`/usr/share/omarchy/shell/`) before a change designs around it.
 
@@ -163,7 +163,8 @@ run time.
   (`Overnight.sessionDay`). Each is built again only when its quote or its
   prints are new (`keepDay`), the preview's too: one in All has its chart as
   it does featured; a US listing outside All, never asked of Robinhood,
-  has Yahoo's own day. A symbol
+  has Yahoo's own day. `chart.allDay` says whether Robinhood has said it
+  trades the listing all day, on every range, so its nights trade. A symbol
   added to All is `arriving` until its first answer (a quote, or a first
   fetch that failed for good): a member, saved and fetched, in no list's
   rows, keys, or scroll. Pill routes (wheel, IPC next/prev) go to it
@@ -224,7 +225,7 @@ run time.
   An open while open changes nothing. Closing only fades: everything that
   moves stops where it is (`StonksBody.freeze`, `still`): the edge, the
   chart's draw-in and replay, the live marks, the look icon's step, the
-  header animal's turn, the breadth rule's ends, a held drag, the rows,
+  header animal's turn and its eyes' close, the breadth rule's ends, a held drag, the rows,
   and the footer's note, which
   outlives its timer. What is shown stays, the chart, figures, and rows as
   they are, whatever the pointer or another surface does, since the body
@@ -482,7 +483,8 @@ run time.
     rules, the phase and bells, the header's words, a print's clock in its
     exchange's time, and each symbol's refresh cadence (`quoteCadence`).
   - `Overnight.js` — Robinhood's word on which listings it trades all day,
-    its prints, and the 1D chart's day built from them.
+    its prints, the 1D chart's day built from them, and whether a
+    listing's market is resting (`marketAsleep`).
   - `History.js` — ranges: Yahoo's history answer, its stats, bars, dates,
     and words.
   - `Fundamentals.js` — the cap and P/E and the key stats line.
@@ -499,7 +501,7 @@ run time.
   - `KeySheet.js` — what the key sheet shows.
   - `Search.js` — Yahoo's symbol lookup.
   - `Cells.js` — the cell drawings: block digits, the bull and the bear,
-    the mark's levels.
+    their eyes closing, the sleeper's "z", the mark's levels.
 - `test/tophat.sh`, `test/live.sh` — the maintainer's tools for their own
   machine, not needed to contribute: a tophat in a nested Hyprland on a
   laptop screen beside another, which starts on the demo watchlist
@@ -786,6 +788,27 @@ run time.
   turn under way left it; a symbol, range, list, or look change, a failed
   range's retry landing, or an open, changes it at once, and retro's cells
   always change at once.
+  The animal sleeps while its market does, eyes shut and a dim "z" past
+  its slot at the header's top, inside its box, since the popup's body
+  starts there and clips what draws above it (`Overnight.marketAsleep`):
+  through Tokyo's lunch, a weekend, a
+  published closure, and a night, by the phase and the calendar, never by
+  the data's age. It is awake for the regular session, pre-market, and
+  after hours (`Market.inRegularSession`, `Market.inExtendedHours`): for a
+  quote held from an earlier day, the session is the calendar's, and its
+  extended hours run as long before and after today's segments as its own
+  periods' do, so an early close's after hours ends early, and London's
+  and Toronto's, which the calendar doesn't list, still count; and a night
+  that trades for a listing Robinhood trades all day; a cryptocurrency
+  never sleeps, and a scrub, which reads a moment the market traded, wakes
+  it. Only the clock closing the market while you watch moves it (the
+  body's `bell`, the same quote awake five seconds before, so a late tick
+  still rings it): the eyes close
+  over 320 ms, eased in smooth and in two steps in retro, the "z" coming
+  with them. A wake, a scrub let go, a first quote landing, a symbol,
+  range, list, or look change, and an open change it at once. Nothing
+  announces it: no README
+  line, key, or tooltip.
   Loading holds still: a refetch with the range in hand, out or
   failed, keeps the chart at full ink and the header on the market; only a
   chart not yet in says "Loading", naming what is coming ("LOADING AAPL

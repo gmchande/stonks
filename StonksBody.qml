@@ -6,6 +6,7 @@ import "Fundamentals.js" as Fundamentals
 import "History.js" as History
 import "KeySheet.js" as KeySheet
 import "Market.js" as Market
+import "Overnight.js" as Overnight
 import "Quote.js" as Quote
 import "Settings.js" as Settings
 import "Tones.js" as Tones
@@ -219,7 +220,22 @@ Item {
   // range's stand-in day is another chart than its history), the list, and
   // the look: a change of it is no turn, so the animal changes at once.
   readonly property string animalChart: [motion.chartKeyOf(chart), view.listKey, retro].join(" ")
-  readonly property var animal: ({ kind: animalKind, chart: animalChart })
+  // It sleeps while its market does, by the phase and the calendar, never
+  // by the data's age (`Overnight.marketAsleep`), and a scrub, which reads
+  // a moment the market traded, wakes it. `bell`: the clock put it to sleep
+  // in the last few seconds, the same quote awake `bellWindow` before, so
+  // its eyes close slowly, a late or skipped tick of the clock included;
+  // any other way into sleep (a quote landing, a scrub let go) is no bell,
+  // but within those seconds. Worked out in one binding, so no value of it
+  // pairs a fresh sleep with a stale bell.
+  readonly property int bellWindow: 5
+  readonly property var animal: {
+    var quote = scrubT ? null : featuredQuote
+    var allDay = !!chart && chart.allDay
+    var asleep = !!quote && Overnight.marketAsleep(quote, allDay, now, calendars)
+    return { kind: animalKind, chart: animalChart, asleep: asleep,
+      bell: asleep && !Overnight.marketAsleep(quote, allDay, now - bellWindow, calendars) }
+  }
   // The info block describes what the chart shows: the range's line, or the
   // day's when the chart is the day, over the 52 weeks. Before any chart,
   // nothing.

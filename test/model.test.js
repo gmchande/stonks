@@ -324,7 +324,7 @@ test("the view's chart can be drawn once its data is in, or its first fetch has 
   const history = { bars: [] }
   const ok = { A: { status: "ok" } }
   // The day: its quote, or its first fetch failed; nothing while it is out.
-  expect(M.viewChart("A", "1D", { A: quote }, {}, {})).toEqual({ symbol: "A", range: "1D", quote, day: quote, latest: null, history: null, failed: false })
+  expect(M.viewChart("A", "1D", { A: quote }, {}, {})).toEqual({ symbol: "A", range: "1D", quote, day: quote, latest: null, history: null, failed: false, allDay: false })
   expect(M.viewChart("A", "1D", {}, { A: { status: "loading" } }, {})).toBeNull()
   expect(M.viewChart("A", "1D", {}, { A: { status: "failed" } }, {})).toMatchObject({ quote: null, failed: false })
   // A failed first quote is the answer on a range too: no headline from the

@@ -3,6 +3,7 @@ import QtTest
 import Quickshell
 import Quickshell.Io
 import "plugin" as Stonks
+import "plugin/Cells.js" as Cells
 import "plugin/Chart.js" as Chart
 import "plugin/Format.js" as Format
 // Overnight prices through the real Service, its feeds, and the App window,
@@ -70,6 +71,28 @@ ShellRoot {
       if (found) return found
     }
     return null
+  }
+
+  // How the header's animal is drawn, in the look shown: "asleep", its eyes
+  // shut and the "z" shown, "awake", eyes open and no "z", else how far its
+  // lids are down and whether the "z" shows. A "z" reaching past the
+  // header's box is cut off: the popup's body starts at the header's top
+  // and clips what draws above it.
+  function sleep() {
+    var body = app.testBody
+    var header = find(body, "animal").parent
+    var mark = find(header, body.retro ? "sleepCells" : "sleepZ")
+    var z = mark.visible
+    var whole = mark.y >= 0 && mark.y + mark.height <= header.height
+    var lids
+    if (body.retro) {
+      var drawn = JSON.stringify(find(header, "sprite").pixels)
+      lids = [0, 1, 2].filter(function(l) { return drawn === JSON.stringify(Cells.spriteFor(body.animal.kind === "bull", l)) })[0] / 2
+    } else {
+      lids = [find(header, "drawnBull"), find(header, "drawnBear")].filter(function(a) { return a.visible })[0].lids
+    }
+    return lids === 1 && z && whole ? "asleep" : lids === 0 && !z ? "awake"
+      : "lids " + lids + ", z " + z + (whole ? "" : " at " + mark.y + " to " + (mark.y + mark.height) + " of the header's " + header.height)
   }
 
   // The line under the price as drawn: its words, "dim" when every one of
@@ -247,6 +270,14 @@ ShellRoot {
         friday.start === harness.midnight.fri25 && friday.end === harness.midnight.sat26
           && body.motion.scrubEnd === 1790380500,
         friday.start + " to " + friday.end + ", last " + body.motion.scrubEnd)
+      // Saturday noon, the header's animal sleeps; the cryptocurrency's
+      // never does.
+      var saturdayNbis = harness.sleep()
+      featureShown("BTC-USD")
+      var saturdayBtc = harness.sleep()
+      featureShown("NBIS")
+      harness.check("Saturday noon: NBIS's animal sleeps, BTC-USD's never does",
+        saturdayNbis === "asleep" && saturdayBtc === "awake", saturdayNbis + ", " + saturdayBtc)
       service.now = 1790388000
       harness.check("Friday 22:00 reads the same", harness.strip() === "AFTER HOURS 238.22 +0.38%", harness.strip())
       var calls = harness.record("OVERNIGHT.calls")
@@ -265,6 +296,7 @@ ShellRoot {
       harness.check("Sunday night trades, measured from Friday's close",
         harness.strip() === "OVERNIGHT 22:20 234.84 \u22121.05%" && body.featured.priceText === "237.33",
         harness.strip() + " | " + body.featured.priceText)
+      harness.check("Sunday 22:30, its night trading, NBIS's animal is awake", harness.sleep() === "awake", harness.sleep())
       // The chart stays on Friday (provisional: Sunday's captures settle
       // it), Thursday night's prints at its left edge, which a scrub reads,
       // never the previous close.
@@ -658,6 +690,29 @@ ShellRoot {
         harness.allDayAsked("PSIX") === 1 && harness.allDayAsked("BLDP") === 1 && harness.asked().indexOf("PSIX") < 0
           && harness.asked().indexOf("BLDP") < 0,
         harness.allDayAsked("PSIX") + ", " + harness.allDayAsked("BLDP") + " | prints asked for " + harness.asked())
+      // The header's animal sleeps while its market does, by its phase and
+      // calendar: at 01:00 NBIS's night trades, so it's awake; PSIX's
+      // doesn't, so it sleeps, in both looks. A scrub wakes it, since it
+      // reads a moment the market traded, and letting go puts it back to
+      // sleep at once.
+      var sleeps = []
+      ;["smooth", "retro"].forEach(function(look) {
+        service.persist({ style: look })
+        within(2000, function() { return body.retro === (look === "retro") })
+        featureShown("NBIS")
+        var nbis = harness.sleep()
+        featureShown("PSIX")
+        var psix = harness.sleep()
+        scrubAt(0.5)
+        within(1000, function() { return body.scrubT !== 0 })
+        var scrubbed = harness.sleep()
+        endScrub()
+        within(1000, function() { return body.scrubT === 0 })
+        sleeps.push(look + ": NBIS " + nbis + ", PSIX " + psix + ", scrubbed " + scrubbed + ", let go " + harness.sleep())
+      })
+      service.persist({ style: "smooth" })
+      harness.check("01:00: NBIS, whose night trades, is awake; PSIX sleeps, a scrub wakes it, and letting go puts it back to sleep at once, in both looks",
+        sleeps.every(function(s) { return / NBIS awake, PSIX asleep, scrubbed awake, let go asleep$/.test(s) }), sleeps.join(" | "))
       // An index trades only in its session: no pre-market before it, no
       // flat tail of its repeated close after it, and the header names its
       // next open from the US calendar. ^GSPC at 06:00 said "PRE-MARKET ·
