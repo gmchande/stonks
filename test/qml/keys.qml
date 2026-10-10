@@ -62,11 +62,17 @@ ShellRoot {
     return text
   }
 
-  // The keys a label names: "1–9" and "`1` to `9`" both ends, "J K" and
-  // "`Shift+J`" alike as Shift+J.
+  // The keys a label names: "1–9" and "`1` to `9`" each digit between, "J K"
+  // and "`Shift+J`" alike as Shift+J.
   function tokens(label) {
-    return label.replace(/`/g, "").replace("–", " ").split(/\s+/)
-      .filter(function(t) { return t !== "" && t !== "or" && t !== "to" })
+    var range = /^`?(\d)`?\s*(?:–|to)\s*`?(\d)`?$/.exec(label)
+    if (range) {
+      var digits = []
+      for (var d = Number(range[1]); d <= Number(range[2]); d++) digits.push(String(d))
+      return digits
+    }
+    return label.replace(/`/g, "").split(/\s+/)
+      .filter(function(t) { return t !== "" && t !== "or" })
       .map(function(t) { return /^[A-Z]$/.test(t) ? "Shift+" + t : t })
   }
 
@@ -134,8 +140,8 @@ ShellRoot {
     }
 
     // Every key starts from here: the surface open on All, manual order, the
-    // day, nothing open over the rows, the third row featured and the cursor
-    // on the second.
+    // day, nothing open over the rows, the last of the ten rows featured, so
+    // each of 1 to 9 has another to feature, and the cursor on the second.
     function base(s) {
       var b = s.body
       if (!b.surfaceOpen) s.open()
@@ -149,7 +155,7 @@ ShellRoot {
       if (service.order !== "manual") service.setOrder("manual")
       if (service.range !== "1D") service.setRange("1D")
       var rows = b.watchlist.displayedSymbols
-      service.feature(rows[2])
+      service.feature(rows[rows.length - 1])
       b.watchlist.cursorSymbol = rows[1]
       wait(50)
       s.keys.forceActiveFocus()
