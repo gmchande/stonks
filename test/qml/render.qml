@@ -22,7 +22,8 @@ import "plugin"
 // as its whole rows, the way Panel sizes it. sprite-candidates draws the
 // bull and bear candidates at 1x and 4x, smooth's drawn pair beside them.
 // pill-sheet draws the real bar pill for NBIS in every bar style and look,
-// on a horizontal and a vertical bar.
+// on a horizontal and a vertical bar, on a down day, an up one, and with its
+// last refresh failed.
 ShellRoot {
   id: root
 
@@ -70,7 +71,8 @@ ShellRoot {
   // pill-sheet-large: the same at a larger text size (render.sh).
   readonly property bool pillSheet: stateName === "pill-sheet" || stateName === "pill-sheet-large"
   property var pillQuote: null
-  // The same day closed up: the pill's icon form climbs where NBIS's falls.
+  // The same day closed up: the pill's arrow tilts up and its mark climbs
+  // where NBIS's fall.
   readonly property var pillUpQuote: pillQuote ? Object.assign({}, pillQuote, { prevClose: pillQuote.price * 0.97 }) : null
   readonly property bool popup: windowOf ? false : w22 ? w22.popup : stateName.indexOf("popup") === 0 || themeState
   // <popup-help|popup-help-sorted|window-help>-<look>: the key sheet.
@@ -758,25 +760,47 @@ ShellRoot {
         y: 20
         spacing: 8
 
+        // The sheet's columns: the same day down, closed up, and with its
+        // last refresh failed.
+        Row {
+          visible: root.pillSheet
+          spacing: 16
+          Item { width: 170; height: 1 }
+          Repeater {
+            model: ["DOWN", "UP", "FAILED"]
+            Text {
+              required property string modelData
+              width: 230 + 16 + Style.bar.sizeVertical
+              text: modelData
+              color: Color.muted
+              font.family: Style.font.family
+              font.pixelSize: 10
+              font.bold: true
+            }
+          }
+        }
+
         Repeater {
-          // Every form in each look, the icon on a down day and an up one,
-          // then the pill in the right section with no form picked there,
-          // where it is its icon, down and up.
+          // Every form in each look, then the pill in the right section
+          // with no form picked there, where it is its icon. The gallery
+          // has one day a row: every form down, then the text and the icon
+          // up and failed.
           model: {
             if (root.themeState) {
               var retroLook = root.stateName.indexOf("theme-retro-") === 0
-              return ["sparkline", "arrow", "text", "icon"].map(function(style) { return { style: style, retro: retroLook, compact: true } })
-                .concat([{ style: "text", retro: retroLook, up: true, compact: true }, { style: "icon", retro: retroLook, up: true, compact: true }])
+              return ["sparkline", "arrow", "text", "icon"].map(function(style) { return { style: style, retro: retroLook, days: ["down"] } })
+                .concat(["up", "failed"].reduce(function(rows, day) {
+                  return rows.concat([{ style: "text", retro: retroLook, days: [day] }, { style: "icon", retro: retroLook, days: [day] }])
+                }, []))
             }
             if (!root.pillSheet) return []
+            var days = ["down", "up", "failed"]
             var rows = []
             for (var look = 0; look < 2; look++) {
               var retro = look === 1
-              ;["sparkline", "arrow", "text", "icon"].forEach(function(style) { rows.push({ style: style, retro: retro }) })
-              rows.push({ style: "icon", retro: retro, up: true })
+              ;["sparkline", "arrow", "text", "icon"].forEach(function(style) { rows.push({ style: style, retro: retro, days: days }) })
             }
-            var right = [{ style: "sparkline", retro: false, right: true }, { style: "sparkline", retro: true, right: true },
-              { style: "sparkline", retro: false, right: true, up: true }, { style: "sparkline", retro: true, right: true, up: true }]
+            var right = [{ style: "sparkline", retro: false, right: true, days: days }, { style: "sparkline", retro: true, right: true, days: days }]
             // At the larger size, the smooth look's rows fill the screen.
             return root.stateName === "pill-sheet-large" ? rows.filter(function(r) { return !r.retro })
               .concat(right.filter(function(r) { return !r.retro })) : rows.concat(right)
@@ -785,99 +809,115 @@ ShellRoot {
           Row {
             id: pillRow
             required property var modelData
+            readonly property bool compact: root.themeState
             spacing: 16
 
             Text {
-              width: pillRow.modelData.compact ? 80 : 170
+              width: pillRow.compact ? 80 : 170
               anchors.verticalCenter: parent.verticalCenter
-              text: (pillRow.modelData.compact ? "" : (pillRow.modelData.retro ? "RETRO" : "SMOOTH") + " · ") + (pillRow.modelData.right ? "RIGHT SECTION" : pillRow.modelData.style.toUpperCase())
-                + (pillRow.modelData.up ? " · UP" : pillRow.modelData.style === "icon" || pillRow.modelData.right ? " · DOWN" : "")
+              text: (pillRow.compact ? "" : (pillRow.modelData.retro ? "RETRO" : "SMOOTH") + " · ")
+                + (pillRow.modelData.right ? "RIGHT SECTION" : pillRow.modelData.style.toUpperCase())
+                + (pillRow.compact && pillRow.modelData.days[0] !== "down" ? " · " + pillRow.modelData.days[0].toUpperCase() : "")
               color: Color.muted
               font.family: Style.font.family
               font.pixelSize: 10
               font.bold: true
             }
 
-            // A strip of bar at the bar's height, the real pill on it, fed
-            // by a service stub of its own.
-            Rectangle {
-              id: pillCell
-              width: 230
-              height: Style.bar.sizeHorizontal
-              anchors.verticalCenter: parent.verticalCenter
-              color: root.barGround
+            Repeater {
+              model: pillRow.modelData.days
 
-              QtObject {
-                id: pillService
-                property string featuredSymbol: "NBIS"
-                property var quotes: ({ NBIS: pillRow.modelData.up ? root.pillUpQuote : root.pillQuote })
-                property var entries: ({ NBIS: { status: "ok", receivedAt: root.now } })
-                property string changeMode: "pct"
-                property bool retro: pillRow.modelData.retro
-                property int now: root.now
-                property var asked: ({})
-              }
-              QtObject {
-                id: pillShell
-                function serviceFor() { return { service: pillService, trendColors: root.trendColors } }
-              }
-              PluginBarApi {
-                id: pillApi
-                pluginId: "grvc.stonks"
-                moduleName: "grvc.stonks"
-                shell: pillShell
-                // The bar mirrors these onto the facade; the render sets them.
-                foreground: Color.bar.text
-                barForeground: Color.bar.text
-                fontFamily: Style.font.family
-                barSize: Style.bar.sizeHorizontal
-                layoutConfig: pillRow.modelData.right ? { left: [], center: [], right: [{ id: "grvc.stonks" }] } : ({})
-              }
-              BarWidget {
+              Row {
+                id: pillDay
+                required property string modelData
                 anchors.verticalCenter: parent.verticalCenter
-                x: pillRow.modelData.right ? parent.width - width - 8 : 0
-                width: implicitWidth
-                height: parent.height
-                bar: pillApi
-                settings: ({ id: "grvc.stonks", barStyle: pillRow.modelData.style })
-              }
-              // An Omarchy bar icon beside it, Bluetooth's, as the right
-              // section draws its icons: what the mark is sized against.
-              BarIconButton {
-                visible: pillRow.modelData.right === true
-                anchors.verticalCenter: parent.verticalCenter
-                x: parent.width - 8 - 2 * Style.bar.iconSlot
-                height: parent.height
-                bar: pillApi
-                text: "\uDB80\uDCAF"
-              }
-            }
+                spacing: 16
 
-            // The same pill on a strip of vertical bar.
-            Rectangle {
-              width: Style.bar.sizeVertical
-              height: Style.bar.iconSlot * 2
-              anchors.verticalCenter: parent.verticalCenter
-              color: root.barGround
+                // The pill's service stub: NBIS's day, or the same day
+                // closed up, its last refresh failed in the third column.
+                QtObject {
+                  id: pillService
+                  property string featuredSymbol: "NBIS"
+                  property var quotes: ({ NBIS: pillDay.modelData === "up" ? root.pillUpQuote : root.pillQuote })
+                  property var entries: ({ NBIS: { status: pillDay.modelData === "failed" ? "failed" : "ok", receivedAt: root.now } })
+                  property string changeMode: "pct"
+                  property bool retro: pillRow.modelData.retro
+                  property int now: root.now
+                  property var asked: ({})
+                }
+                QtObject {
+                  id: pillShell
+                  function serviceFor() { return { service: pillService, trendColors: root.trendColors } }
+                }
 
-              PluginBarApi {
-                id: verticalApi
-                pluginId: "grvc.stonks"
-                moduleName: "grvc.stonks"
-                shell: pillShell
-                vertical: true
-                foreground: Color.bar.text
-                barForeground: Color.bar.text
-                fontFamily: Style.font.family
-                barSize: Style.bar.sizeVertical
-                layoutConfig: pillApi.layoutConfig
-              }
-              BarWidget {
-                anchors.centerIn: parent
-                width: parent.width
-                height: implicitHeight
-                bar: verticalApi
-                settings: ({ id: "grvc.stonks", barStyle: pillRow.modelData.style })
+                // A strip of bar at the bar's height, the real pill on it.
+                Rectangle {
+                  width: 230
+                  height: Style.bar.sizeHorizontal
+                  anchors.verticalCenter: parent.verticalCenter
+                  color: root.barGround
+
+                  PluginBarApi {
+                    id: pillApi
+                    pluginId: "grvc.stonks"
+                    moduleName: "grvc.stonks"
+                    shell: pillShell
+                    // The bar mirrors these onto the facade; the render sets them.
+                    foreground: Color.bar.text
+                    barForeground: Color.bar.text
+                    urgent: Color.bar.active
+                    fontFamily: Style.font.family
+                    barSize: Style.bar.sizeHorizontal
+                    layoutConfig: pillRow.modelData.right ? { left: [], center: [], right: [{ id: "grvc.stonks" }] } : ({})
+                  }
+                  BarWidget {
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: pillRow.modelData.right ? parent.width - width - 8 : 0
+                    width: implicitWidth
+                    height: parent.height
+                    bar: pillApi
+                    settings: ({ id: "grvc.stonks", barStyle: pillRow.modelData.style })
+                  }
+                  // An Omarchy bar icon beside it, Bluetooth's, as the right
+                  // section draws its icons: what the mark is sized against.
+                  BarIconButton {
+                    visible: pillRow.modelData.right === true
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: parent.width - 8 - 2 * Style.bar.iconSlot
+                    height: parent.height
+                    bar: pillApi
+                    text: "\uDB80\uDCAF"
+                  }
+                }
+
+                // The same pill on a strip of vertical bar.
+                Rectangle {
+                  width: Style.bar.sizeVertical
+                  height: Style.bar.iconSlot * 2
+                  anchors.verticalCenter: parent.verticalCenter
+                  color: root.barGround
+
+                  PluginBarApi {
+                    id: verticalApi
+                    pluginId: "grvc.stonks"
+                    moduleName: "grvc.stonks"
+                    shell: pillShell
+                    vertical: true
+                    foreground: Color.bar.text
+                    barForeground: Color.bar.text
+                    urgent: Color.bar.active
+                    fontFamily: Style.font.family
+                    barSize: Style.bar.sizeVertical
+                    layoutConfig: pillApi.layoutConfig
+                  }
+                  BarWidget {
+                    anchors.centerIn: parent
+                    width: parent.width
+                    height: implicitHeight
+                    bar: verticalApi
+                    settings: ({ id: "grvc.stonks", barStyle: pillRow.modelData.style })
+                  }
+                }
               }
             }
           }
