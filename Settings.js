@@ -29,15 +29,18 @@ function canRemove(symbols) {
 
 // A list's order; each list has its own. Manual is the symbols array as
 // saved; the rest are views over it, so sorting never rewrites what you
-// arranged by hand. The
-// order and the change mode are separate settings: sorting by the amount
-// ranks the rows without changing what their change figures say, so the
-// label names what it ranks by.
-var ORDERS = ["manual", "symbol", "name", "pct", "abs"]
+// arranged by hand. The order and the change mode are separate settings:
+// sorting by % change ranks the rows without changing what their change
+// figures say. There is no order by the amount: Stonks converts no
+// currency, so yen, dollars, and index points would rank as one number.
+var ORDERS = ["manual", "symbol", "name", "pct"]
 
-var ORDER_LABELS = { manual: "MANUAL", symbol: "SYMBOL", name: "NAME", pct: "% CHANGE", abs: "$ CHANGE" }
+var ORDER_LABELS = { manual: "MANUAL", symbol: "SYMBOL", name: "NAME", pct: "% CHANGE" }
 
+// An order saved by an older build as "abs", the amount, reads as % change,
+// which runs the same way.
 function normalizeOrder(value) {
+  if (value === "abs") return "pct"
   return ORDERS.indexOf(value) >= 0 ? value : "manual"
 }
 
@@ -55,7 +58,7 @@ function normalizeReversed(order, value) {
 // a change reversed.
 function sortsAscending(order, reversed) {
   order = normalizeOrder(order)
-  return (order === "pct" || order === "abs") === normalizeReversed(order, reversed)
+  return (order === "pct") === normalizeReversed(order, reversed)
 }
 
 // The order control's word, its arrow the way the values run down the list:
@@ -95,9 +98,7 @@ function sortedSymbols(symbols, quotes, order, reversed) {
 function sortKey(quote, order) {
   if (order === "symbol") return quote.symbol.toUpperCase()
   if (order === "name") return String(quote.name || quote.symbol).toUpperCase()
-  var chg = Quote.change(quote, Quote.regularClose(quote), "pct")
-  if (chg.pct === null) return null
-  return order === "pct" ? chg.pct : chg.abs
+  return Quote.change(quote, Quote.regularClose(quote), "pct").pct
 }
 
 function barEntryFor(config, id) {
