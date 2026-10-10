@@ -99,15 +99,36 @@ function same(frames) {
 
 // The header's animal turning, from the first frame's picture to the
 // last's, both of them an animal: neither may be the bare ground. A turn
-// (`turn`) crossfades: it leaves the first picture within a few frames of
-// the mark, shows the two mixed on three or more distinct frames, and rests
-// on the last from about 160 ms on. A change at once (`turn:0`) shows the
-// first picture until a few frames past the mark and the last from then on,
-// no mix and no way back. Neither shows a blank or faint frame: each
-// frame's strongest pixel stands at least a third as far from the ground as
-// the fainter picture's does, so a fade out and then in, through nothing,
-// fails.
-function turn(frames, atOnce) {
+// over `length` ms (the crossfade's 160, the eyes' close's 320) leaves the
+// first picture within a few frames of the mark, shows the two mixed on
+// three or more distinct frames, and rests on the last from about `length`
+// on. A change at once (`length` 0) shows the first picture until a few
+// frames past the mark and the last from then on, no mix and no way back.
+// Neither shows a blank or faint frame: each frame's strongest pixel stands
+// at least a third as far from the ground as the fainter picture's does, so
+// a fade out and then in, through nothing, fails.
+function turn(frames, length) {
+  const ends = turnEnds(frames)
+  if (ends.detail) return ends
+  const { first, last, bare, faint, mixed, distinct, leftAt, restAt, settled, left } = ends
+  const ok = !bare && faint < 0 && leftAt <= 50 && (length === 0 ? mixed.length === 0 && settled === left
+    : distinct >= 3 && restAt >= length * 0.625 && restAt <= length * 1.5)
+  return { ok, detail: describe(ends) }
+}
+
+// Retro's eyes closing over `length` ms in whole steps: the first picture
+// until about halfway, then one step, the half-shut eyes, on every frame
+// until about `length`, then the last; no blank or faint frame.
+function steps(frames, length) {
+  const ends = turnEnds(frames)
+  if (ends.detail) return ends
+  const { bare, faint, distinct, leftAt, restAt } = ends
+  const ok = !bare && faint < 0 && distinct === 1 && leftAt >= length * 0.35 && leftAt <= length * 0.7
+    && restAt >= length * 0.85 && restAt <= length * 1.4
+  return { ok, detail: describe(ends) }
+}
+
+function turnEnds(frames) {
   if (frames.length < 2) return { ok: false, detail: frames.length + " frames grabbed" }
   const first = frames[0].image.data
   const last = frames[frames.length - 1].image.data
@@ -120,20 +141,21 @@ function turn(frames, atOnce) {
     return most
   }
   const ends = Math.min(strength(first), strength(last))
-  const bare = ends < 24
-  const faint = frames.findIndex(f => strength(f.image.data) < ends / 3)
   const mixed = frames.filter(f => !f.image.data.equals(first) && !f.image.data.equals(last))
-  const distinct = new Set(mixed.map(f => f.image.data.toString("base64"))).size
   const left = frames.findIndex(f => !f.image.data.equals(first))
   const settled = frames.findIndex((f, i) => frames.slice(i).every(later => later.image.data.equals(last)))
-  const leftAt = frames[left].t
-  const restAt = frames[settled].t
-  const ok = !bare && faint < 0 && leftAt <= 50 && (atOnce ? mixed.length === 0 && settled === left
-    : distinct >= 3 && restAt >= 100 && restAt <= 240)
-  return { ok, detail: "leaves the first picture at " + leftAt + " ms, at rest at " + restAt + " ms, "
+  return {
+    frames, first, last, bare: ends < 24, faint: frames.findIndex(f => strength(f.image.data) < ends / 3), mixed,
+    distinct: new Set(mixed.map(f => f.image.data.toString("base64"))).size,
+    left, settled, leftAt: frames[left].t, restAt: frames[settled].t
+  }
+}
+
+function describe({ frames, bare, faint, distinct, leftAt, restAt }) {
+  return "leaves the first picture at " + leftAt + " ms, at rest at " + restAt + " ms, "
     + distinct + " distinct mixed frames"
     + (bare ? ", the first or last picture is the bare ground" : "")
-    + (faint >= 0 && !bare ? ", frame " + faint + " (" + frames[faint].t + " ms) is blank or faint" : "") }
+    + (faint >= 0 && !bare ? ", frame " + faint + " (" + frames[faint].t + " ms) is blank or faint" : "")
 }
 
 // The draw-in is judged from the frame it started on: what was grabbed
@@ -512,10 +534,27 @@ function selfCheck() {
     ["changes at once, back at 160 ms, and again at 240", false, true, t => t >= 0 && (t < 160 || t >= 240) ? [0, 1] : [1, 0], 400],
   ]
   for (const [name, expected, atOnce, alphas, until, uneven] of turnCases) {
-    const verdict = turn(animal(alphas, until, uneven), atOnce)
+    const verdict = turn(animal(alphas, until, uneven), atOnce ? 0 : 160)
     const right = verdict.ok === expected
     if (!right) failed++
     console.log((right ? "PASS " : "FAIL ") + "the animal " + name + (expected ? " passes" : " fails") + " — " + verdict.detail)
+  }
+  // The eyes' close: smooth's over 320 ms, retro's in two steps.
+  const halfway = (t, at) => t < at ? [1, 0] : t < 320 ? [0.5, 0.5] : [0, 1]
+  const closeCases = [
+    ["eyes close in 320 ms", true, turn, t => fade(t, 320)],
+    ["eyes close in 160 ms, judged as 320", false, turn, t => fade(t, 160)],
+    ["eyes close in 640 ms, judged as 320", false, turn, t => fade(t, 640), 800],
+    ["eyes step half shut at 160 ms and shut at 320", true, steps, t => halfway(t, 160)],
+    ["eyes shut at once, judged as steps", false, steps, t => t >= 0 ? [0, 1] : [1, 0]],
+    ["eyes close smoothly, judged as steps", false, steps, t => fade(t, 320)],
+    ["eyes step half shut at the mark and shut at 320", false, steps, t => halfway(t, 0)],
+  ]
+  for (const [name, expected, judge, alphas, until] of closeCases) {
+    const verdict = judge(animal(alphas, until || 560), 320)
+    const right = verdict.ok === expected
+    if (!right) failed++
+    console.log((right ? "PASS " : "FAIL ") + "the animal's " + name + (expected ? " passes" : " fails") + " — " + verdict.detail)
   }
   // A control 30 × 12 on a dark ground, its word in light ink, its fill
   // laid over the ground at `share(t)` of the pressed fill's alpha.
@@ -566,7 +605,8 @@ else {
   const verdict = kind === "same" ? same(end === undefined ? frames : frames.map(f => ({ ...f, image: cropped(f.image, end) })))
     : kind === "drawin" ? drawin(frames, end === undefined ? 1 : end === "ink" ? end : Number(end))
     : kind === "edge" ? edge(frames, band) : kind === "edgeheld" ? edgeheld(frames)
-    : kind === "turn" ? turn(frames, end === "0")
+    : kind === "turn" ? turn(frames, end === undefined ? 160 : Number(end))
+    : kind === "steps" ? steps(frames, Number(end))
     : kind === "press" ? press(frames, rest[0].split(",").map(Number), rest[1].split(",").map(Number))
     : { ok: false, detail: "unknown mode " + mode }
   console.log(JSON.stringify(verdict))

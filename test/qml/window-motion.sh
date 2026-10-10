@@ -8,6 +8,9 @@ plugin_tree window-motion.qml
 patch_copy plugin/App.qml '/readonly property bool ready:/a\  readonly property alias testBody: body\n  readonly property alias testKeyCatcher: keyCatcher\n  readonly property alias testWindow: window'
 # The flows wait for the quote feed to go quiet: nothing in flight or queued.
 patch_copy plugin/Service.qml '/readonly property var entries: feed.entries/a\  readonly property alias testFeed: feed\n  readonly property alias testHistoryFeed: historyFeed'
+# The animal's sleep steps hold the clock where they set it.
+patch_copy plugin/Service.qml '/readonly property var entries: feed.entries/a\  property bool testClockHeld: false'
+patch_copy plugin/Service.qml 's/onTriggered: root.now = Math.floor(Date.now() \/ 1000)/onTriggered: if (!root.testClockHeld) root.now = Math.floor(Date.now() \/ 1000)/'
 scratch_home v1-data.json grvc.stonks.json
 # The draw-in check runs on wrong draw-ins too: the real animation made
 # 160 ms, 400 ms, and none.

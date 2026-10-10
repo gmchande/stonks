@@ -560,6 +560,98 @@ ShellRoot {
       tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000)
     }
 
+    // The header's animal falling asleep, as it is rendered with its "z",
+    // the status words hidden: when the clock closes DOWN's market, Friday
+    // 11 September at 20:00 with no night after it, its eyes close over
+    // 320 ms in smooth and in two steps in retro. Nothing else moves it:
+    // letting go of a scrub puts it back to sleep at once, a new symbol
+    // changes it at once, and an open after the close shows it asleep from
+    // its first frame.
+    function sleepFrames(body) {
+      var featuredBefore = service.featuredSymbol
+      var rangeBefore = service.range
+      var slot = harness.find(body, "animal")
+      var header = slot.parent
+      var words = harness.find(header, "statusText")
+      var verdict = function(mode, judged) {
+        tryVerify(function() { return grab.waiting === 0 }, 3000)
+        grab.judge(mode, judged)
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        return grab.verdict
+      }
+      var run = function(name, mode, change) {
+        grab.source = header
+        grab.begin(name)
+        var at = grab.frames.length
+        tryVerify(function() { return grab.frames.length >= at + 3 }, 2000)
+        grab.markStart()
+        change()
+        tryVerify(function() { return grab.frames.length > 0 && grab.frames[grab.frames.length - 1].at - grab.start >= 480 }, 5000)
+        grab.end()
+        return verdict(mode)
+      }
+      var look = function(style) {
+        service.persist({ style: style })
+        tryVerify(function() { return body.retro === (style === "retro") }, 2000)
+        // The look icon steps for 200 ms on a change of look: it rests first.
+        wait(300)
+      }
+      service.setRange("1D")
+      service.feature("DOWN")
+      tryVerify(function() { return body.chartSymbol === "DOWN" && !body.chartLoading && body.motion.drawn === 1 }, 5000)
+      var close = service.quotes.DOWN.session.post.end
+      service.testClockHeld = true
+      words.visible = false
+      var awake = function() {
+        service.now = close - 60
+        tryVerify(function() { return !body.animal.asleep && header.closing === 0 }, 2000)
+      }
+      var bells = ["smooth", "retro"].map(function(style) {
+        look(style)
+        awake()
+        var bell = run("sleep-bell-" + style, style === "smooth" ? "turn:320" : "steps:320", function() { service.now = close })
+        return style + ": " + (bell.ok && body.animal.asleep ? "ok" : "not ok") + ", " + bell.detail
+      })
+      harness.check("the clock closing the market closes the animal's eyes over 320 ms, smoothly in smooth and in two steps in retro — "
+        + bells.join(" | "), bells.every(function(b) { return /^\w+: ok, /.test(b) }))
+      look("smooth")
+      // A scrub on the same side of the close, so the animal reads a bear
+      // on both sides of letting go, and no turn crossfades.
+      var below = body.featuredDay.points.filter(function(p) { return p.p < body.featuredDay.prevClose })
+      body.motion.scrubT = below[below.length - 1].t
+      tryVerify(function() { return !body.animal.asleep && header.closing === 0 && body.animal.kind === "bear" }, 2000)
+      wait(250)
+      var letGo = run("sleep-scrub-end", "turn:0", function() { body.motion.clearScrub() })
+      harness.check("letting go of a scrub after the close puts the animal back to sleep at once — " + letGo.detail,
+        letGo.ok && body.animal.asleep, body.animal.asleep + ": " + letGo.detail)
+      awake()
+      var symbol = run("sleep-symbol", "turn:0", function() { service.feature("AAPL") })
+      harness.check("a new symbol whose market is closed shows its animal asleep at once — " + symbol.detail,
+        symbol.ok && body.animal.asleep, body.animal.asleep + ": " + symbol.detail)
+      // An open after the bell, the market closing while the window was
+      // shut: the frames from its first painted one are all the same.
+      service.feature("DOWN")
+      tryVerify(function() { return body.chartSymbol === "DOWN" && !body.chartLoading && body.motion.drawn === 1 }, 5000)
+      awake()
+      app.close()
+      service.now = close
+      app.open("{}")
+      grab.source = header
+      grab.begin("sleep-open")
+      tryVerify(function() { return !body.chartLoading && body.motion.reveal === 1 && grab.frames.length >= 12 }, 5000)
+      grab.end()
+      var first = verdict("same")
+      var painted = first.blankBefore ? first.changedAt : 0
+      var opened = verdict("same", grab.frames.filter(function(f) { return f.at - grab.start >= painted }))
+      harness.check("an open after the close shows the animal asleep from its first painted frame — painted " + painted + " ms in | "
+        + opened.detail, opened.ok && body.animal.asleep && header.closing === 1, body.animal.asleep + ": " + opened.detail)
+      words.visible = true
+      service.testClockHeld = false
+      service.setRange(rangeBefore)
+      service.feature(featuredBefore)
+      tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000)
+    }
+
     // A closing surface holds its picture: from the close until the next
     // open nothing on it changes, whatever was moving or the service does
     // meanwhile. The window hides at once, so its body is put where the
@@ -822,6 +914,7 @@ ShellRoot {
       motionEnds(body, watchlist, keys)
       drawInFrames(body, keys)
       animalFrames(body)
+      sleepFrames(body)
       closingHolds(body, watchlist, keys)
       app.close()
       harness.finish()
