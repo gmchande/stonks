@@ -746,8 +746,11 @@ self_check() {
   chmod +x "$fake"/*
   run=$tmp/base/fake; mkdir -p "$run/home"
   PATH="$fake:$PATH" host_socket=$tmp/no-display write_launcher "$run" fake
-  ( exec 8> "$tmp/lock"; flock -n 8 && exec sleep 30 ) & local holder=$!
-  within 5 bash -c "! flock -n '$tmp/lock' true" || miss "the stand-in slot holder never took the lock"
+  # The holder says when it holds the slot; nothing else takes the lock to
+  # find out, since a probe holding it for a moment makes the holder's
+  # flock -n give up.
+  ( exec 8> "$tmp/lock"; flock -n 8 && { : > "$tmp/held"; exec sleep 30; } ) & local holder=$!
+  within 5 test -e "$tmp/held" || miss "the stand-in slot holder never took the lock"
   slot_free 2> /dev/null && miss "a held slot should not read free"
   setsid bash "$run/launch.sh" < /dev/null > /dev/null 2>&1 &
   within 5 test -s "$run/launch.status"
