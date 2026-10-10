@@ -5,8 +5,9 @@ import QtQuick
 // notice, and the read's end in that order: Quickshell's own read can't be
 // held part-way. Keeps what Quickshell 0.3.1's FileView does
 // (src/io/fileview.cpp): a read starts as the path is set; a reload() while
-// a read is in flight is ignored (loadAsync); a write is skipped when it
-// equals the text in hand (setText), and drops a read in flight unheard,
+// a read is in flight is ignored (loadAsync), and a read is in flight until
+// its loaded handlers have run (operationFinished); a write is skipped when
+// it equals the text in hand (setText), and drops a read in flight unheard,
 // neither loaded nor failed (saveSync's cancelAsync). Here a read sees the
 // file as it is when it starts.
 QtObject {
@@ -47,9 +48,9 @@ QtObject {
   // lands and its notice comes. A notice of the service's own save is
   // fileChanged() alone.
   function endRead() {
-    reading = false
     held = readText
     loaded()
+    reading = false
   }
   function saveElsewhere(next) {
     disk = next
