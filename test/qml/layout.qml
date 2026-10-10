@@ -434,8 +434,9 @@ ShellRoot {
         // The header's words keep room for its longest real states, the
         // longest holidays in calendars.json included, in both looks at both
         // widths, beside the look icon and the help mark. One is cut, by the
-        // owner's call: Tokyo's longest closure in retro in the popup, 12 px
-        // short before a New York reader's JST was added to it.
+        // owner's call: Tokyo's longest closure in the popup, 12 px short in
+        // retro before a New York reader's JST was added to it, and in smooth
+        // too since its words start after the animal as retro's do.
         var header = find(body, "statusText").parent
         var roomless = []
         var longest = ["CLOSED · OPENS MON 09:30", "POWER HOUR · CLOSES IN 40M", "LUNCH BREAK · REOPENS 12:30 JST · IN 59M",
@@ -458,8 +459,8 @@ ShellRoot {
         surface.wide = false
         stub.retro = false
         wait(20)
-        root.check("the header's longest real states fit, holidays included, in both looks at both widths, but Tokyo's longest closure in retro in the popup",
-          roomless.join(" | ") === "popup retro CONSTITUTION MEMORIAL DAY OBSERVED · OPENS THU 09:00 JST", roomless.join(" | "))
+        root.check("the header's longest real states fit, holidays included, in both looks at both widths, but Tokyo's longest closure in the popup",
+          roomless.join(" | ") === "popup smooth CONSTITUTION MEMORIAL DAY OBSERVED · OPENS THU 09:00 JST | popup retro CONSTITUTION MEMORIAL DAY OBSERVED · OPENS THU 09:00 JST", roomless.join(" | "))
 
         // The list's header lines up with its rows and groups with them: its
         // name starts at the rows' text and its order word ends at the
@@ -829,17 +830,22 @@ ShellRoot {
           + smoothLive + " | " + retroLive,
           /^true,true,true,true,true,true /.test(smoothLive) && /^true,true,true,true,true,true /.test(retroLive))
 
-        // In retro the words keep the sprite's place with or without a
-        // sprite. Found offscreen: featuring a symbol whose first quote was
-        // still out (every add) moved them 48 px left, then back.
-        stub.retro = true
-        stub.featuredSymbol = "LOAD"
-        wait(50)
-        var waiting = xIn(status, 0)
-        stub.featuredSymbol = "SHOP.TO"
-        wait(50)
-        root.check("retro's header words hold still while a symbol's first quote is out",
-          waiting === xIn(status, 0), waiting + " vs " + xIn(status, 0))
+        // The header's words keep the animal's place in both looks, drawn or
+        // not. Found offscreen: featuring a symbol whose first quote was
+        // still out (every add) moved retro's 48 px left, then back; and a
+        // look switch moved them 50 px, since only retro had an animal.
+        var places = []
+        ;[false, true].forEach(function(retro) {
+          stub.retro = retro
+          stub.featuredSymbol = "LOAD"
+          wait(50)
+          places.push(xIn(status, 0))
+          stub.featuredSymbol = "SHOP.TO"
+          wait(50)
+          places.push(xIn(status, 0))
+        })
+        root.check("the header's words hold still across looks and while a symbol's first quote is out",
+          places.every(function(x) { return x === places[0] }) && places[0] > 0, places.join(", "))
         stub.retro = false
         wait(50)
 

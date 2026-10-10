@@ -210,11 +210,14 @@ Item {
   // A live marker is honest only when the headline and chart endpoint are the same day quote.
   readonly property bool heroLive: (!historyActive || historyFailed)
     && !scrubT && featuredFreshness.live
-  readonly property bool automaticDirectionKnown: featured && typeof featured.dayUp === "boolean"
-  // The sprite belongs to the retro look.
-  readonly property bool spriteVisible: retro && (spriteOverride !== 0 || automaticDirectionKnown)
-  readonly property bool bullish: spriteOverride === 1
-    || (spriteOverride === 0 && automaticDirectionKnown && featured.dayUp)
+  // The header's animal, in both looks: the direction of the moment shown
+  // against the baseline, a bull up and a bear down, and none on a flat day
+  // (`dayTone`) or before a direction is known; Shift-click's choice first.
+  readonly property string animalKind: spriteOverride === 1 ? "bull" : spriteOverride === 2 ? "bear"
+    : !featured || featured.dayTone === "flat" ? "" : featured.dayTone === "up" ? "bull" : "bear"
+  // What it reads: a change of it is no turn, so the animal changes at once.
+  readonly property string animalChart: [chartSymbol, chartRange, view.listKey, retro].join(" ")
+  readonly property var animal: ({ kind: animalKind, chart: animalChart })
   // The info block describes what the chart shows: the range's statistics,
   // or the day's when the chart is the day. Before any chart, nothing.
   readonly property string periodText: !chart ? "" : historyShown ? History.historyStatsText(history, historyStats, featuredQuote ? featuredQuote.priceDigits : undefined)
@@ -698,8 +701,8 @@ Item {
     anchors.margins: root.margins
     statusText: root.headerText
     retro: root.retro
-    bullish: root.bullish
-    spriteVisible: root.spriteVisible
+    animal: root.animal
+    ground: root.ground
     scrubbing: root.scrubT !== 0
     live: root.heroLive
     still: !root.surfaceOpen

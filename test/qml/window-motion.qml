@@ -513,6 +513,53 @@ ShellRoot {
         + halves.join(" || "), halves.every(function(r) { return / ok /.test(r) }))
     }
 
+    // The header's animal as it is rendered, in smooth: a scrub across the
+    // close turns the bull into the bear in a 160 ms crossfade that never
+    // leaves the slot empty, and a new symbol changes it at once. Judged on
+    // the slot's pictures (frames.js), each run from a few frames before
+    // the change to 400 ms after it.
+    function animalFrames(body) {
+      var featuredBefore = service.featuredSymbol
+      var rangeBefore = service.range
+      service.persist({ style: "smooth" })
+      service.setRange("1D")
+      service.feature("AAPL")
+      tryVerify(function() { return body.chartSymbol === "AAPL" && !body.chartLoading && body.motion.drawn === 1 }, 5000)
+      var day = body.featuredDay
+      var moved = function(p) { return (p.p - day.prevClose) / day.prevClose }
+      var above = day.points.filter(function(p) { return moved(p) > 0.001 })
+      var below = day.points.filter(function(p) { return moved(p) < -0.001 })
+      var slot = harness.find(body, "animal")
+      var bull = harness.find(body, "drawnBull")
+      var run = function(name, mode, change) {
+        tryVerify(function() { return body.animal.kind === "bull" && bull.opacity === 1 }, 2000)
+        grab.source = slot
+        grab.begin(name)
+        var at = grab.frames.length
+        tryVerify(function() { return grab.frames.length >= at + 3 }, 2000)
+        grab.markStart()
+        change()
+        tryVerify(function() { return grab.frames.length > 0 && grab.frames[grab.frames.length - 1].at - grab.start >= 400 }, 5000)
+        grab.end()
+        tryVerify(function() { return grab.waiting === 0 }, 3000)
+        grab.judge(mode)
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        return grab.verdict
+      }
+      body.motion.scrubT = above[0].t
+      var scrubbed = run("animal-scrub", "turn", function() { body.motion.scrubT = below[below.length - 1].t })
+      harness.check("a scrub across the close crossfades the bull into the bear in about 160 ms, never through an empty slot"
+        + (scrubbed.ok ? " — " + scrubbed.detail : ""), above.length > 0 && below.length > 0 && scrubbed.ok,
+        above.length + " prints above, " + below.length + " below: " + scrubbed.detail)
+      body.motion.scrubT = 0
+      var featured = run("animal-symbol", "turn:0", function() { service.feature("DOWN") })
+      harness.check("a new symbol changes the animal at once"
+        + (featured.ok ? " — " + featured.detail : ""), featured.ok && body.animal.kind === "bear", body.animal.kind + ": " + featured.detail)
+      service.setRange(rangeBefore)
+      service.feature(featuredBefore)
+      tryVerify(function() { return !body.chartLoading && body.motion.drawn === 1 }, 5000)
+    }
+
     // A closing surface holds its picture: from the close until the next
     // open nothing on it changes, whatever was moving or the service does
     // meanwhile. The window hides at once, so its body is put where the
@@ -721,17 +768,17 @@ ShellRoot {
       wait(20)
       harness.check("Alt+P does not replay", !body.motion.replayRunning && body.motion.reveal === 1)
 
-      mouseClick(body, 20, body.margins + 14, Qt.LeftButton)
-      wait(20)
-      harness.check("smooth has no sprite to click", body.motion.reveal === 1 && !body.spriteVisible)
-      service.persist({ style: "retro" })
-      tryVerify(function() { return body.retro && body.spriteVisible }, 2000)
-      mouseClick(body, 20, body.margins + 14, Qt.LeftButton)
-      // Drawn part way once the replay's first frame lands, however late.
-      harness.check("retro sprite click replays a historical range",
-        within(2000, function() { return body.motion.replayRunning && body.motion.drawn < 1 }),
-        body.motion.replayRunning + "|" + body.motion.drawn)
-      body.resetInteraction()
+      // A click on the header's animal replays the chart shown, in both looks.
+      ;["smooth", "retro"].forEach(function(look) {
+        service.persist({ style: look })
+        tryVerify(function() { return body.retro === (look === "retro") && body.animal.kind !== "" }, 2000)
+        mouseClick(body, 20, body.margins + 14, Qt.LeftButton)
+        // Drawn part way once the replay's first frame lands, however late.
+        harness.check(look + "'s animal click replays a historical range",
+          within(2000, function() { return body.motion.replayRunning && body.motion.drawn < 1 }),
+          body.motion.replayRunning + "|" + body.motion.drawn)
+        body.resetInteraction()
+      })
       service.persist({ style: "smooth" })
       tryVerify(function() { return !body.retro }, 2000)
 
@@ -774,6 +821,7 @@ ShellRoot {
       dayAndHero(body, watchlist, keys)
       motionEnds(body, watchlist, keys)
       drawInFrames(body, keys)
+      animalFrames(body)
       closingHolds(body, watchlist, keys)
       app.close()
       harness.finish()
