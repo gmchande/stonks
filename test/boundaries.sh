@@ -2,7 +2,8 @@
 # Boundaries in the production source that no flow can see: who may run a
 # command, read or write a file, start a feed, or name an endpoint; that the
 # model stays pure; that colours come from the theme; that the bar entry
-# holds only barStyle; and that no file takes QtQuick's Sprite name.
+# holds only barStyle; and that no file takes QtQuick's Sprite name. And one
+# in the tests: a harness ends Quickshell only through HarnessExit.qml.
 # Prints a FAILED line per breach and exits non-zero on any.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -77,5 +78,15 @@ jq -e '[.barWidget.schema[].key] == ["barStyle", "barStyleRight"]' manifest.json
   || fail "manifest.json: the bar entry's schema holds more than barStyle and barStyleRight"
 # QtQuick owns Sprite: a Sprite.qml here would resolve as QtQuick's type.
 [ -e Sprite.qml ] && fail "Sprite.qml: QtQuick owns the Sprite type"
+# Qt.exit tears Quickshell's engine down at the next deferred delete, which
+# QtTest's wait() runs under the test's handler: Qt aborts, and the abort
+# dumps core. HarnessExit.qml exits only once no test is running, so no other
+# QML or JS under test/ may quit, from a timer, Qt.callLater, or anywhere.
+hits=$(rg -n -g '*.{qml,js}' -g '!HarnessExit.qml' -e '\bQt\.(exit|quit)\b' -- test)
+code=$?
+[ "$code" -le 1 ] || fail "rg could not check test/ for Qt.exit"
+[ "$code" -ne 0 ] || while read -r hit; do
+  fail "$hit: a harness quits only by setting exitCode on its HarnessExit and starting it"
+done <<< "$hits"
 
 exit "$failed"

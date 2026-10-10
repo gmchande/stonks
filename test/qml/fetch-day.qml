@@ -84,5 +84,5 @@ ShellRoot {
     }
   }
 
-  Timer { id: done; interval: 1; onTriggered: Qt.exit(0) }
+  HarnessExit { id: done }
 }

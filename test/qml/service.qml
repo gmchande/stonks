@@ -529,15 +529,5 @@ ShellRoot {
     }
   }
 
-  Timer {
-    interval: 60000
-    running: true
-    onTriggered: {
-      console.log("FAIL timed out at step " + harness.step)
-      exitTimer.exitCode = 1
-      exitTimer.start()
-    }
-  }
-
-  Timer { id: exitTimer; property int exitCode: 0; interval: 1; onTriggered: Qt.exit(exitCode) }
+  HarnessExit { id: exitTimer }
 }

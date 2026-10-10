@@ -1146,10 +1146,5 @@ ShellRoot {
     }
   }
 
-  Timer {
-    id: exitTimer
-    property int exitCode: 0
-    interval: 1
-    onTriggered: Qt.exit(exitCode)
-  }
+  HarnessExit { id: exitTimer }
 }
