@@ -335,9 +335,10 @@ ShellRoot {
       // arrow says which way the values run down the list.
       var label = harness.find(body, "orderLabel")
       var ring = [label.text]
-      for (var i = 0; i < 4; i++) { keyClick(Qt.Key_O); ring.push(service.order, label.text) }
-      harness.check("o runs the ring back to manual, names each order, and leaves the change mode alone",
-        harness.same(ring, ["↑  SYMBOL", "name", "↑  NAME", "pct", "↓  % CHANGE", "abs", "↓  $ CHANGE",
+      for (var i = 0; i < 3; i++) { keyClick(Qt.Key_O); ring.push(service.order, label.text) }
+      // No order by the amount: it would rank yen against dollars.
+      harness.check("o runs the ring back to manual through % change alone, names each order, and leaves the change mode alone",
+        harness.same(ring, ["↑  SYMBOL", "name", "↑  NAME", "pct", "↓  % CHANGE",
           "manual", "↕  MANUAL"]) && service.changeMode === "pct",
         ring + "|" + service.changeMode)
 
@@ -363,7 +364,7 @@ ShellRoot {
       keyClick(Qt.Key_O)
       wait(50)
       var nextOrder = [service.order, service.reversed, label.text]
-      for (var back = 0; back < 3; back++) keyClick(Qt.Key_O)
+      for (var back = 0; back < 2; back++) keyClick(Qt.Key_O)
       wait(50)
       harness.check("Shift+O and a Shift-click on the order word reverse a sorted order, kept for the list alone; o and manual have no reversal",
         manualStays && ahead.length === 2

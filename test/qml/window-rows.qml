@@ -231,12 +231,13 @@ ShellRoot {
       var onePct = pickHeld(Qt.Key_1, 0, { STRAY: 10 })
       mouseMove(body, 1, 1)
       service.switchList("Pair")
-      service.setOrder("abs")
+      service.setOrder("pct")
+      service.reverseOrder()
       rank({ MSFT: 5, NVDA: 4, FLAT: 3, DOWN: 2, STRAY: 1 })
       wait(100)
-      var twoAbs = pickHeld(Qt.Key_2, 1, { DOWN: 50 })
-      harness.check("1 to 9 feature the row shown there while the pointer holds re-ranked rows, by % in All and by $ in a list",
-        /^true,true /.test(onePct) && /^true,true /.test(twoAbs), onePct + " | " + twoAbs)
+      var twoReversed = pickHeld(Qt.Key_2, 1, { DOWN: 50 })
+      harness.check("1 to 9 feature the row shown there while the pointer holds re-ranked rows, by % in All and reversed in a list",
+        /^true,true /.test(onePct) && /^true,true /.test(twoReversed), onePct + " | " + twoReversed)
       mouseMove(body, 1, 1)
       service.switchList("")
       service.setOrder("pct")
