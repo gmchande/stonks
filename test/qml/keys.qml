@@ -247,20 +247,5 @@ ShellRoot {
     }
   }
 
-  Timer {
-    interval: 80000
-    running: true
-    onTriggered: {
-      console.log("FAIL Keys harness timed out")
-      done.exitCode = 1
-      done.start()
-    }
-  }
-
-  Timer {
-    id: done
-    property int exitCode: 0
-    interval: 100
-    onTriggered: Qt.exit(exitCode)
-  }
+  HarnessExit { id: done; interval: 100 }
 }

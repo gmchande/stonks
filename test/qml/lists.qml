@@ -1317,20 +1317,5 @@ ShellRoot {
     }
   }
 
-  Timer {
-    id: done
-    property int exitCode: 0
-    interval: 1
-    onTriggered: Qt.exit(exitCode)
-  }
-
-  Timer {
-    interval: 45000
-    running: true
-    onTriggered: {
-      console.log("FAIL lists harness timed out")
-      done.exitCode = 1
-      done.start()
-    }
-  }
+  HarnessExit { id: done }
 }

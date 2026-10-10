@@ -32,11 +32,12 @@ code=0
 
 # feed_tree HARNESS FILE...: copies of just the named plugin files, so a
 # feed loads without the shell's Ui and Commons. Copies, so a script can
-# patch them.
+# patch them. Every tree holds HarnessExit.qml, a harness's one way out.
 feed_tree() {
   root="$work/config"
   mkdir -p "$root"
   cp "$here/$1" "$root/shell.qml"
+  cp "$here/HarnessExit.qml" "$root/"
   shift
   for file in "$@"; do cp "$plugin/$file" "$root/"; done
 }
@@ -50,6 +51,7 @@ plugin_tree() {
   cp "$plugin"/*.qml "$plugin"/*.js "$plugin/calendars.json" "$plugin/manifest.json" "$root/plugin/"
   ln -s /usr/share/omarchy/shell/Ui /usr/share/omarchy/shell/Commons "$root/"
   cp "$here/$1" "$root/shell.qml"
+  cp "$here/HarnessExit.qml" "$root/"
 }
 
 # frame_tools: FrameGrab.qml beside the harness, a folder for its frames,
