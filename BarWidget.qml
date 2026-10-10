@@ -298,7 +298,7 @@ BarWidget {
         text: root.featured ? Format.lookSigns(Format.narrowPct(root.featured.pct), root.retro) : "…"
         fontFamily: button.fontFamily
         fontSize: button.fontSize * 0.85
-        color: root.featured && Format.shownSign(root.featured.pct, Format.narrowPctDigits(root.featured.pct)) === 0
+        color: root.featured && Format.narrowPctShown(root.featured.pct).shown === 0
           ? root.dimColor : root.trendColor
       }
     }

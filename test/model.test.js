@@ -128,11 +128,23 @@ test("formatting", () => {
   expect(M.pct(1267.16)).toBe("+1,267%")
   expect(M.pct(71789.6)).toBe("+71,790%")
   expect(M.pct(-999.99)).toBe("\u2212999.99%")
-  // A vertical bar's pill: one decimal under 10%, none from 10% up, judged
-  // on the figure shown, so it stays five characters wide; a move that
-  // shows as none has no sign.
+  // A vertical bar's pill: one decimal under 10%, none from 10% up, so it
+  // stays five characters wide; a move that shows as none has no sign.
   expect([-1.56, 0.04, 9.94, 9.96, -12.34, 123.4].map(M.narrowPct))
     .toEqual(["\u22121.6%", "0.0%", "+9.9%", "+10%", "\u221212%", "+123%"])
+  // It rounds what the rows show, never the float behind it, so the two
+  // agree whatever prices made the move: 20 to 21.99 is 9.94999…%, which
+  // the rows show as +9.95% and the pill showed as +9.9% while 100 to
+  // 109.95 read +10%. Found in review: around 9.95%, 0.05%, and 99.95%.
+  const shown = [[20, 21.99], [20, 18.01], [100, 109.95], [100, 90.05], [20, 21.988], [20, 20.01], [20, 19.99],
+    [100, 100.05], [100, 99.95], [20, 39.99], [100, 199.95], [20, 0.01], [100, 0.05]]
+    .map(([prevClose, price]) => {
+      const move = M.change({ prevClose }, price, "pct").pct
+      return M.pct(move) + " " + M.narrowPct(move)
+    })
+  expect(shown).toEqual(["+9.95% +10%", "\u22129.95% \u221210%", "+9.95% +10%", "\u22129.95% \u221210%", "+9.94% +9.9%",
+    "+0.05% +0.1%", "\u22120.05% \u22120.1%", "+0.05% +0.1%", "\u22120.05% \u22120.1%",
+    "+99.95% +100%", "+99.95% +100%", "\u221299.95% \u2212100%", "\u221299.95% \u2212100%"])
   expect(M.changeText({ abs: 0.91, pct: 0.52 }, "abs")).toBe("+0.91")
   expect(M.changeText({ abs: -1234.5, pct: -2 }, "abs")).toBe("\u22121,234.50")
   expect(M.nextChangeMode("pct")).toBe("abs")
