@@ -13,6 +13,9 @@ Item {
   // The wash's alpha, as the hero's (`Tones.washAlpha`), so the bear's red
   // weighs the same as the bull's green.
   property real wash: 0.16
+  // How far the eyes have closed: 0 open, 1 shut to a flat slit of the
+  // line's weight, as it sleeps.
+  property real lids: 0
 
   implicitWidth: 40
   implicitHeight: 28
@@ -20,6 +23,7 @@ Item {
   onBullChanged: canvas.requestPaint()
   onColorChanged: canvas.requestPaint()
   onWashChanged: canvas.requestPaint()
+  onLidsChanged: canvas.requestPaint()
 
   Canvas {
     id: canvas
@@ -48,6 +52,17 @@ Item {
       ctx.beginPath()
       ctx.arc(x, y, r, 0, Math.PI * 2)
       ctx.fill()
+    }
+
+    // An eye, its lid down by `root.lids`: the dot squashed to a slit of
+    // the line's weight, a little wider, as a shut eye is drawn.
+    function eye(ctx, x, y, r) {
+      var slit = ctx.lineWidth / 2 / r
+      ctx.save()
+      ctx.translate(x, y + r * 0.4 * root.lids)
+      ctx.scale(1 + 0.6 * root.lids, 1 - (1 - slit) * root.lids)
+      dot(ctx, 0, 0, r)
+      ctx.restore()
     }
 
     // The bull's face, front on: a broad brow, horns sweeping out and up,
@@ -79,8 +94,8 @@ Item {
       ctx.quadraticCurveTo(30.6, 13.8, 31.4, 12.6)
       ctx.stroke()
       ctx.fillStyle = root.color
-      dot(ctx, 17, 13.2, 1.15)
-      dot(ctx, 23, 13.2, 1.15)
+      eye(ctx, 17, 13.2, 1.15)
+      eye(ctx, 23, 13.2, 1.15)
       dot(ctx, 17.6, 21.6, 0.95)
       dot(ctx, 22.4, 21.6, 0.95)
     }
@@ -118,7 +133,7 @@ Item {
       ctx.fill()
       ctx.stroke()
       ctx.fillStyle = root.color
-      dot(ctx, 31.2, 10.6, 1.15)
+      eye(ctx, 31.2, 10.6, 1.15)
       dot(ctx, 37.1, 12.2, 0.9)
     }
   }

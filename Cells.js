@@ -109,6 +109,27 @@ var BEAR_SPRITE = [
   "...................."
 ]
 
+// Each animal's eyes closing, as retro steps them: the lid half down, then
+// shut, each eye a slit lowered a row (`HeaderStatus`).
+var BULL_HALF = BULL_SPRITE.slice()
+BULL_HALF[6] = "...##############..."
+var BULL_SHUT = BULL_HALF.slice()
+BULL_SHUT[7] = ".....#..####..#....."
+var BEAR_HALF = BEAR_SPRITE.slice()
+BEAR_HALF[4] = ".#####.############."
+var BEAR_SHUT = BEAR_SPRITE.slice()
+BEAR_SHUT[4] = ".#..##.############."
+
+// The sleeper's "z" in cells, 4 wide and 5 tall, at the sprite's cell
+// size: a 4 by 4 one's diagonal read as a stem.
+var SLEEP_Z = [
+  "####",
+  "..#.",
+  ".#..",
+  "#...",
+  "####"
+]
+
 // Flattened lit pixels for a Repeater: [{x, y}, ...].
 function spritePixels(rows) {
   var out = []
@@ -120,6 +141,11 @@ function spritePixels(rows) {
   return out
 }
 
-function spriteFor(up) {
-  return spritePixels(up ? BULL_SPRITE : BEAR_SPRITE)
+// The animal for an up day or a down one, its eyes open (0), half shut
+// (1), or shut (2).
+function spriteFor(up, lids) {
+  var open = up ? BULL_SPRITE : BEAR_SPRITE
+  var half = up ? BULL_HALF : BEAR_HALF
+  var shut = up ? BULL_SHUT : BEAR_SHUT
+  return spritePixels(lids === 2 ? shut : lids === 1 ? half : open)
 }
