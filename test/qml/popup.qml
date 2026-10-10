@@ -63,7 +63,7 @@ ShellRoot {
     }
     function refresh() { test.refreshes++ }
     function fetchFundamentals(symbol) { test.fundamentalsCalls++ }
-    function persist(values) {}
+    function persist(values) { if (values.changeMode !== undefined) changeMode = values.changeMode }
     function feature(symbol) { featuredSymbol = symbol }
     function setRange(value) { range = value }
     function surfaceShown(surface, open) { if (open) test.opensTold++ }
@@ -110,6 +110,20 @@ ShellRoot {
     id: pill
     bar: api
     settings: ({ id: "grvc.stonks", barStyle: "sparkline" })
+  }
+  // A second real pill, on a stand-in for its bar window's content: an
+  // unmapped window has no content item to place a card from. The shell's
+  // placement runs whole on it, from the pill's spot there.
+  Item {
+    id: placedBar
+    width: 1200
+    height: Style.bar.sizeHorizontal
+    Stonks.BarWidget {
+      id: placedPill
+      x: 400
+      bar: api
+      settings: ({ id: "grvc.stonks", barStyle: "text" })
+    }
   }
   // The real data service and a popup on it, for what must outlive a
   // restart: the first-run hint. HOME is the harness's scratch one, with no
@@ -989,6 +1003,43 @@ ShellRoot {
         } else if (test.step === 42) {
           if (test.hold(test.savedSettings().hinted === true)) return
           test.check("and the hint shown is saved", test.savedSettings().hinted === true)
+        } else if (test.step === 43) {
+          // Nothing pressed in the open popup moves it sideways: c into
+          // "open", which widens the pill, and a narrower featured symbol
+          // leave the card where it opened; the next open takes the pill's
+          // new place. Seen live: the card moved about 15 px on c.
+          var held = placedPill.panel
+          var placed = held.testCard
+          // The pill's own window is unmapped, so the bar window the card
+          // reads is the item it sits on, and its row lays out on asking.
+          placed.anchorWindow = { width: placedBar.width, height: Style.bar.sizeHorizontal, screen: Quickshell.screens[0], contentItem: placedBar }
+          var pillRow = test.find(placedPill, "pillSymbol").parent
+          var pillWidth = function() { pillRow.forceLayout(); return placedPill.width }
+          service.quotes = Object.assign({}, service.quotes, { MU: test.sampleQuote("MU", 50) })
+          service.changeMode = "pct"
+          service.feature("AAPL")
+          var before = pillWidth()
+          held.open()
+          var openedAt = placed.cardOrigin.x
+          held.testKeyCatcher.textKey("c")
+          held.testKeyCatcher.textKey("c")
+          var mode = service.changeMode
+          var widened = pillWidth()
+          var afterOpenMode = placed.cardOrigin.x
+          service.feature("MU")
+          var narrowed = pillWidth()
+          var afterFeature = placed.cardOrigin.x
+          held.close()
+          held.open()
+          var reopenedAt = placed.cardOrigin.x
+          var expected = Math.round(placedPill.x + narrowed / 2 - placed.contentWidth / 2)
+          held.close()
+          service.changeMode = "pct"
+          test.check("c into open and a narrower featured symbol leave the open card where it opened, and the next open takes the pill's new place",
+            mode === "open" && widened > before && narrowed < widened
+              && afterOpenMode === openedAt && afterFeature === openedAt && reopenedAt === expected && reopenedAt !== openedAt,
+            [mode, "AAPL " + before + " → " + widened + ", MU " + narrowed,
+              "card x " + openedAt + " → " + afterOpenMode + " → " + afterFeature, "reopened " + reopenedAt + " (expected " + expected + ")"].join(", "))
           console.log("POPUP DONE")
           exitTimer.exitCode = test.failures ? 1 : 0
           exitTimer.start()
