@@ -385,7 +385,7 @@ ShellRoot {
       wait(100)
       var empty = body.children.filter(function(child) { return child.objectName === "emptyList" })[0]
       harness.check("a named list may empty, and says so, with no refusal",
-        service.symbols.length === 0 && body.note === "Removed NVDA from Energy · u to undo" && empty.visible
+        service.symbols.length === 0 && body.note === "Removed NVDA from Energy" && empty.visible
           && empty.text === "No symbols in Energy yet"
           && body.wholeListHeight === watchlist.rowHeight,
         service.symbols.length + "|" + body.note + "|" + empty.visible + "|" + empty.text + "|" + body.wholeListHeight + "|" + watchlist.rowHeight)
@@ -402,8 +402,9 @@ ShellRoot {
         harness.same(service.library, ["AAPL", "NVDA"]) && harness.same(energy.symbols, []))
       // A removal is instant and needs no confirm, so it can be taken back:
       // the footer names what went, and u puts it back where it was.
-      harness.check("the footer names the removed symbol and offers undo",
-        body.note === "Removed MSFT · u to undo", body.note)
+      harness.check("the footer names the removed symbol and offers undo by click or u",
+        body.note === "Removed MSFT" && harness.find(body, "footerAction").text === " · click or u to undo",
+        body.note + "|" + harness.find(body, "footerAction").text)
       keyClick(Qt.Key_U)
       // It used to slide down from above the list, over every row between.
       // Read on its first frame part way into the fade.
@@ -783,7 +784,7 @@ ShellRoot {
         harness.same(service.library, ["NVDA"]) && harness.same(power(), ["NVDA"]) && body2.listsSymbol === "",
         service.library + "|" + power() + "|" + body2.listsSymbol)
       harness.check("unticking All names the symbol in the footer, like any removal",
-        body2.note === "Removed AAPL · u to undo", body2.note)
+        body2.note === "Removed AAPL", body2.note)
       var noteAt = center(harness.find(body2, "footer"))
       mouseClick(body2, noteAt.x, noteAt.y)
       wait(100)
@@ -812,7 +813,10 @@ ShellRoot {
         power() + "|" + service.featuredSymbol)
 
       // An offer stands only while it is the service's last removal: one made
-      // on another surface replaces it, and this footer lets it go.
+      // on another surface replaces it, and this footer lets it go. u then
+      // takes back that newer one, the service's last removal, wherever it
+      // was made: AAPL returns to All, and stays out of Power, which the
+      // first removal took it from.
       wl.cursorSymbol = "AAPL"
       keyClick(Qt.Key_X)
       wait(100)
@@ -821,9 +825,11 @@ ShellRoot {
       harness.check("a removal made elsewhere drops this surface's offer", body2.note === "", body2.note)
       keyClick(Qt.Key_U)
       wait(100)
-      harness.check("and u then puts nothing back",
-        harness.same(power(), ["NVDA"]) && harness.same(service.library, ["NVDA"]),
+      harness.check("and u then takes back that removal, made on the other surface",
+        harness.same(power(), ["NVDA"]) && harness.same(service.library, ["NVDA", "AAPL"]),
         power() + "|" + service.library)
+      service.setMembership("AAPL", "", false)
+      wait(100)
       service.switchList("")
       wait(100)
 

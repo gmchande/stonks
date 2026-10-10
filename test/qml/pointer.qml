@@ -175,6 +175,12 @@ ShellRoot {
       symbols = next
       shown = Settings.sortedSymbols(next, quotes, order)
       if (featuredSymbol === symbol) featuredSymbol = next[0] || ""
+      lastRemoval = { symbol: symbol }
+    }
+    property string undone: ""
+    function undoRemoval(symbol) {
+      undone = symbol
+      lastRemoval = null
     }
     function setManualOrder(next) { symbols = next.slice(); shown = next.slice(); order = "manual" }
     function addSymbol(symbol) {
@@ -885,6 +891,39 @@ ShellRoot {
         wait(2700)
         root.check("the note clears on its own", body.note === "")
 
+        // A removal's note stays while the pointer rests on it, past its five
+        // seconds, and a click then takes the removal back: it never turns
+        // into the add under the pointer. Once the pointer leaves, it has its
+        // moment again. Found in the first-run review: a slow click on the
+        // note opened search.
+        root.setQuotes(["FIT1", "FIT2"], [101, 102])
+        wait(200)
+        var footer = root.find(body, "footer")
+        var onNote = footer.mapToItem(body, footer.width / 2, footer.height / 2 + Style.space(3))
+        mouseMove(body, onNote.x, onNote.y)
+        wait(50)
+        body.removeRow("FIT2")
+        wait(5600)
+        var action = root.find(footer, "footerAction")
+        var held = body.note + "|" + (action ? action.text : "no action") + "|" + footer.hovered
+        mouseClick(body, onNote.x, onNote.y)
+        wait(50)
+        root.check("a removal's note stays under the pointer past its moment, and a click on it then undoes",
+          held === "Removed FIT2| · click or u to undo|true" && stub.undone === "FIT2" && !body.adding,
+          held + "|" + stub.undone + "|" + body.adding)
+        root.setQuotes(["FIT1", "FIT2"], [101, 102])
+        wait(200)
+        body.removeRow("FIT2")
+        wait(5600)
+        var stillHeld = body.note
+        mouseMove(body, body.width / 2, 20)
+        wait(1000)
+        var leftAMoment = body.note
+        tryVerify(function() { return body.note === "" }, 6000)
+        root.check("once the pointer leaves, the note has its moment again, then goes",
+          stillHeld === "Removed FIT2" && leftAMoment === "Removed FIT2" && body.note === "",
+          stillHeld + "|" + leftAMoment + "|" + body.note)
+
         console.log("POINTER DONE")
         done.exitCode = root.failures ? 1 : 0
         done.start()
@@ -900,7 +939,7 @@ ShellRoot {
   }
 
   Timer {
-    interval: 25000
+    interval: 40000
     running: true
     onTriggered: {
       console.log("FAIL pointer harness timed out")

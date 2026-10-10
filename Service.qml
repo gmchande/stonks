@@ -620,8 +620,11 @@ Item {
   }
 
   // Every membership change is a Settings.js rule: settings in, settings out.
+  // One that changes what the lists hold ends the offer to undo the last
+  // removal: the undo stands until the next change to the lists.
   function save(next) {
     if (Settings.settingsEqual(next, root.dataSettings)) return
+    if (!Settings.sameLists(next, root.dataSettings)) root.lastRemoval = null
     root.persist(next)
   }
 
@@ -659,8 +662,8 @@ Item {
 
   // A removal remembers the settings before it, the hero it left, and the
   // symbol's quote, so it can be taken back as it was without undoing
-  // anything chosen since. It is the one
-  // removal on offer, whichever surface made it.
+  // anything chosen since. It is the one removal on offer, whichever surface
+  // made it, until the next change to the lists.
   function remove(symbol, next) {
     var before = root.dataSettings
     var quote = feed.quotes[symbol] || null

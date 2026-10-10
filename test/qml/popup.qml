@@ -145,6 +145,8 @@ ShellRoot {
     openedUnready = !hintService.pluginsReady
     hintPanel.open()
   }
+  property string removedEarlier: ""
+  property string noteSaid: ""
   QtObject {
     id: hintShell
     function serviceFor() { return { service: test.hintService, updates: hintUpdates } }
@@ -1040,6 +1042,33 @@ ShellRoot {
               && afterOpenMode === openedAt && afterFeature === openedAt && reopenedAt === expected && reopenedAt !== openedAt,
             [mode, "AAPL " + before + " → " + widened + ", MU " + narrowed,
               "card x " + openedAt + " → " + afterOpenMode + " → " + afterFeature, "reopened " + reopenedAt + " (expected " + expected + ")"].join(", "))
+          // A removal's undo outlives its note: u long after it, with the
+          // footer back on the add, still takes it back.
+          test.hintPanel.open()
+          test.removedEarlier = test.hintService.library[0]
+          test.hintPanel.testBody.removeRow(test.removedEarlier)
+          test.noteSaid = test.footerText(test.hintPanel)
+        } else if (test.step === 44) {
+          var labelBack = test.footerText(test.hintPanel).indexOf("+  Add a symbol") === 0
+          if (test.hold(labelBack)) return
+          var gone = test.removedEarlier
+          var goneMeanwhile = test.hintService.library.indexOf(gone) < 0
+          test.hintPanel.testKeyCatcher.textKey("u")
+          var back = test.hintService.library.indexOf(gone) >= 0
+          test.check("u after the note has gone, the footer back on the add, still takes the removal back",
+            test.noteSaid === "Removed " + gone && labelBack && goneMeanwhile && back,
+            [test.noteSaid, labelBack, goneMeanwhile, back].join("|"))
+          // Until the next change to the lists: a new list ends the offer,
+          // and u says there is nothing to undo.
+          test.hintPanel.testBody.removeRow(gone)
+          test.hintService.createList("Undo ends")
+          test.hintPanel.testKeyCatcher.textKey("u")
+          var said = test.footerText(test.hintPanel)
+          var stillGone = test.hintService.library.indexOf(gone) < 0
+          test.hintService.deleteList("Undo ends")
+          test.hintPanel.close()
+          test.check("after the next change to the lists u puts nothing back, and the footer says why",
+            stillGone && said === "Nothing to undo", stillGone + "|" + said)
           console.log("POPUP DONE")
           exitTimer.exitCode = test.failures ? 1 : 0
           exitTimer.start()

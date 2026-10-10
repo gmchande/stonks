@@ -71,10 +71,10 @@ Item {
   // The symbol whose lists the checklist shows; "" while it is closed.
   property string listsSymbol: ""
   property int spriteOverride: 0
-  // A short word in the footer's place, for a moment: why a key did nothing,
-  // or what a removal took, which undoSymbol can put back.
+  // A short word in the footer's place, for a moment, held while the pointer
+  // is on it: why a key did nothing, or what a removal took, which a click
+  // on it puts back (`offered`).
   property string note: ""
-  property string undoSymbol: ""
   // A quiet line in the footer's place for this visit, under any note: the
   // popup's first-run hint (`showFirstRunHint`). The next open clears it.
   property string hint: ""
@@ -86,10 +86,11 @@ Item {
   // restart, which a click on it does.
   readonly property string notice: settingsUnreadable ? "grvc.stonks.json can't be read, so changes aren't being saved"
     : updatedTo !== "" ? "Updated to " + updatedTo + " · restart the shell" : ""
-  // The service's one removal on offer, and the one this footer offered: when
-  // another surface makes a newer removal, or it is undone, the offer goes.
+  // The removal the footer's note offers back, the service's one removal on
+  // offer as the note was said: when another surface makes a newer removal,
+  // the lists change, or it is undone, the offer goes, and the note with it.
   property var offered: null
-  onRemovalChanged: if (undoSymbol !== "" && removal !== offered) clearNote()
+  onRemovalChanged: if (offered !== null && removal !== offered) clearNote()
 
   // What this surface shows of the service, held in one place: the surface
   // reads the service only while it is open. From a close until the next
@@ -410,36 +411,46 @@ Item {
   }
 
   function say(text) {
-    undoSymbol = ""
+    offered = null
     note = text
-    noteTimer.restart()
+    holdNote()
   }
 
   // A removal is instant and needs no confirm, and the row may be off screen,
-  // so the footer names what went and offers it back for a few seconds.
+  // so the footer names what went and offers it back. `u` takes it back
+  // until the next change to the lists, long after the note has gone.
   function offerUndo(symbol, from) {
     offered = removal
-    undoSymbol = symbol
-    note = "Removed " + symbol + (from !== "" ? " from " + from : "") + " · u to undo"
-    noteTimer.restart()
+    note = "Removed " + symbol + (from !== "" ? " from " + from : "")
+    holdNote()
   }
 
-  // Puts the offered removal back; false when there is none to take back.
-  // The row returns at its place, and the list eases it into view.
+  // Puts the service's last removal back, whichever surface made it, or
+  // says there is none: the next change to the lists ended the offer. The
+  // row returns at its place, and the list eases it into view.
   function undoRemoval() {
-    if (undoSymbol === "" || !service) return false
+    if (!service) return
     showingHelp = false
-    var symbol = undoSymbol
+    if (!removal) {
+      say("Nothing to undo")
+      return
+    }
+    var symbol = removal.symbol
     clearNote()
     service.undoRemoval(symbol)
     watchlist.select(symbol)
-    return true
+  }
+
+  // The note's moment starts again, and waits while the pointer is on it,
+  // so it never turns into the add under a click on its way.
+  function holdNote() {
+    if (note !== "" && surfaceOpen && !footer.hovered) noteTimer.restart()
+    else noteTimer.stop()
   }
 
   function clearNote() {
     noteTimer.stop()
     note = ""
-    undoSymbol = ""
     offered = null
   }
 
@@ -690,7 +701,7 @@ Item {
   // A refusal stays a moment; an offer to undo long enough to act on it.
   Timer {
     id: noteTimer
-    interval: root.undoSymbol !== "" ? 5000 : 2500
+    interval: root.offered !== null ? 5000 : 2500
     onTriggered: root.clearNote()
   }
 
@@ -935,18 +946,20 @@ Item {
     fontFamily: root.fontFamily
     rowHeight: root.rowHeight
     note: root.note
+    noteAction: root.offered !== null ? " · click or u to undo" : ""
     notice: root.notice
     hint: root.hint
     ground: root.ground
     label: root.listName !== "" ? "+  Add a symbol to " + root.listName : "+  Add a symbol"
-    acts: root.undoSymbol !== "" || !root.settingsUnreadable
+    acts: root.offered !== null || !root.settingsUnreadable
+    onHoveredChanged: root.holdNote()
     // The click acts on what the footer shows: an undo offer undoes, the
     // update's notice restarts the shell, and the file's does nothing,
     // nor does a refusal over it; a refusal otherwise, or the label, adds.
     onClicked: {
-      if (root.undoRemoval()) return
-      if (root.settingsUnreadable) return
-      if (root.note === "" && root.updatedTo !== "") root.updates.restart()
+      if (root.offered !== null) root.undoRemoval()
+      else if (root.settingsUnreadable) return
+      else if (root.note === "" && root.updatedTo !== "") root.updates.restart()
       else root.startAdding()
     }
   }

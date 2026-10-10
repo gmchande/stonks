@@ -5,5 +5,5 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 plugin_tree pointer.qml
 export QT_QPA_PLATFORM=offscreen
 export STONKS_WATCHLIST_FIXTURE="$STONKS_FIXTURES/watchlist-22.json"
-run_qs 30
+run_qs 50
 finish "POINTER DONE"
