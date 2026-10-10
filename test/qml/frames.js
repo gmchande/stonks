@@ -29,9 +29,12 @@
 //                                      the X,Y,W,H box, from the next frame
 //                                      on, held there while the button is
 //                                      down
-//   bun frames.js turn[:0] FRAME@T... the header's animal crossfades to its
-//                                      new picture in about 160 ms, or with
-//                                      :0 changes at once, never through a
+//   bun frames.js turn[:0|:X,Y,W,H] FRAME@T...
+//                                      a picture (the header's animal, a
+//                                      row's name) crossfades to its new
+//                                      one in about 160 ms, within that
+//                                      rectangle if given, or with :0
+//                                      changes at once, never through a
 //                                      blank or faint frame
 //   bun frames.js self-check          wrong pictures fail, a right one passes
 //
@@ -97,16 +100,16 @@ function same(frames) {
       detail: "frame " + first + " at " + frames[first].t + " ms differs from the first" + (blankBefore ? ", which is blank" : "") }
 }
 
-// The header's animal turning, from the first frame's picture to the
-// last's, both of them an animal: neither may be the bare ground. A turn
-// (`turn`) crossfades: it leaves the first picture within a few frames of
-// the mark, shows the two mixed on three or more distinct frames, and rests
-// on the last from about 160 ms on. A change at once (`turn:0`) shows the
-// first picture until a few frames past the mark and the last from then on,
-// no mix and no way back. Neither shows a blank or faint frame: each
-// frame's strongest pixel stands at least a third as far from the ground as
-// the fainter picture's does, so a fade out and then in, through nothing,
-// fails.
+// A picture turning, the header's animal or a row's name to its market's
+// moment, from the first frame's to the last's: neither may be the bare
+// ground. A turn (`turn`) crossfades: it leaves the first picture within a
+// few frames of the mark, shows the two mixed on three or more distinct
+// frames, and rests on the last from about 160 ms on. A change at once
+// (`turn:0`) shows the first picture until a few frames past the mark and
+// the last from then on, no mix and no way back. Neither shows a blank or
+// faint frame: each frame's strongest pixel stands at least a third as far
+// from the ground as the fainter picture's does, so a fade out and then
+// in, through nothing, fails.
 function turn(frames, atOnce) {
   if (frames.length < 2) return { ok: false, detail: frames.length + " frames grabbed" }
   const first = frames[0].image.data
@@ -566,7 +569,7 @@ else {
   const verdict = kind === "same" ? same(end === undefined ? frames : frames.map(f => ({ ...f, image: cropped(f.image, end) })))
     : kind === "drawin" ? drawin(frames, end === undefined ? 1 : end === "ink" ? end : Number(end))
     : kind === "edge" ? edge(frames, band) : kind === "edgeheld" ? edgeheld(frames)
-    : kind === "turn" ? turn(frames, end === "0")
+    : kind === "turn" ? turn(end && end.includes(",") ? frames.map(f => ({ ...f, image: cropped(f.image, end) })) : frames, end === "0")
     : kind === "press" ? press(frames, rest[0].split(",").map(Number), rest[1].split(",").map(Number))
     : { ok: false, detail: "unknown mode " + mode }
   console.log(JSON.stringify(verdict))

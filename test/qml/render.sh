@@ -68,10 +68,24 @@ if [ $# -eq 0 ]; then
   for theme in tokyo-night catppuccin-latte hackerman white; do
     states="$states theme-smooth-$theme theme-retro-$theme"
   done
-  # The calendars' longest closures, in the popup and the smallest window.
+  # The calendars' longest closures, in the popup and the smallest window,
+  # and under a resting pointer, whose words may not be cut (render.qml).
   for place in popup min-window; do
     for market in tokyo london; do
       states="$states $place-holiday-$market-smooth $place-holiday-$market-retro"
+      states="$states $place-holiday-$market-hover-smooth $place-holiday-$market-hover-retro"
+    done
+  done
+  # A resting pointer's moment on every kind of listing in the popup, and
+  # on Tokyo's and London's rows, with their clocks, on every surface in
+  # both looks. `render.sh <place>-sweep-<moment>-<symbol>-hover-<look>`
+  # renders any other.
+  for symbol in nbis psix spy bldp gspc btc-usd; do
+    states="$states popup-sweep-2026-10-07-1455-$symbol-hover-smooth"
+  done
+  for look in smooth retro; do
+    for place in popup window min-window; do
+      states="$states $place-sweep-2026-10-07-1455-7203.t-hover-$look $place-sweep-own-shel.l-hover-$look"
     done
   done
   # The pill at a larger text size, as `omarchy display text size 16` sets it.
@@ -112,5 +126,7 @@ for state in $states; do
     exit 1
   fi
   echo "OK $state ($(wc -c < "$shot") bytes)"
+  # A -hover state says where its resting row is and what it reads.
+  rg -o 'hover \S+ at .*' "$work/$state.log" || true
   mv "$shot" "$dest"
 done

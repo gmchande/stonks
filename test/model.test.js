@@ -112,6 +112,39 @@ test("Tokyo's lunch break comes from the calendar; the morning session stays on 
   expect(M.marketStatus(jpx, lunch, 0, calendars)).toBe("Lunch break · reopens 12:30 JST · in 30m")
 })
 
+test("a listing's clock names its exchange's city where Stonks knows it, else its zone, and its words then no zone, briefly where room is short", () => {
+  const lunch = 1788836400
+  const jpx = {
+    symbol: "7203.T", exchange: "TSE", timezoneName: "Asia/Tokyo", gmtoffset: 32400, crypto: false,
+    session: { pre: null, post: null, regular: { start: M.epochAt(JPX, "2026-09-08", "09:00"), end: M.epochAt(JPX, "2026-09-08", "15:30") } },
+    points: []
+  }
+  expect(M.listingClock(jpx, lunch, calendars)).toBe("TOKYO 12:00")
+  expect(M.marketStatus(jpx, lunch, 0, calendars, true)).toBe("Lunch break · reopens 12:30 · in 30m")
+  expect(M.marketStatus(jpx, lunch, 0, calendars, true, true)).toBe("Lunch · reopens 12:30 · in 30m")
+  // A holiday, briefly: closed, its next open kept.
+  const holiday = M.epochAt(JPX, "2026-05-06", "12:00")
+  expect(M.marketStatus(jpx, holiday, 0, calendars, true)).toBe("Constitution Memorial Day · opens Thu 09:00")
+  expect(M.marketStatus(jpx, holiday, 0, calendars, true, true)).toBe("Closed · opens Thu 09:00")
+  // No calendar and no city Stonks knows: Frankfurt's zone, never Berlin,
+  // by the answer's offset, so only from an answer of the last refresh's 20
+  // minutes: one held across a change of clocks would be an hour out.
+  const xetra = { symbol: "SAP.DE", exchange: "XETRA", timezoneName: "Europe/Berlin", gmtoffset: 7200, zoneName: "CEST", crypto: false }
+  expect(M.listingClock(xetra, lunch, calendars, lunch - 600)).toBe("CEST 05:00")
+  expect(M.listingClock(xetra, lunch, calendars, lunch - 20 * 60)).toBe("")
+  expect(M.listingClock(xetra, lunch, calendars, 0)).toBe("")
+  // An index on New York's calendar, an exchange with no city of its own.
+  const index = { symbol: "^GSPC", exchange: "S&P", timezoneName: "America/New_York", gmtoffset: -14400, crypto: false }
+  const readAs = (zone, fn) => {
+    process.env.TZ = zone
+    try { return fn() } finally { process.env.TZ = "America/New_York" }
+  }
+  expect(readAs("Europe/London", () => M.listingClock(index, lunch, calendars))).toBe("EDT 23:00")
+  // The reader's own clock, and a coin's, which keeps no exchange's hours.
+  expect(M.listingClock(index, lunch, calendars)).toBe("")
+  expect(M.listingClock({ ...xetra, crypto: true }, lunch, calendars, lunch)).toBe("")
+})
+
 test("formatting", () => {
   expect(M.duration(4200)).toBe("1h 10m")
   expect(M.duration(300)).toBe("5m")

@@ -739,6 +739,26 @@ run time.
   pauses no `Behavior`'s animation. Search keeps its split:
   the keys choose a result and the pointer only tints one, so passing over
   results never swaps the hero's preview.
+- A row the pointer rests on, still over it for 250 ms (search's rest),
+  tells its market's moment (`Watchlist.restingSymbol`): its name
+  crossfades in 160 ms to the header's words (`Market.marketStatus`), and
+  where the listing's clock is not the reader's, its time sits beside the
+  symbol (`Market.listingClock`), named by the exchange's city where Stonks
+  knows it, else by its zone, so never a wrong city; the words then name no
+  zone. A listing with no calendar has only its answer's offset (Qt's
+  JavaScript knows no other zone's rules), so its clock shows only from an
+  answer of the last 20 minutes, the slowest refresh's: in the minutes
+  after its clocks change and before the next answer it can still be an
+  hour out. A warning or an "As of" stays, the words waiting behind it;
+  the clock, the market's and not the quote's, shows over them.
+  Only the pointer starts the rest, by a move or the wheel, so a sweep
+  shows no words and keys never do; a key moving the cursor off the row,
+  the rows moving it from under the pointer (Shift+J, another order), the
+  pointer leaving it, or a drag takes them away. Where the header's words
+  would be cut, a row says them briefly: "Closed" for a holiday's name,
+  "Lunch" for Tokyo's "Lunch break". Nothing else in the row moves, and no
+  words are cut in the popup or the smallest window (`render.sh`'s
+  `-hover` states fail on one).
 - Stonks' own controls (the range tokens, the list name, the order word,
   the look icon, the `?`, the footer, and the list views' actions) take the
   shell's pressed fill from the moment the button goes down, while it is

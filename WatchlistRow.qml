@@ -3,12 +3,14 @@ import qs.Commons
 import "Chart.js" as Chart
 import "Figures.js" as Figures
 import "Format.js" as Format
+import "Market.js" as Market
 import "Tones.js" as Tones
 // One watchlist row: symbol over name, the day line, price over change.
 // The featured row sits in the shell's selected fill; the cursor, which the
 // keys and the pointer both move, takes the shell's hover-cursor fill and a
 // bar down the left edge, and on the featured row only the bar. A row held
-// in a drag takes the pressed fill and a border.
+// in a drag takes the pressed fill and a border. A row the pointer rests on
+// tells its market's moment.
 Rectangle {
   id: row
 
@@ -16,8 +18,18 @@ Rectangle {
   property var quote: null
   property var view: null
   property string status: "loading"
+  // When the quote's answer came, which a listing with no calendar needs
+  // for its clock (Market.listingClock).
+  property int receivedAt: 0
   property bool featuredRow: false
   property bool cursor: false
+  // The pointer rests here (Watchlist.restingSymbol): the name gives way to
+  // where the market is now, in the header's words, and where the listing's
+  // clock is not the reader's, its time sits beside the symbol. A warning or
+  // an "As of" stays, the words waiting behind it; the clock is the
+  // market's, not the quote's, so it shows over those too.
+  property bool moment: false
+  property int now: 0
   property bool retro: false
   // True while the pointer carries this row; the panel positions it.
   property bool lifted: false
@@ -78,6 +90,47 @@ Rectangle {
       .replace(/(\d\d:\d\d) (\S+)/, function(all, clock, zone) { return clock + " " + zone.toUpperCase() })
   }
 
+  // Worked out only while they show or fade, so a still list derives none
+  // on each tick. The words name no zone where the clock beside the symbol
+  // already shows the listing's, and are the brief ones where the header's
+  // would not fit the name's room (a holiday's name, Tokyo's lunch break in
+  // the popup).
+  readonly property bool momentLive: moment || clockShown > 0 || wordsShown > 0
+  readonly property string listingClock: momentLive && quote ? Market.listingClock(quote, now, calendars, receivedAt) : ""
+  readonly property string fullWords: momentLive && quote ? Market.marketStatus(quote, now, 0, calendars, listingClock !== "") : ""
+  readonly property string words: fullWords === "" || fullFit.advanceWidth <= momentText.width ? fullWords
+    : Market.marketStatus(quote, now, 0, calendars, listingClock !== "", true)
+  TextMetrics {
+    id: fullFit
+    font: momentText.font
+    text: row.fullWords
+  }
+  readonly property bool wordsShow: moment && words !== "" && freshnessNote === ""
+  // Each crossfades in 160 ms, as the header's words do; a closing surface
+  // holds them where they are, and the next open sets them at once
+  // (settleMoment).
+  property real clockShown: 0
+  property real wordsShown: 0
+  readonly property bool clockShow: moment && listingClock !== ""
+  onClockShowChanged: fadeTo(clockFade, clockShow)
+  onWordsShowChanged: fadeTo(wordsFade, wordsShow)
+  function fadeTo(fade, shown) {
+    fade.to = shown ? 1 : 0
+    fade.restart()
+  }
+  function settleMoment() {
+    clockFade.stop()
+    wordsFade.stop()
+    clockShown = clockShow ? 1 : 0
+    wordsShown = wordsShow ? 1 : 0
+  }
+  function pauseMoment() {
+    if (clockFade.running) clockFade.pause()
+    if (wordsFade.running) wordsFade.pause()
+  }
+  NumberAnimation { id: clockFade; target: row; property: "clockShown"; duration: 160; easing.type: Easing.OutCubic }
+  NumberAnimation { id: wordsFade; target: row; property: "wordsShown"; duration: 160; easing.type: Easing.OutCubic }
+
   // Two lines, the way Apple's Stocks sets a row: symbol over name on the
   // left, price over change on the right, the day line between them.
   readonly property int sparkWidth: Style.space(72)
@@ -129,18 +182,56 @@ Rectangle {
     font.bold: true
   }
 
+  // The listing's clock, as a world clock names a city: "TOKYO 03:55".
+  Text {
+    objectName: "rowClock"
+    visible: row.clockShown > 0
+    opacity: row.clockShown
+    x: symbolText.x + symbolText.implicitWidth + Style.space(8)
+    width: Math.max(0, detailText.x + detailText.width - x)
+    anchors.baseline: symbolText.baseline
+    textFormat: Text.PlainText
+    text: row.listingClock
+    color: row.dim
+    font.family: row.fontFamily
+    font.pixelSize: Style.font.caption
+    font.bold: true
+    font.letterSpacing: 1
+    elide: Text.ElideRight
+  }
+
   Text {
     id: detailText
+    objectName: "rowName"
     x: row.gap
     anchors.bottom: parent.bottom
     anchors.bottomMargin: row.inset
     width: row.width - x - row.priceWidth - row.gap * 2 - row.sparkWidth - row.gap
+    visible: row.wordsShown < 1
+    opacity: 1 - row.wordsShown
     textFormat: Text.PlainText
     text: row.detail
     color: row.warns ? row.foreground : row.dim
     font.family: row.fontFamily
     font.pixelSize: Style.font.bodySmall
     font.bold: row.warns
+    elide: Text.ElideRight
+  }
+
+  // The market's moment, in the name's place.
+  Text {
+    id: momentText
+    objectName: "rowMoment"
+    visible: row.wordsShown > 0
+    opacity: row.wordsShown
+    x: detailText.x
+    y: detailText.y
+    width: detailText.width
+    textFormat: Text.PlainText
+    text: row.words
+    color: row.dim
+    font.family: row.fontFamily
+    font.pixelSize: Style.font.bodySmall
     elide: Text.ElideRight
   }
 

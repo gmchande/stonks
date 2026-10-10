@@ -80,9 +80,9 @@ Flickable {
   // cursor moves by the rule above and stays there when the row comes back.
   // Let go as the sight changes, not as cursorRow does: it reads the cursor
   // it would clear.
-  onHeadedYChanged: letGoUnseen()
+  onHeadedYChanged: { letGoUnseen(); restOffPointer() }
   onHeightChanged: letGoUnseen()
-  onDisplayedSymbolsChanged: letGoUnseen()
+  onDisplayedSymbolsChanged: { letGoUnseen(); restOffPointer() }
   // A lifted row rides the pointer wherever its place has scrolled to, so
   // it keeps the cursor through the drag.
   function ownInSight(top) {
@@ -94,6 +94,40 @@ Flickable {
     if (cursorSymbol !== "" && !ownInSight(headedY)) cursorSymbol = ""
   }
   readonly property bool sortHeld: listHover.hovered || dragSymbol !== ""
+  // The pointer leaving the list takes a resting row's moment with it; a
+  // closing surface keeps what it shows.
+  readonly property bool pointerIn: listHover.hovered
+  onPointerInChanged: if (!pointerIn && surfaceOpen) pointerStirred("")
+
+  // The row the pointer rests on, whose market's moment it shows: the
+  // cursor's row, with the pointer still over it for 250 ms, the wait
+  // search's choice rests for, so a pointer sweeping down the list shows
+  // none. Only the pointer starts the wait, by a move or by the wheel under
+  // it, so keys never show a moment, and a key moving the cursor off the
+  // row takes it away. A move within the row keeps it; leaving the row, for
+  // another, the scrollbar's gutter, or out of the list, takes it away.
+  property string restingSymbol: ""
+  onCursorRowChanged: if (cursorRow !== restingSymbol) restingSymbol = ""
+  function pointerStirred(under) {
+    if (under !== restingSymbol) restingSymbol = ""
+    if (under !== "") rest.restart()
+    else rest.stop()
+  }
+  // The rows moving under a still pointer, by the scroll, a move key, or
+  // another order, take the moment off the row they carry from under it.
+  function restOffPointer() {
+    if (restingSymbol !== "" && surfaceOpen && rowUnder(listHover.scenePosition.x, listHover.scenePosition.y) !== restingSymbol)
+      restingSymbol = ""
+  }
+  Timer {
+    id: rest
+    interval: 250
+    onTriggered: {
+      var under = root.rowUnder(listHover.scenePosition.x, listHover.scenePosition.y)
+      if (listHover.hovered && root.surfaceOpen && root.dragSymbol === "" && under !== "" && under === root.cursorRow)
+        root.restingSymbol = under
+    }
+  }
   readonly property bool manualOrder: view.order === "manual"
 
   signal featureRequested(string symbol)
@@ -170,26 +204,33 @@ Flickable {
     onMoved: function(x, y) {
       if (!root.surfaceOpen) return
       root.wheelMoving = ""
-      root.pointAt(x, y)
+      root.pointerStirred(root.pointAt(x, y))
     }
   }
 
-  // The cursor to the row at (x, y) in the scene, read where the list is
-  // headed, as the cursor always is: mid-glide, that is the row that will
-  // rest under the pointer. Past the rows' ends, or on the scrollbar's
-  // gutter, it stays. A lifted row is the drag's, so the pointer moves no
-  // cursor then.
-  function pointAt(x, y) {
+  // The row at (x, y) in the scene, read where the list is headed, as the
+  // cursor always is: mid-glide, that is the row that will rest under the
+  // pointer. "" past the rows' ends and on the scrollbar's gutter.
+  function rowUnder(x, y) {
     var seen = mapFromItem(null, x, y)
-    if (dragSymbol !== "" || seen.x >= rowsBox.width) return
     var at = Math.floor((seen.y + headedY) / rowPitch)
-    if (at >= 0 && at < displayedSymbols.length) cursorSymbol = displayedSymbols[at]
+    return seen.x < rowsBox.width && at >= 0 && at < displayedSymbols.length ? displayedSymbols[at] : ""
+  }
+
+  // The cursor to the row at (x, y) in the scene, which it returns; where
+  // there is none, the cursor stays. A lifted row is the drag's, so the
+  // pointer moves no cursor then.
+  function pointAt(x, y) {
+    if (dragSymbol !== "") return ""
+    var under = rowUnder(x, y)
+    if (under !== "") cursorSymbol = under
+    return under
   }
 
   // The cursor to the row the wheel brings under a still pointer: the row
   // that will rest there, so the bar never stops on a row on the way.
   function pointAtPointer() {
-    if (listHover.hovered && surfaceOpen) pointAt(listHover.scenePosition.x, listHover.scenePosition.y)
+    if (listHover.hovered && surfaceOpen) pointerStirred(pointAt(listHover.scenePosition.x, listHover.scenePosition.y))
   }
 
   function entryOf(symbol) {
@@ -498,6 +539,7 @@ Flickable {
     takeOver()
     dropAnim.stop()
     cursorSymbol = symbol
+    pointerStirred("")
     dragOffset = y - from * rowPitch
     dragPointer = y - contentY
     dragY = from * rowPitch
@@ -574,6 +616,7 @@ Flickable {
       places[before.listKey] = snappedY(wheelTarget())
       cancelDrag()
       cursorSymbol = ""
+      pointerStirred("")
       forgetClicks()
       takeOver()
       layOut()
@@ -597,6 +640,7 @@ Flickable {
   function reopen() {
     wheelMoving = ""
     cursorSymbol = ""
+    pointerStirred("")
     forgetClicks()
     listHover.rest()
     layOut()
@@ -678,10 +722,12 @@ Flickable {
           travel = 0
           fadeIn.stop()
           opacity = 1
+          settleMoment()
         }
         function pause() {
           if (slide.running) slide.pause()
           if (fadeIn.running) fadeIn.pause()
+          pauseMoment()
         }
         // Stays at `atY` on screen, still: the slide it would start ends here.
         function holdAt(atY) {
@@ -713,9 +759,12 @@ Flickable {
         quote: place >= 0 ? root.quotes[symbol] || null : null
         view: quote ? Figures.rowModel(quote, root.scrubShown, root.changeMode) : null
         status: root.entryOf(symbol) ? root.entryOf(symbol).status : "loading"
+        receivedAt: root.entryOf(symbol) ? root.entryOf(symbol).receivedAt || 0 : 0
         freshness: place >= 0 ? root.freshnessOf(symbol) : null
         featuredRow: symbol === root.featuredSymbol
         cursor: symbol === root.cursorRow
+        moment: symbol === root.restingSymbol
+        now: root.now
         lifted: symbol === root.dragSymbol
         movable: root.manualOrder
         retro: root.retro
