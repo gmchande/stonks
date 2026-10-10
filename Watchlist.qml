@@ -654,22 +654,21 @@ Flickable {
         upColor: root.upColor
         downColor: root.downColor
         fontFamily: root.fontFamily
-        // A click puts the cursor on its row too, wherever the keys left it
-        // under a still pointer; a removal by click then hands it on as a
-        // key's does.
+        // A click puts the cursor on the row it acts on, wherever the keys
+        // left it under a still pointer. Selected, not only set: mid-glide
+        // the cursor reads where the list is headed, so the row is brought
+        // into that view, and x or Enter then acts on it; a removal by click
+        // hands the cursor on as a key's does.
         onFeatureRequested: {
-          root.cursorSymbol = symbol
+          root.select(symbol)
           root.featureRequested(symbol)
         }
-        // Selected, not only set: mid-glide the cursor reads where the list
-        // is headed, so the row is brought into that view and the removal
-        // hands the cursor to the row that takes its place.
         onRemoveRequested: {
           root.select(symbol)
           root.removeRequested(symbol)
         }
         onListsRequested: {
-          root.cursorSymbol = symbol
+          root.select(symbol)
           root.listsRequested(symbol)
         }
         onMoveWheeled: function(angle) { root.wheelMove(symbol, angle) }

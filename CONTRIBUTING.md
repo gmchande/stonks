@@ -334,9 +334,10 @@ run time.
   under it.
 - `ManageLists.qml` — rename, reorder, and delete named lists, in the rows'
   place; delete asks in the row. `SymbolLists.qml` — one symbol's tick box
-  per list (`m`, or Ctrl-click a row). Both own their keys while open
-  (`StonksBody.ownsKeys`) and share `ListAction.qml`, the caption-sized word
-  that acts.
+  per list (`m`, or Ctrl-click a row); it takes no click within the
+  double-click interval of opening, since a Ctrl-click opens it under the
+  pointer. Both own their keys while open (`StonksBody.ownsKeys`) and share
+  `ListAction.qml`, the caption-sized word that acts.
 - `SymbolSearch.qml` — the search field, results, debounce, and Yahoo
   lookup; the body handles `picked` / `chose` / `cancelled`. The
   keyboard owns the choice Enter adds, and tells every change of it

@@ -711,6 +711,30 @@ ShellRoot {
         spaced === "true,true,true,true,true" && entered === "true,true,true" && renamed === "true,true" && !body2.managingLists,
         [spaced, entered, renamed, body2.managingLists].join(" | "))
 
+      // A double-click is one click, Ctrl-click's too: the lists it opens
+      // under the pointer take no click within the double-click interval, so
+      // a Ctrl-double-click, or a click at once after a Ctrl-click, never
+      // unticks All under it. From rows-review: either removed the symbol
+      // from every list.
+      var ctrlThen = function(second) {
+        second()
+        wait(150)
+        var kept = [body2.listsSymbol === spotSymbol, service.library.indexOf(spotSymbol) >= 0,
+          harness.same(service.symbols, ["AAPL", "NVDA"])].join(",")
+        keyClick(Qt.Key_Escape)
+        wait(100)
+        return kept
+      }
+      var ctrlDouble = ctrlThen(function() {
+        mouseDoubleClickSequence(body2, spot.x, spot.y, Qt.LeftButton, Qt.ControlModifier)
+      })
+      var ctrlThenClick = ctrlThen(function() {
+        mouseClick(body2, spot.x, spot.y, Qt.LeftButton, Qt.ControlModifier)
+        mouseClick(body2, spot.x, spot.y)
+      })
+      harness.check("a Ctrl-double-click, or a click at once after a Ctrl-click, over All's tick leaves the symbol in All",
+        ctrlDouble === "true,true,true" && ctrlThenClick === "true,true,true", ctrlDouble + " | " + ctrlThenClick)
+
       var aaplRow = wl.rowItem("AAPL")
       mouseClick(aaplRow, aaplRow.width / 2, aaplRow.height / 2, Qt.RightButton)
       wait(150)
@@ -902,7 +926,8 @@ ShellRoot {
         listsPointed + " | " + checklist.cursor + " " + marks(listRows))
       var powerAt = center(listRows[1])
       mouseMove(body2, powerAt.x, powerAt.y)
-      wait(50)
+      // Past the double-click interval of the Ctrl-click that opened them.
+      wait(Application.styleHints.mouseDoubleClickInterval + 50)
       mouseClick(body2, powerAt.x, powerAt.y)
       wait(100)
       harness.check("a click ticks that row's list", harness.same(power(), ["NVDA", "AAPL"]), power())
@@ -969,6 +994,8 @@ ShellRoot {
       harness.check("All's last symbol cannot be unticked, and the checklist says why",
         harness.same(service.library, ["NVDA"]) && body2.listsSymbol === "NVDA"
           && checklist.note === "Keep at least one symbol")
+      // Past the double-click interval of the open, which takes any click.
+      wait(Application.styleHints.mouseDoubleClickInterval)
       var listsDoneAt = center(harness.find(body2, "symbolListsDone"))
       mouseClick(body2, listsDoneAt.x, listsDoneAt.y)
       wait(100)

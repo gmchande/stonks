@@ -715,6 +715,34 @@ ShellRoot {
         root.setFixtureWatchlist()
         wait(100)
 
+        // A click or a Ctrl-click mid-glide puts the cursor on the row it
+        // acts on, so x then removes that row. From Grok's review of #9: the
+        // click featured the row, or showed its lists, but the bar stayed on
+        // the row the glide was heading for, and x removed that one.
+        var clickedThenX = function(modifiers) {
+          body.watchlist.contentY = 0
+          wait(50)
+          var target = body.watchlist.displayedSymbols[0]
+          mouseMove(body.watchlist, 12, 10)
+          mouseMove(body.watchlist, 12, 12)
+          mouseWheel(body.watchlist, 12, 12, 0, -120, Qt.NoModifier)
+          mouseClick(body.watchlist, 12, 12, Qt.LeftButton, modifiers)
+          var acted = modifiers ? body.listsSymbol === target : stub.featuredSymbol === target
+          body.closeListViews()
+          wait(600)
+          var cursor = body.watchlist.cursorRow
+          body.removeRow(cursor)
+          wait(100)
+          var removedIt = body.watchlist.displayedSymbols.indexOf(target) < 0
+          root.setFixtureWatchlist()
+          wait(100)
+          return (acted && cursor === target && removedIt) + " " + target + " cursor " + cursor
+        }
+        var byClick = clickedThenX(Qt.NoModifier)
+        var byCtrlClick = clickedThenX(Qt.ControlModifier)
+        root.check("a click or a Ctrl-click mid-glide puts the cursor on its row, and x then removes that row",
+          /^true /.test(byClick) && /^true /.test(byCtrlClick), byClick + " | " + byCtrlClick)
+
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,
         // not as a fill.
