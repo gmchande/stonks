@@ -302,17 +302,26 @@ Flickable {
   // as for a row: a click within the double-click interval of the last,
   // at its place, does nothing, whatever button and whichever row is under
   // it by then, as the one sliding up into a removed row's place.
-  // Says whether the click acts. The wheel, a key, another list, or a new
-  // open starts another gesture, so the next click acts (endClick).
+  // Says whether the click acts. The wheel, a key, a move of a row, another
+  // list, or a new open starts another gesture, so the next click acts
+  // (endClick), even one Qt takes for a double-click's `second` press. A
+  // second press with no gesture between does nothing, wherever its first
+  // landed: on this row, on the one a removal took away, or on a search
+  // result the rows came back from under.
   property real lastClickTime: 0
   property point lastClickPlace: Qt.point(-1, -1)
-  function clickRow(symbol, x, y) {
+  // When a gesture last ended a row click's window still open.
+  property real clickEndedAt: 0
+  function clickRow(symbol, x, y, second) {
     var now = Date.now()
+    var interval = Application.styleHints.mouseDoubleClickInterval
     var near = Application.styleHints.startDragDistance
-    var again = now - lastClickTime < Application.styleHints.mouseDoubleClickInterval
-      && Math.abs(x - lastClickPlace.x) <= near && Math.abs(y - lastClickPlace.y) <= near
+    var again = second ? now - clickEndedAt >= interval
+      : now - lastClickTime < interval
+        && Math.abs(x - lastClickPlace.x) <= near && Math.abs(y - lastClickPlace.y) <= near
     lastClickTime = now
     lastClickPlace = Qt.point(x, y)
+    clickEndedAt = 0
     if (again || displayedSymbols.indexOf(symbol) < 0) return false
     takeOver()
     cancelFlick()
@@ -320,6 +329,8 @@ Flickable {
     return true
   }
   function endClick() {
+    var now = Date.now()
+    if (now - lastClickTime < Application.styleHints.mouseDoubleClickInterval) clickEndedAt = now
     lastClickTime = 0
   }
 
@@ -424,6 +435,7 @@ Flickable {
   }
 
   function moveSymbol(symbol, delta) {
+    endClick()
     if (!manualOrder) return
     var from = displayedSymbols.indexOf(symbol)
     var to = from + delta
@@ -700,9 +712,9 @@ Flickable {
         fontFamily: root.fontFamily
         // A double-click's second press does nothing (clickRow), and a
         // click stops the list where it is and puts the cursor on its row.
-        onFeatureRequested: function(x, y) { if (root.clickRow(symbol, x, y)) root.featureRequested(symbol) }
-        onRemoveRequested: function(x, y) { if (root.clickRow(symbol, x, y)) root.removeRequested(symbol) }
-        onListsRequested: function(x, y) { if (root.clickRow(symbol, x, y)) root.listsRequested(symbol) }
+        onFeatureRequested: function(x, y, second) { if (root.clickRow(symbol, x, y, second)) root.featureRequested(symbol) }
+        onRemoveRequested: function(x, y, second) { if (root.clickRow(symbol, x, y, second)) root.removeRequested(symbol) }
+        onListsRequested: function(x, y, second) { if (root.clickRow(symbol, x, y, second)) root.listsRequested(symbol) }
         onMoveWheeled: function(angle) { root.wheelMove(symbol, angle) }
         onDragStarted: function(y) { root.beginDrag(symbol, y) }
         onDragMoved: function(y) { root.dragTo(y) }

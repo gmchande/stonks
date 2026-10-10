@@ -797,28 +797,55 @@ ShellRoot {
         root.setFixtureWatchlist()
         wait(100)
 
-        // The wheel between two clicks at one place makes them two clicks:
-        // the second, mid-glide, stops the list and acts, and x then removes
-        // its row. From rows-review: the second was taken for a double-click's
-        // and dropped, and x removed the row the glide was heading for.
+        // The wheel or a key between two clicks at one place makes them two
+        // clicks, even when Qt takes the second for a double-click's: the
+        // second stops the list and acts, and x then removes its row. So does
+        // a row's move by Shift+J. From rows-review: the second was dropped,
+        // and x removed the row the glide was heading for, or the moved one.
+        var between = function(interrupt) {
+          body.watchlist.contentY = 0
+          wait(50)
+          stub.featuredSymbol = body.watchlist.displayedSymbols[5]
+          var target = body.watchlist.displayedSymbols[2]
+          var y = 2 * pitch + 20
+          mouseMove(body.watchlist, 12, y - 2)
+          mouseMove(body.watchlist, 12, y)
+          var once = function() {
+            stub.featuredSymbolChanged.disconnect(once)
+            interrupt(y)
+          }
+          stub.featuredSymbolChanged.connect(once)
+          mouseDoubleClickSequence(body.watchlist, 12, y)
+          wait(400)
+          var cursor = body.watchlist.cursorRow
+          body.removeRow(cursor)
+          wait(100)
+          var removedIt = body.watchlist.displayedSymbols.indexOf(target) < 0
+          root.setFixtureWatchlist()
+          wait(100)
+          return (cursor === target && removedIt) + " " + cursor + " for " + target
+        }
+        var afterWheel = between(function(y) { mouseWheel(body.watchlist, 12, y, 0, -120, Qt.NoModifier) })
+        var afterKey = between(function() { body.moveCursor(1) })
         body.watchlist.contentY = 0
         wait(50)
-        var clickedTwice = body.watchlist.displayedSymbols[2]
-        var twiceY = 2 * pitch + 20
-        mouseMove(body.watchlist, 12, twiceY - 2)
-        mouseMove(body.watchlist, 12, twiceY)
-        mouseClick(body.watchlist, 12, twiceY)
-        mouseWheel(body.watchlist, 12, twiceY, 0, -120, Qt.NoModifier)
-        mouseClick(body.watchlist, 12, twiceY)
-        wait(400)
-        var twiceCursor = body.watchlist.cursorRow
-        body.removeRow(twiceCursor)
+        stub.featuredSymbol = body.watchlist.displayedSymbols[5]
+        var takenPlace = body.watchlist.displayedSymbols[3]
+        var moveY = 2 * pitch + 20
+        mouseMove(body.watchlist, 12, moveY - 2)
+        mouseMove(body.watchlist, 12, moveY)
+        mouseClick(body.watchlist, 12, moveY)
+        body.moveSelected(1)
+        wait(180)
+        mouseClick(body.watchlist, 12, moveY)
         wait(100)
-        root.check("a click after the wheel, at the last click's place, acts: x then removes its row",
-          twiceCursor === clickedTwice && body.watchlist.displayedSymbols.indexOf(clickedTwice) < 0,
-          twiceCursor + " for " + clickedTwice)
+        var afterMove = (body.watchlist.displayedSymbols[2] === takenPlace && stub.featuredSymbol === takenPlace
+          && body.watchlist.cursorRow === takenPlace) + " " + stub.featuredSymbol + "/" + body.watchlist.cursorRow + " for " + takenPlace
         root.setFixtureWatchlist()
         wait(100)
+        root.check("the wheel, a key, or Shift+J between two clicks at one place makes the second act, a double-click's too",
+          [afterWheel, afterKey, afterMove].every(function(r) { return /^true /.test(r) }),
+          [afterWheel, afterKey, afterMove].join(" | "))
 
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,

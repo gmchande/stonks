@@ -36,12 +36,13 @@ Rectangle {
   property color downColor: Color.urgent
   property string fontFamily: Style.font.family
 
-  // Each click says where it was, in the scene, so the list can tell a
-  // double-click's second press, whichever row it lands on.
-  signal featureRequested(real x, real y)
-  signal removeRequested(real x, real y)
+  // Each click says where it was, in the scene, and whether Qt took it for
+  // a double-click's second press, so the list decides whether it acts,
+  // whichever row it lands on (Watchlist.clickRow).
+  signal featureRequested(real x, real y, bool second)
+  signal removeRequested(real x, real y, bool second)
   // Ctrl-click, Apple's Control-click: this row's lists.
-  signal listsRequested(real x, real y)
+  signal listsRequested(real x, real y, bool second)
   // Shift and the wheel over this row, by its angle.
   signal moveWheeled(real angle)
   // Drag positions are in the parent's coordinates, since the row itself
@@ -243,16 +244,18 @@ Rectangle {
     onCanceled: {
       if (dragged) row.dragCanceled()
     }
-    onClicked: function(event) {
+    function act(event, second) {
       if (dragged) return
       var at = mapToItem(null, event.x, event.y)
-      if (event.button === Qt.RightButton || event.button === Qt.MiddleButton) row.removeRequested(at.x, at.y)
-      else if (event.modifiers & Qt.ControlModifier) row.listsRequested(at.x, at.y)
-      else if (event.button === Qt.LeftButton) row.featureRequested(at.x, at.y)
+      if (event.button === Qt.RightButton || event.button === Qt.MiddleButton) row.removeRequested(at.x, at.y, second)
+      else if (event.modifiers & Qt.ControlModifier) row.listsRequested(at.x, at.y, second)
+      else if (event.button === Qt.LeftButton) row.featureRequested(at.x, at.y, second)
     }
+    onClicked: function(event) { act(event, false) }
     // A double-click is one click: its second would land on whatever took
     // the first one's place, a row sliding up or the rows back from search.
-    onDoubleClicked: {}
+    // The list says whether it acts: only after the wheel or a key between.
+    onDoubleClicked: function(event) { act(event, true) }
     // The wheel scrolls the list; with Shift held it moves this row.
     onWheel: function(wheel) {
       if (wheel.modifiers & Qt.ShiftModifier) {

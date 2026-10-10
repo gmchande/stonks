@@ -428,9 +428,11 @@ run time.
   click within the double-click interval of the last, at its place, does
   nothing, whatever button and whichever row is under it by then
   (`Watchlist.clickRow`): a right double-click removes one row. The wheel,
-  a key, another list, or a new open starts another gesture, and the next
-  click acts. A removal hands the cursor on without moving a list whose
-  next row is in sight (`Watchlist.handTo`).
+  a key, a row's move (Shift and the wheel, `J` `K`), another list, or a
+  new open starts another gesture, and the next click acts, even one Qt
+  takes for a double-click's second press: a row hands every click, the
+  second too, to the list to decide. A removal hands the cursor on without
+  moving a list whose next row is in sight (`Watchlist.handTo`).
 - `CursorBar.qml` — the cursor's one mark, a bar down a row's left edge, on
   the watchlist's rows and in every list view.
 - `DayChart.qml`, `Sparkline.qml`, `DrawnAnimal.qml` — the smooth look's
