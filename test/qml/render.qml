@@ -715,11 +715,12 @@ ShellRoot {
   FloatingWindow {
     visible: true
     color: root.groundColor
-    implicitWidth: root.pillSheet ? Math.max(520, pillColumn.implicitWidth + 48) : root.themeState ? 480 + 410 : root.sheet ? 1000
+    // The larger text size lands after the window has taken its size, so
+    // the large sheet is given room for its rows and its three columns.
+    implicitWidth: root.stateName === "pill-sheet-large" ? 1240 : root.pillSheet ? Math.max(520, pillColumn.implicitWidth + 48)
+      : root.themeState ? 480 + 410 : root.sheet ? 1000
       : (root.windowWidth ? root.windowWidth : (root.minWindow ? 560 : (root.popup ? 480 : 720)))
-    // The larger text size lands after the window has taken its height, so
-    // the large sheet is given room for its seven rows.
-    implicitHeight: root.stateName === "pill-sheet-large" ? 580 : root.pillSheet ? pillColumn.implicitHeight + 40 : root.sheet ? 460
+    implicitHeight: root.stateName === "pill-sheet-large" ? 480 : root.pillSheet ? pillColumn.implicitHeight + 40 : root.sheet ? 460
       : root.themeState ? Math.max(body.fittedHeight(body.chromeHeight + 3 * body.rowPitch - body.rowGap), pillColumn.implicitHeight + 40)
       : (root.windowWidth ? 850
         : (root.minWindow ? body.chromeHeight + body.listRowHeight
