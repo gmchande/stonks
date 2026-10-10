@@ -18,6 +18,9 @@ Rectangle {
   property var quote: null
   property var view: null
   property string status: "loading"
+  // When the quote's answer came, which a listing with no calendar needs
+  // for its clock (Market.listingClock).
+  property int receivedAt: 0
   property bool featuredRow: false
   property bool cursor: false
   // The pointer rests here (Watchlist.restingSymbol): the name gives way to
@@ -93,7 +96,7 @@ Rectangle {
   // would not fit the name's room (a holiday's name, Tokyo's lunch break in
   // the popup).
   readonly property bool momentLive: moment || clockShown > 0 || wordsShown > 0
-  readonly property string listingClock: momentLive && quote ? Market.listingClock(quote, now, calendars) : ""
+  readonly property string listingClock: momentLive && quote ? Market.listingClock(quote, now, calendars, receivedAt) : ""
   readonly property string fullWords: momentLive && quote ? Market.marketStatus(quote, now, 0, calendars, listingClock !== "") : ""
   readonly property string words: fullWords === "" || fullFit.advanceWidth <= momentText.width ? fullWords
     : Market.marketStatus(quote, now, 0, calendars, listingClock !== "", true)

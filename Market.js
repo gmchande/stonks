@@ -261,10 +261,13 @@ var CITIES = {
 // The listing's clock now, where it is not the reader's: "TOKYO 03:55", or
 // "CEST 09:55" where Stonks knows no city for the exchange. "" where the
 // reader keeps the listing's time, and for a cryptocurrency, which keeps
-// no exchange's hours.
-function listingClock(quote, now, calendars) {
+// no exchange's hours. A listing with no calendar has only its answer's
+// offset, an hour out once its clocks change, so it shows a clock only
+// from an answer received (`receivedAt`) in the last hour.
+function listingClock(quote, now, calendars, receivedAt) {
   if (!quote || quote.crypto) return ""
   var cal = quote.calendar || calendarFor(calendars, quote)
+  if (!cal && !(now - receivedAt < 3600)) return ""
   var offset = cal ? localDate(now, cal).offset : quote.gmtoffset
   if (offset === Format.readerOffset(now)) return ""
   var place = CITIES[quote.exchange] || (cal ? zoneName(cal, offset, quote) : quote.zoneName || Format.offsetName(offset))

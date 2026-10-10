@@ -1627,7 +1627,7 @@ ShellRoot {
           })
           return out
         }
-        var rests = [], warns = [], sweeps = [], fades = []
+        var rests = [], warns = [], sweeps = [], moves = [], fades = []
         ;[false, true].forEach(function(retro) {
           stub.retro = retro
           var look = retro ? "retro" : "smooth"
@@ -1673,6 +1673,18 @@ ShellRoot {
             && wl.cursorRow === "NBIS" && keyed.length === 0)
             + " swept " + JSON.stringify(swept) + " rested " + JSON.stringify(rested) + " after ↑ " + JSON.stringify(keyed))
 
+          // Shift+J carries the resting row from under the still pointer,
+          // and its moment goes with it. Found in review: Tokyo kept its
+          // words with SPY under the pointer.
+          away()
+          restOn("7203.T")
+          wl.moveSelected(1)
+          wait(600)
+          var carried = extra()
+          wl.moveSelected(-1)
+          wait(300)
+          moves.push(look + " " + (wl.displayedSymbols[1] === "SPY" && carried.length === 0) + " " + JSON.stringify(carried))
+
           // The crossfade, on Tokyo's row: in from the rest, out as the
           // pointer goes into the scrollbar's gutter, which keeps the cursor
           // and so the fill. Marked as the rest begins and ends.
@@ -1683,6 +1695,10 @@ ShellRoot {
           var place = [item.y, item.height].join(",")
           var figures = Math.round(item.width - item.gap - item.priceWidth - item.gap - item.sparkWidth)
           var figuresBox = [figures, 0, Math.round(item.width) - figures, Math.round(item.height)].join(",")
+          // The name line alone, below the symbol and its clock, which
+          // fades on its own.
+          var name = root.find(item, "rowName")
+          var nameBox = name ? [Math.round(name.x), Math.round(name.y), Math.round(name.width), Math.round(name.height)].join(",") : "0,0,1,1"
           mouseMove(item, item.width / 3, item.height / 2 - 3)
           mouseMove(item, item.width / 3, item.height / 2)
           grab.source = item
@@ -1691,7 +1707,7 @@ ShellRoot {
           grab.end()
           tryVerify(function() { return grab.waiting === 0 }, 3000)
           var inFrames = grab.frames.filter(function(f) { return f.at >= grab.start - 100 })
-          var fadeIn = judged("turn", inFrames)
+          var fadeIn = judged("turn:" + nameBox, inFrames)
           var stillIn = judged("same:" + figuresBox, inFrames)
           var gutter = wl.mapToItem(item, wl.width - wl.gutter / 2, 0)
           grab.begin("hover-out-" + look)
@@ -1701,7 +1717,7 @@ ShellRoot {
           grab.end()
           tryVerify(function() { return grab.waiting === 0 }, 3000)
           var outFrames = grab.frames.filter(function(f) { return f.at >= grab.start - 50 })
-          var fadeOut = judged("turn", outFrames)
+          var fadeOut = judged("turn:" + nameBox, outFrames)
           var stillOut = judged("same:" + figuresBox, outFrames)
           if (wl.restingSymbolChanged) wl.restingSymbolChanged.disconnect(mark)
           fades.push(look + " " + (fadeIn.ok && fadeOut.ok && stillIn.ok && stillOut.ok && [item.y, item.height].join(",") === place)
@@ -1717,6 +1733,8 @@ ShellRoot {
           allTrue(sweeps), sweeps.join(" | "))
         root.check("the name crossfades to the words in 160 ms and back as the pointer leaves, on rendered frames; the figures and line stay put",
           allTrue(fades), fades.join(" | "))
+        root.check("a move key carrying the resting row from under the still pointer takes its words with it",
+          allTrue(moves), moves.join(" | "))
       }
     }
   }

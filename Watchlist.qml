@@ -80,9 +80,9 @@ Flickable {
   // cursor moves by the rule above and stays there when the row comes back.
   // Let go as the sight changes, not as cursorRow does: it reads the cursor
   // it would clear.
-  onHeadedYChanged: letGoUnseen()
+  onHeadedYChanged: { letGoUnseen(); restOffPointer() }
   onHeightChanged: letGoUnseen()
-  onDisplayedSymbolsChanged: letGoUnseen()
+  onDisplayedSymbolsChanged: { letGoUnseen(); restOffPointer() }
   // A lifted row rides the pointer wherever its place has scrolled to, so
   // it keeps the cursor through the drag.
   function ownInSight(top) {
@@ -112,6 +112,12 @@ Flickable {
     if (under !== restingSymbol) restingSymbol = ""
     if (under !== "") rest.restart()
     else rest.stop()
+  }
+  // The rows moving under a still pointer, by the scroll, a move key, or
+  // another order, take the moment off the row they carry from under it.
+  function restOffPointer() {
+    if (restingSymbol !== "" && surfaceOpen && rowUnder(listHover.scenePosition.x, listHover.scenePosition.y) !== restingSymbol)
+      restingSymbol = ""
   }
   Timer {
     id: rest
@@ -753,6 +759,7 @@ Flickable {
         quote: place >= 0 ? root.quotes[symbol] || null : null
         view: quote ? Figures.rowModel(quote, root.scrubShown, root.changeMode) : null
         status: root.entryOf(symbol) ? root.entryOf(symbol).status : "loading"
+        receivedAt: root.entryOf(symbol) ? root.entryOf(symbol).receivedAt || 0 : 0
         freshness: place >= 0 ? root.freshnessOf(symbol) : null
         featuredRow: symbol === root.featuredSymbol
         cursor: symbol === root.cursorRow

@@ -29,9 +29,11 @@
 //                                      the X,Y,W,H box, from the next frame
 //                                      on, held there while the button is
 //                                      down
-//   bun frames.js turn[:0] FRAME@T... a picture (the header's animal, a
+//   bun frames.js turn[:0|:X,Y,W,H] FRAME@T...
+//                                      a picture (the header's animal, a
 //                                      row's name) crossfades to its new
-//                                      one in about 160 ms, or with :0
+//                                      one in about 160 ms, within that
+//                                      rectangle if given, or with :0
 //                                      changes at once, never through a
 //                                      blank or faint frame
 //   bun frames.js self-check          wrong pictures fail, a right one passes
@@ -567,7 +569,7 @@ else {
   const verdict = kind === "same" ? same(end === undefined ? frames : frames.map(f => ({ ...f, image: cropped(f.image, end) })))
     : kind === "drawin" ? drawin(frames, end === undefined ? 1 : end === "ink" ? end : Number(end))
     : kind === "edge" ? edge(frames, band) : kind === "edgeheld" ? edgeheld(frames)
-    : kind === "turn" ? turn(frames, end === "0")
+    : kind === "turn" ? turn(end && end.includes(",") ? frames.map(f => ({ ...f, image: cropped(f.image, end) })) : frames, end === "0")
     : kind === "press" ? press(frames, rest[0].split(",").map(Number), rest[1].split(",").map(Number))
     : { ok: false, detail: "unknown mode " + mode }
   console.log(JSON.stringify(verdict))
