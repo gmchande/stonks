@@ -100,6 +100,9 @@ run time.
   file at `~/.config/omarchy/grvc.stonks.json`, the last good quotes at
   `~/.cache/grvc.stonks/quotes.json`, one gate per host (`Gate.qml`), and
   the clock timer.
+  The data file is written before each change returns (`blockWrites`):
+  Quickshell's async write skipped a change back to a value still being
+  written, and the file's watch then read the older one back over it.
   `library` is All, whose every symbol gets one first answer; `symbols` is the current
   list's rows; `range` is the chart range the popup and the window share.
   Quotes are asked for each second as they fall due (`askDue`): of

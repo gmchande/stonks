@@ -246,6 +246,11 @@ Item {
     path: root.dataPath
     watchChanges: true
     atomicWrites: true
+    // Written before setText returns. Quickshell 0.3.1's async write, cancelled
+    // by the next, leaves the cancelled text as what it compares a third
+    // against, so a change back to it while the second is in flight is never
+    // written, and the watch reads the second back over it.
+    blockWrites: true
     printErrors: false
     onFileChanged: dataFile.reload()
     onLoaded: root.takeLoadedSettings()
