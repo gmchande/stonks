@@ -1086,13 +1086,13 @@ ShellRoot {
 
         // Every key-hint row is one line, never elided or wrapped, inside the
         // surface, and names six keys at most: in both looks at both widths.
+        // Deleting a list has no key line: its row says its keys (lists.qml).
         var manage = find(body, "manageLists")
         var hintRows = [
           { name: "search", view: body.search, open: function() { body.startAdding() }, close: function() { body.cancelAdding() } },
           { name: "a symbol's lists", view: find(body, "symbolLists"), open: function() { body.openSymbolLists("MU") }, close: function() { body.closeListViews() } },
           { name: "manage lists", view: manage, open: function() { body.openManageLists() }, close: function() { body.closeListViews() } },
-          { name: "renaming a list", view: manage, open: function() { body.openManageLists(); manage.renaming = true }, close: function() { body.closeListViews() } },
-          { name: "deleting a list", view: manage, open: function() { body.openManageLists(); manage.confirming = true }, close: function() { body.closeListViews() } }
+          { name: "renaming a list", view: manage, open: function() { body.openManageLists(); manage.renaming = true }, close: function() { body.closeListViews() } }
         ]
         var badHints = []
         for (var hw = 0; hw < 2; hw++) {

@@ -409,15 +409,18 @@ FocusScope {
       strength: 0.08
     }
 
+    // While a row asks to delete, the row says its keys, on the choices
+    // themselves, as the shell's panels put a row's actions on the row; the
+    // line says nothing, and keeps its place.
     Text {
       objectName: "keyHints"
+      visible: !root.confirming
       anchors.centerIn: parent
       anchors.verticalCenterOffset: Style.space(3)
       width: Math.min(implicitWidth, parent.width - Style.space(20))
       elide: Text.ElideRight
       textFormat: Text.PlainText
       text: root.renaming ? "⏎ save  ·  esc cancel"
-        : root.confirming ? "⏎ delete  ·  esc keep"
         : "⏎ rename  ·  J K move  ·  x delete  ·  esc done"
       color: root.dim
       font.family: root.fontFamily
