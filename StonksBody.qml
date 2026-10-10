@@ -222,13 +222,18 @@ Item {
   readonly property string animalChart: [motion.chartKeyOf(chart), view.listKey, retro].join(" ")
   // It sleeps while its market does, by the phase and the calendar, never
   // by the data's age (`Overnight.marketAsleep`), and a scrub, which reads
-  // a moment the market traded, wakes it. What the sleep reads, the chart
-  // and whether a scrub is on: only the clock closing the market at the
-  // same moment closes its eyes slowly.
-  readonly property bool animalAsleep: !scrubT && !!featuredQuote
-    && Overnight.marketAsleep(featuredQuote, !!chart && chart.allDay, now, calendars)
-  readonly property var animal: ({ kind: animalKind, chart: animalChart, asleep: animalAsleep,
-    moment: animalChart + (scrubT ? " scrub" : "") })
+  // a moment the market traded, wakes it. `bell`: the clock alone put it to
+  // sleep this second, the same quote awake a second before, so its eyes
+  // close slowly; any other way into sleep (a quote landing, a scrub let
+  // go) is no bell, but within that second. Worked out in one binding, so
+  // no value of it pairs a fresh sleep with a stale bell.
+  readonly property var animal: {
+    var quote = scrubT ? null : featuredQuote
+    var allDay = !!chart && chart.allDay
+    var asleep = !!quote && Overnight.marketAsleep(quote, allDay, now, calendars)
+    return { kind: animalKind, chart: animalChart, asleep: asleep,
+      bell: asleep && !Overnight.marketAsleep(quote, allDay, now - 1, calendars) }
+  }
   // The info block describes what the chart shows: the range's line, or the
   // day's when the chart is the day, over the 52 weeks. Before any chart,
   // nothing.

@@ -19,11 +19,10 @@ Item {
   // The animal, as the body decides it: `kind` "bull", "bear", or "" (a
   // flat day, or no direction yet), and `chart`, what it reads. A turn of
   // the same chart crossfades in smooth; any other change is at once.
-  // `asleep`, its market resting; `moment`, what the sleep reads, the chart
-  // and whether a scrub is on: falling asleep at the same moment, the clock
-  // closing the market while you watch, closes the eyes over 320 ms; any
-  // other change, a wake included, is at once.
-  property var animal: ({ kind: "", chart: "", asleep: false, moment: "" })
+  // `asleep`, its market resting, and `bell`, the clock alone put it to
+  // sleep: then, on the same chart, the eyes close over 320 ms; any other
+  // change of sleep, a wake included, is at once.
+  property var animal: ({ kind: "", chart: "", asleep: false, bell: false })
   property bool scrubbing: false
   property bool live: false
   // The surface is closing: the look icon's step and the animal's turn stop
@@ -39,9 +38,8 @@ Item {
   readonly property string kind: animal ? animal.kind : ""
   // The chart the animal last showed, by which a change is a turn.
   property string shownChart: ""
-  // The sleep last shown, and the moment it read.
+  // The sleep last shown.
   property bool shownAsleep: false
-  property string shownMoment: ""
   // How far the eyes have closed, 0 to 1, evenly in time: smooth eases its
   // lids along it, and retro steps them, half shut at its middle.
   property real closing: 0
@@ -76,18 +74,14 @@ Item {
     sleep(fade)
   }
 
-  // The eyes close over 320 ms when it falls asleep at the moment it
-  // showed, `fade` allowing; a close under way runs on through a turn. Any
-  // other change of sleep or moment is at once.
+  // The eyes close over 320 ms at the bell, `fade` allowing, and a close
+  // under way runs on through a turn. Any other change is at once.
   function sleep(fade) {
     var asleep = !!(animal && animal.asleep)
-    var moment = animal ? animal.moment : ""
-    var same = moment === shownMoment
-    shownMoment = moment
-    if (fade && same && asleep === shownAsleep) return
+    if (fade && asleep === shownAsleep) return
     shownAsleep = asleep
     shutting.stop()
-    if (fade && same && asleep) shutting.start()
+    if (fade && asleep && animal.bell) shutting.start()
     else closing = asleep ? 1 : 0
   }
 

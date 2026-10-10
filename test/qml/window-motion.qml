@@ -72,6 +72,9 @@ ShellRoot {
   // AAPL's day cut at noon, and back (see the fake curl's overnight.set).
   Process { id: noonAapl; command: ["sh", "-c", "echo aapl-noon > \"$0/overnight.set\"", Quickshell.env("STONKS_FAKE_STATE")] }
   Process { id: wholeAapl; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/overnight.set"] }
+  // LATE's quote failing, and answering again (see the fake curl).
+  Process { id: lateDown; command: ["touch", Quickshell.env("STONKS_FAKE_STATE") + "/LATE.down"] }
+  Process { id: lateUp; command: ["rm", "-f", Quickshell.env("STONKS_FAKE_STATE") + "/LATE.down"] }
 
   TestCase {
     name: "WindowMotion"
@@ -615,8 +618,10 @@ ShellRoot {
       harness.check("the clock closing the market closes the animal's eyes over 320 ms, smoothly in smooth and in two steps in retro — "
         + bells.join(" | "), bells.every(function(b) { return /^\w+: ok, /.test(b) }))
       look("smooth")
-      // A scrub on the same side of the close, so the animal reads a bear
-      // on both sides of letting go, and no turn crossfades.
+      // A minute after the close, past the bell's own second, a scrub on
+      // the same side of the close, so the animal reads a bear on both
+      // sides of letting go, and no turn crossfades.
+      service.now = close + 60
       var below = body.featuredDay.points.filter(function(p) { return p.p < body.featuredDay.prevClose })
       body.motion.scrubT = below[below.length - 1].t
       tryVerify(function() { return !body.animal.asleep && header.closing === 0 && body.animal.kind === "bear" }, 2000)
@@ -624,10 +629,36 @@ ShellRoot {
       var letGo = run("sleep-scrub-end", "turn:0", function() { body.motion.clearScrub() })
       harness.check("letting go of a scrub after the close puts the animal back to sleep at once — " + letGo.detail,
         letGo.ok && body.animal.asleep, body.animal.asleep + ": " + letGo.detail)
+      // DOWN after hours, then Toronto, closed since its 16:00.
+      service.addSymbol("SHOP.TO")
+      tryVerify(function() { return !!service.quotes["SHOP.TO"] && service.arriving.length === 0 }, 8000)
       awake()
-      var symbol = run("sleep-symbol", "turn:0", function() { service.feature("AAPL") })
+      var symbol = run("sleep-symbol", "turn:0", function() { service.feature("SHOP.TO") })
       harness.check("a new symbol whose market is closed shows its animal asleep at once — " + symbol.detail,
         symbol.ok && body.animal.asleep, body.animal.asleep + ": " + symbol.detail)
+      // A first quote that failed, then lands after the close on a retry:
+      // its animal comes asleep, with no eye-close, though the chart is the
+      // same. Found in review: it closed its eyes over 320 ms.
+      service.now = close
+      lateDown.running = true
+      tryVerify(function() { return !lateDown.running }, 2000)
+      service.addSymbol("LATE")
+      tryVerify(function() { return service.arriving.indexOf("LATE") < 0 }, 15000)
+      service.feature("LATE")
+      tryVerify(function() { return body.chartSymbol === "LATE" && !body.featuredQuote && body.animal.kind === "" }, 5000)
+      var closings = []
+      var note = function() { closings.push(header.closing) }
+      header.closingChanged.connect(note)
+      lateUp.running = true
+      tryVerify(function() { return !lateUp.running }, 2000)
+      // A refresh asks what was answered over 10 s ago on the held clock.
+      service.now = close + 15
+      service.refresh()
+      tryVerify(function() { return body.animal.kind !== "" }, 8000)
+      wait(400)
+      header.closingChanged.disconnect(note)
+      harness.check("a first quote landing on a retry after the close shows its animal asleep at once, no eye-close",
+        body.animal.asleep && closings.join(",") === "1", body.animal.asleep + ", closing went " + closings.join(","))
       // An open after the bell, the market closing while the window was
       // shut: the frames from its first painted one are all the same.
       service.feature("DOWN")
