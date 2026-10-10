@@ -275,7 +275,7 @@ FocusScope {
           foreground: root.foreground
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
-          placeholderText: "List name, ↵ to make it"
+          placeholderText: "List name, ⏎ to make it"
           onTextChanged: root.problem = ""
           onAccepted: root.createRequested(text)
           Keys.onPressed: function(event) {

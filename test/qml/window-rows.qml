@@ -127,7 +127,7 @@ ShellRoot {
       // Opening search keeps the cursor where you put it, and Escape brings
       // back the rows with it there: a, in All, and a click on the footer,
       // in a named list without the hero. Found in the transition audit
-      // (search 2): the cursor jumped to the featured row, and ↵ acted there.
+      // (search 2): the cursor jumped to the featured row, and ⏎ acted there.
       var throughSearch = function(open) {
         keys.forceActiveFocus()
         keyClick(Qt.Key_Down)
@@ -152,7 +152,7 @@ ShellRoot {
         var footer = harness.find(body, "footer")
         mouseClick(footer, footer.width / 2, footer.height / 2)
       })
-      harness.check("search keeps the cursor you set, and ↵ after it acts there: a in All, the footer in a list",
+      harness.check("search keeps the cursor you set, and ⏎ after it acts there: a in All, the footer in a list",
         inAll === "NVDA>NVDA>NVDA>NVDA" && inPair === "DOWN>DOWN>DOWN>DOWN", inAll + " | " + inPair)
 
       // A rename is the same list: its rows keep their scroll and the cursor,
@@ -782,7 +782,7 @@ ShellRoot {
       // reversal only on a sorted order, and the move keys only on manual.
       // No ⌃ click: m opens a row's lists from the keys, and the Mac's mark
       // read wrong here (design pass 3).
-      var common = ["↑ ↓", "↵", "1–9", "← →", "p", "P", "esc", "[ ]", ", .", "w", "W", "m",
+      var common = ["↑ ↓", "⏎", "1–9", "← →", "p", "P", "esc", "[ ]", ", .", "w", "W", "m",
         "a  +", "x", "u", "o"]
       var look = ["s", "c", "r", "?"]
       var sortedHelp = helpKeys(keys, body)

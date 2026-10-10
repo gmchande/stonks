@@ -229,10 +229,18 @@ Item {
     // The list's name, a menu, at the left of the rule, as Apple puts it at
     // the top of the list; the order control at the right. The name starts
     // at the rows' text, and the order word ends at the figures it ranks,
-    // the rows' inset plus the scrollbar's gutter.
+    // the rows' inset plus the scrollbar's gutter. Its height is the caption
+    // line's, never a word's: a glyph drawn from another font is taller, and
+    // would move the rows. A line of text rounds its ascent and its descent
+    // up to whole pixels each, and so does this.
     Item {
       width: parent.width
-      height: orderText.implicitHeight
+      height: Math.ceil(captionLine.ascent) + Math.ceil(captionLine.descent)
+
+      FontMetrics {
+        id: captionLine
+        font: orderText.font
+      }
 
       Rectangle {
         objectName: "listControl"
@@ -241,7 +249,7 @@ Item {
         anchors.right: listChevron.right
         anchors.rightMargin: -Style.space(6)
         anchors.verticalCenter: parent.verticalCenter
-        height: orderText.implicitHeight + Style.space(4)
+        height: parent.height + Style.space(4)
         radius: root.retro ? 0 : Style.cornerRadius
         color: root.listMenuOpen ? Style.selectedFillFor(root.foreground, Color.accent)
           : listMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
@@ -336,7 +344,7 @@ Item {
         visible: !root.rowsCovered
         anchors.centerIn: orderText
         width: orderText.implicitWidth + Style.space(12)
-        height: orderText.implicitHeight + Style.space(4)
+        height: parent.height + Style.space(4)
         radius: root.retro ? 0 : Style.cornerRadius
         color: orderMouse.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
         Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }

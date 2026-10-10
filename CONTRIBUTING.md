@@ -574,7 +574,7 @@ run time.
   featured symbol back. Enter, or the chosen row's Add, adds what the hero
   shows: with its quote in, its row joins at its place and it is featured
   at once, the chart unchanged. A result already in the list on screen
-  (`members`, arriving ones too) says Show, and the field's hint "↵ show":
+  (`members`, arriving ones too) says Show, and the field's hint "⏎ show":
   Enter or Show features its row the way a click does, a failed first
   fetch's too, and adds nothing; one still arriving is featured once its
   first answer is in, a failed one too. A symbol you add without its answer is fetched
@@ -643,9 +643,11 @@ run time.
   an overnight print is a trade, and stays. A company's name is
   Yahoo's long name wherever it shows, rows and search alike; the short one
   arrives in capitals for some listings and cut at 31 characters.
-- Nothing moves when the look, the range, the list, or the featured symbol
-  changes, but for one exception: a list of another length moves the
-  popup's bottom edge and the footer riding it, easing there.
+- Nothing moves when the look, the range, the list, its order, or the
+  featured symbol changes, but for one exception: a list of another length
+  moves the popup's bottom edge and the footer riding it, easing there.
+  The list's header is the caption line's height, never its order word's,
+  so no word moves the rows.
   The header keeps the sprite's height in both looks, and the look is one
   small icon in both, so only the icon changes; the sprite is retro's
   only, and retro's status words keep its place while a symbol's first quote
@@ -788,6 +790,9 @@ run time.
   (`Tones.dim`, a third of the way, kept at 4.5:1; `Tones.dimmer`, half,
   kept at 3:1), never `Qt.darker`, which makes it louder on a light theme.
   The pill's ground is the bar's.
+- Every character Stonks draws is one Omarchy's default font, JetBrainsMono
+  Nerd Font, has (⏎ for Enter, ↕ for manual): Qt draws a missing one from
+  another font, at another size.
 - JavaScript in the rule files (`*.js`): top-level functions only (QML
   cannot import ES modules). A file reads another through
   `.import "X.js" as X` and calls `X.name`; imports run one way, with no

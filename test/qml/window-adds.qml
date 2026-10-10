@@ -271,7 +271,7 @@ ShellRoot {
       keyClick(Qt.Key_Down)
       wait(50)
       var arrivingShow = [service.arriving.indexOf("SHHI.NE") >= 0,
-        /↵  show  ·/.test(harness.find(body.search, "keyHints").text)].join(",")
+        /⏎  show  ·/.test(harness.find(body.search, "keyHints").text)].join(",")
       keyClick(Qt.Key_Return)
       within(12000, function() { return service.featuredSymbol === "SHHI.NE" })
       wait(300)
@@ -281,7 +281,7 @@ ShellRoot {
         arrivingShow + "|" + service.featuredSymbol + "|" + JSON.stringify(service.entries["SHHI.NE"]) + "|" + watchlist.cursorRow)
 
       // A result already in the list on screen says Show, and the field's
-      // hint "↵ show", in the slot Add takes, so the codes keep their
+      // hint "⏎ show", in the slot Add takes, so the codes keep their
       // column; Enter features its row and adds nothing. So for a member
       // whose first fetch failed. Found in design pass 3: it said Add, and
       // for a failed member Enter did nothing at all.
@@ -303,7 +303,7 @@ ShellRoot {
         keyClick(Qt.Key_Return)
         within(1500, function() { return service.featuredSymbol === symbol })
         wait(300)
-        return [words.join("/"), widths.every(function(w) { return w === widths[0] }), /↵  show  ·/.test(hint),
+        return [words.join("/"), widths.every(function(w) { return w === widths[0] }), /⏎  show  ·/.test(hint),
           service.featuredSymbol, !body.adding, service.library.join(",") === library,
           watchlist.cursorRow === symbol].join("|")
       }

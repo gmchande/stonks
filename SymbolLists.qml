@@ -286,7 +286,7 @@ FocusScope {
       width: Math.min(implicitWidth, parent.width - Style.space(20))
       elide: Text.ElideRight
       textFormat: Text.PlainText
-      text: root.note !== "" ? root.note : "↵ tick  ·  1–9 that list  ·  esc done"
+      text: root.note !== "" ? root.note : "⏎ tick  ·  1–9 that list  ·  esc done"
       color: root.note !== "" ? root.foreground : root.dim
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall

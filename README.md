@@ -169,7 +169,7 @@ or press `o`, to cycle manual, symbol, name, % change, and $ change, and
 Shift-click it, or press `Shift+O`, to run a sorted order the other way, so
 % change can put the biggest losers first. The arrow before the word says
 which way the values run down the list: `↓` from the largest, `↑` from the
-smallest; manual order shows `⇅`. Each list also comes back where you left it,
+smallest; manual order shows `↕`. Each list also comes back where you left it,
 scrolled as it was, until the shell restarts; a list you have not opened yet
 starts at the top. Switching lists leaves the featured symbol, the
 hero, and the pill where they were. Every symbol is fetched once, however
