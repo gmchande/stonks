@@ -26,7 +26,12 @@ import "plugin"
 ShellRoot {
   id: root
 
-  readonly property string stateName: Quickshell.env("STONKS_VISUAL_STATE") || "retro"
+  // window-of-<state>: a popup-<state> in the window instead (the ranges,
+  // the 52-week high, an overnight moment), the same data. The sweep has
+  // its own window-sweep-*.
+  readonly property string requested: Quickshell.env("STONKS_VISUAL_STATE") || "retro"
+  readonly property bool windowOf: requested.indexOf("window-of-") === 0
+  readonly property string stateName: windowOf ? "popup-" + requested.slice("window-of-".length) : requested
   readonly property string outPath: Quickshell.env("STONKS_VISUAL_OUT")
   readonly property string fixtureDir: Quickshell.env("STONKS_FIXTURES")
   readonly property string calendarPath: Quickshell.env("STONKS_VISUAL_CALENDARS")
@@ -67,7 +72,7 @@ ShellRoot {
   property var pillQuote: null
   // The same day closed up: the pill's icon form climbs where NBIS's falls.
   readonly property var pillUpQuote: pillQuote ? Object.assign({}, pillQuote, { prevClose: pillQuote.price * 0.97 }) : null
-  readonly property bool popup: w22 ? w22.popup : stateName.indexOf("popup") === 0 || themeState
+  readonly property bool popup: windowOf ? false : w22 ? w22.popup : stateName.indexOf("popup") === 0 || themeState
   // <popup-help|popup-help-sorted|window-help>-<look>: the key sheet.
   readonly property var help: {
     var match = /^(popup-help|popup-help-sorted|window-help)-(smooth|retro)$/.exec(stateName)
@@ -89,10 +94,17 @@ ShellRoot {
   // moments (sweep-<date>-<hhmm>), every kind of listing on 1D at rest:
   // NBIS, PSIX, SPY, BLDP, the S&P 500 (gspc), BTC-USD, SHEL.L, and 7203.T,
   // with Robinhood's saved answers on which it trades all day.
+  // <popup|window>-sweep-own-<shel.l|7203.t>-<look>: the 7 October 14:55
+  // sweep with London before its session, or Tokyo at lunch, from that
+  // listing's own saved day, at a clock inside that moment.
   readonly property var overnight: {
     var match = /^popup-overnight-(day|night|sunday|live|\d{4}-\d\d-\d\d-\d{4})-(nbis|snow|rvii|et|tln)(-1m|-1m-scrub|-scrub)?-(smooth|retro)$/.exec(stateName)
     if (match) return { moment: match[1], symbol: match[2].toUpperCase(), month: match[3] === "-1m" || match[3] === "-1m-scrub",
       scrub: !!match[3] && match[3] !== "-1m", dated: /^\d/.test(match[1]), sweep: false }
+    match = /^(?:popup|window)-sweep-own-(shel\.l|7203\.t)-(smooth|retro)$/.exec(stateName)
+    if (match) return { moment: "2026-10-07-1455", symbol: match[1].toUpperCase(), month: false, scrub: false, dated: true, sweep: true,
+      own: match[1] === "shel.l" ? { file: "shel-l-day", at: Date.UTC(2026, 9, 2, 5, 30) / 1000 }
+        : { file: "7203-t-day", at: Date.UTC(2026, 9, 2, 2, 45) / 1000 } }
     match = /^(?:popup|window)-sweep-(\d{4}-\d\d-\d\d-\d{4})-(nbis|psix|spy|bldp|gspc|btc-usd|shel\.l|7203\.t|shib-usd|ry\.to|brk-a|brk-b)-(smooth|retro)$/.exec(stateName)
     return match ? { moment: match[1], symbol: match[2] === "gspc" ? "^GSPC" : match[2].toUpperCase(), month: false, scrub: false,
       dated: true, sweep: true } : null
@@ -119,8 +131,9 @@ ShellRoot {
   property int now: holidayState ? 1813334400 : (nbisState || nbisDayState ? 1789156800 : 1788294000)
   property string shownRange: historyState ? "1Y" : "1D"
   property var shownHistoryEntry: null
-  // The saved cap and P/E, with their closes, by symbol: AAPL, NBIS, and
-  // SHOP.TO have them; any other symbol shows what its quote alone gives.
+  // The saved cap and P/E, with their closes, by symbol: AAPL, NBIS,
+  // SHOP.TO, 7203.T, and SHEL.L have them; any other symbol shows what its
+  // quote alone gives.
   property var savedFigures: ({})
 
   function figures(name) {
@@ -273,7 +286,8 @@ ShellRoot {
     var nbisMonth = History.parseHistory(JSON.parse(nbisMonthFile.text()), "1M")
     var weekly = History.parseHistory(JSON.parse(weeklyFile.text()), "5Y")
     var shortHistory = History.parseHistory(JSON.parse(shortFile.text()), "All")
-    root.savedFigures = { AAPL: root.figures("aapl"), NBIS: root.figures("nbis"), "SHOP.TO": root.figures("shop-to") }
+    root.savedFigures = { AAPL: root.figures("aapl"), NBIS: root.figures("nbis"), "SHOP.TO": root.figures("shop-to"),
+      "7203.T": root.figures("7203-t"), "SHEL.L": root.figures("shel-l") }
     try { stub.calendars = JSON.parse(calendarFile.text()) } catch (e) { stub.calendars = null }
     if (root.pillSheet) {
       root.pillQuote = nbisDay
@@ -373,6 +387,13 @@ ShellRoot {
       var dated = root.overnight.dated ? /^(.{10})-(\d\d)(\d\d)$/.exec(root.overnight.moment) : null
       root.now = dated ? Market.epochAt(Overnight.overnightMarket(stub.calendars), dated[1], dated[2] + ":" + dated[3])
         : { day: 1790962920, night: 1790910000, sunday: 1790562600, live: 1791175013 }[root.overnight.moment]
+      if (root.overnight.own) {
+        var own = Qt.createQmlObject('import Quickshell.Io; FileView { blockLoading: true }', root)
+        own.path = fixtureDir + "/" + root.overnight.own.file + ".json"
+        quotes[root.overnight.symbol] = Quote.parseChart(JSON.parse(own.text()))
+        own.destroy()
+        root.now = root.overnight.own.at
+      }
       listed.forEach(function(s) { entries[s] = { status: "ok", receivedAt: root.now } })
       if (root.overnight.month) {
         root.shownRange = "1M"
