@@ -97,6 +97,7 @@ Flickable {
   readonly property bool manualOrder: view.order === "manual"
 
   signal featureRequested(string symbol)
+  signal removeRequested(string symbol)
   signal listsRequested(string symbol)
   signal manualOrderRequested(var symbols)
   // The rows show the latest view.
@@ -654,10 +655,15 @@ Flickable {
         downColor: root.downColor
         fontFamily: root.fontFamily
         // A click puts the cursor on its row too, wherever the keys left it
-        // under a still pointer.
+        // under a still pointer; a removal by click then hands it on as a
+        // key's does.
         onFeatureRequested: {
           root.cursorSymbol = symbol
           root.featureRequested(symbol)
+        }
+        onRemoveRequested: {
+          root.cursorSymbol = symbol
+          root.removeRequested(symbol)
         }
         onListsRequested: {
           root.cursorSymbol = symbol

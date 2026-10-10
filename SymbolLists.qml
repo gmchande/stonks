@@ -47,7 +47,6 @@ FocusScope {
   onActiveChanged: {
     if (active) {
       reset()
-      opening.restart()
       Qt.callLater(function() { if (root.active) root.forceActiveFocus() })
     } else {
       root.focus = false
@@ -70,15 +69,6 @@ FocusScope {
     if (at.x < 0 || at.x >= scroll.width || at.y < 0 || at.y >= scroll.height) return
     var index = Math.floor((at.y + scroll.contentY) / itemHeight)
     if (index < choices.length) cursor = index
-  }
-
-  // A double-click is one click (WatchlistRow): the view opens in the rows'
-  // place, under the pointer, so the click that follows the right-click or
-  // Ctrl-click that opened it, within the double-click interval, lands
-  // nowhere, and never unticks the list under it.
-  Timer {
-    id: opening
-    interval: Application.styleHints.mouseDoubleClickInterval
   }
 
   function toggle(index) {
@@ -321,14 +311,5 @@ FocusScope {
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
-  }
-
-  // Over the view while the opening click's double-click interval runs: it
-  // takes that click, and the pointer's hover passes.
-  MouseArea {
-    objectName: "openingShield"
-    anchors.fill: parent
-    visible: opening.running
-    acceptedButtons: Qt.AllButtons
   }
 }

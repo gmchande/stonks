@@ -184,9 +184,9 @@ hero, and the pill where they were. Every symbol is fetched once, however
 many lists hold it.
 "Manage lists…" at the end of the menu (or `Shift+W`) renames, reorders, and
 deletes named lists; All stays first and cannot be changed, and a delete asks
-first, in the row. `m` on the cursor row, or a right-click or Ctrl-click on
-any row, shows that symbol's lists as tick boxes: ticking adds it to a list,
-unticking takes it out, and unticking All removes it everywhere.
+first, in the row. `m` on the cursor row, or Ctrl-click on any row, shows that
+symbol's lists as tick boxes: ticking adds it to a list, unticking takes it
+out, and unticking All removes it everywhere.
 Rows can be moved by hand only while manual order is shown. Click the change
 to cycle percent, currency amount, and percent since the open; that is the
 day's change, so on a range it changes the rows and the hero keeps the

@@ -536,9 +536,6 @@ ShellRoot {
         root.setQuotes(fifteen, values)
         wait(100)
 
-        // `x` with the pointer on a row removes that row: the pointer put the
-        // cursor there. (A middle-click used to remove it; it removes nothing
-        // now.)
         body.watchlist.contentY = 0
         // The pointer comes in as a hand's does, over more than one place:
         // the first place it is seen at in a list is where it starts.
@@ -547,16 +544,14 @@ ShellRoot {
         wait(50)
         var removed = body.watchlist.displayedSymbols[1]
         mouseClick(body.watchlist, 12, body.watchlist.rowPitch + 12, Qt.MiddleButton)
-        var middleKept = body.watchlist.displayedSymbols.indexOf(removed) === 1
-        body.removeRow(body.watchlist.cursorRow)
         wait(200)
         var contiguous = true
         for (i = 0; i < body.watchlist.displayedSymbols.length; i++) {
           var row = body.watchlist.rowItem(body.watchlist.displayedSymbols[i])
           if (!row || Math.abs(row.y - i * body.watchlist.rowPitch) > 0.5) contiguous = false
         }
-        root.check("a middle-click on a row removes nothing, and x on the pointer's row removes it without a hole",
-          middleKept && body.watchlist.sortHeld && body.watchlist.displayedSymbols.indexOf(removed) < 0
+        root.check("pointer-held removal updates membership without a hole",
+          body.watchlist.sortHeld && body.watchlist.displayedSymbols.indexOf(removed) < 0
             && body.watchlist.rowItem(removed) === null && contiguous
             && body.watchlist.displayedSymbols.length === 14)
 
@@ -991,7 +986,7 @@ ShellRoot {
           wait(300)
           var still = [stub.featuredSymbol === hero, body.watchlist.displayedSymbols.join() === rows.join(),
             body.watchlist.contentY === scrolled, !body.adding, stub.lastSettings === settings,
-            body.scrubT === 0, body.watchlist.cursorRow === cursor, body.listsSymbol === ""].join(",")
+            body.scrubT === 0, body.watchlist.cursorRow === cursor].join(",")
           body.surfaceOpen = true
           mouseMove(body, 1, 1)
           wait(50)
@@ -1004,7 +999,7 @@ ShellRoot {
         stub.retro = false
         wait(50)
         root.check("a closing surface takes no click, right-click, wheel, or scrub, smooth and retro",
-          smoothInert === "true,true,true,true,true,true,true,true" && retroInert === smoothInert, smoothInert + " | " + retroInert)
+          smoothInert === "true,true,true,true,true,true,true" && retroInert === smoothInert, smoothInert + " | " + retroInert)
 
         // The order control hovers like a range token.
         var orderRow = root.find(body, "orderControl")
@@ -1035,30 +1030,13 @@ ShellRoot {
         root.check("the scrollbar is absent when every row fits",
           !body.watchlist.ScrollBar.vertical.visible)
 
-        // On the body as the popup and the window both host it, a right-click
-        // on a row shows its lists and removes nothing; nor does a
-        // middle-click, nor a click at once after the right-click. (The
-        // popup's own harness has no pointer: its window is never mapped.)
-        var fitRow = body.watchlist.rowItem("FIT2")
-        var fitAt = fitRow.mapToItem(body, fitRow.width / 2, fitRow.height / 2)
-        var membershipsBefore = stub.memberships.length
-        mouseClick(body, fitAt.x, fitAt.y, Qt.MiddleButton)
-        mouseClick(body, fitAt.x, fitAt.y, Qt.RightButton)
-        var listsShown = body.listsSymbol
-        mouseClick(body, fitAt.x, fitAt.y)
-        wait(50)
-        root.check("a right-click on a row shows its lists, and it, a middle-click, and a click at once after it remove nothing",
-          listsShown === "FIT2" && body.listsSymbol === "FIT2" && stub.symbols.join(",") === "FIT1,FIT2"
-            && stub.memberships.length === membershipsBefore,
-          listsShown + "|" + body.listsSymbol + "|" + stub.symbols + "|" + stub.memberships.slice(membershipsBefore))
-        body.closeListViews()
-        wait(50)
-
-        // x removes a row; the last one stays, and the footer says why for a
-        // moment.
-        body.removeRow("FIT2")
+        // Right-click removes a row; the last one stays, and the footer says
+        // why for a moment.
+        var fit2 = body.watchlist.rowItem("FIT2")
+        mouseClick(fit2, fit2.width / 2, fit2.height / 2, Qt.RightButton)
         wait(200)
-        body.removeRow("FIT1")
+        var fit1 = body.watchlist.rowItem("FIT1")
+        mouseClick(fit1, fit1.width / 2, fit1.height / 2, Qt.RightButton)
         wait(50)
         root.check("the last row stays and the footer says why",
           stub.symbols.join(",") === "FIT1" && body.note === "Keep at least one symbol")

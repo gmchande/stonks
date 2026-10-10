@@ -633,10 +633,16 @@ ShellRoot {
       wait(150)
       harness.check("a click on a row of a named list features it", service.featuredSymbol === "NVDA")
       grab("named")
-      // A right-click shows the row's lists and removes nothing; a click
-      // that follows it at once, a double-click's second, lands nowhere in
-      // them, though All's tick sits under it. A right-click used to remove
-      // the row.
+
+      // A view that opens under a resting pointer keeps the cursor it opens
+      // on until the pointer really moves, so Enter or Space acts on that
+      // row, never on the one the pointer happens to rest on. From the
+      // review of #9: the first hover at the resting pointer counted as a
+      // move, put a symbol's lists on All, and Space removed the symbol from
+      // every list. Energy and Wins, Wins current.
+      // A symbol's lists, opened by m with the pointer resting on a row that
+      // All's tick will lie under: Space ticks the first named list, as the
+      // view opened.
       var listsAll = harness.findAll(body2, "symbolListRow")[0]
       var allTop = listsAll.mapToItem(body2, 0, 0).y
       var spot = null
@@ -650,35 +656,21 @@ ShellRoot {
         spotSymbol = symbol
       })
       // The pointer comes to the row by moving, as a hand's does.
+      mouseMove(body2, spot.x, spot.y - 2)
       mouseMove(body2, spot.x, spot.y)
       wait(50)
-      mouseClick(body2, spot.x, spot.y, Qt.RightButton)
-      var shown = body2.listsSymbol
-      var allUnder = listsAll.contains(listsAll.mapFromItem(body2, spot.x, spot.y))
-      mouseClick(body2, spot.x, spot.y)
+      keys.forceActiveFocus()
+      keyClick(Qt.Key_M)
       wait(150)
-      harness.check("a right-click shows that row's lists, and a click on All's tick at once after it removes nothing",
-        shown === spotSymbol && allUnder && body2.listsSymbol === spotSymbol
-          && harness.same(service.symbols, ["AAPL", "NVDA"]) && service.library.indexOf(spotSymbol) >= 0,
-        shown + "|" + spotSymbol + "|" + allUnder + "|" + body2.listsSymbol + "|" + service.symbols)
-
-      // A view that opens under a resting pointer keeps the cursor it opens
-      // on until the pointer really moves, so Enter or Space acts on that
-      // row, never on the one the pointer happens to rest on. From the
-      // review of #9: the first hover at the resting pointer counted as a
-      // move, put a right-click's lists on All, and Space removed the
-      // symbol from every list. Energy and Wins, Wins current.
       var energy = function() {
         return service.dataSettings.lists.filter(function(l) { return l.name === "Energy" })[0].symbols
       }
-      // A symbol's lists, opened by that right-click with All under the
-      // pointer: Space ticks the first named list, as the view opened.
       var checklistView = harness.find(body2, "symbolLists")
-      wait(100)
+      var allUnder = listsAll.contains(listsAll.mapFromItem(body2, spot.x, spot.y))
       var listsOpenedOn = checklistView.cursor
       keyClick(Qt.Key_Space)
       wait(100)
-      var spaced = [listsOpenedOn === 1, service.library.indexOf(spotSymbol) >= 0,
+      var spaced = [allUnder, listsOpenedOn === 1, service.library.indexOf(spotSymbol) >= 0,
         body2.listsSymbol === spotSymbol, energy().indexOf(spotSymbol) >= 0].join(",")
       keyClick(Qt.Key_Space)
       wait(100)
@@ -715,13 +707,15 @@ ShellRoot {
       keyClick(Qt.Key_Escape)
       keyClick(Qt.Key_Escape)
       wait(100)
-      harness.check("a view opening under a resting pointer keeps the cursor it opens on: a right-click's lists over All, the list menu, and Manage lists",
-        spaced === "true,true,true,true" && entered === "true,true,true" && renamed === "true,true" && !body2.managingLists,
+      harness.check("a view opening under a resting pointer keeps the cursor it opens on: a symbol's lists over All, the list menu, and Manage lists",
+        spaced === "true,true,true,true,true" && entered === "true,true,true" && renamed === "true,true" && !body2.managingLists,
         [spaced, entered, renamed, body2.managingLists].join(" | "))
-      keys.forceActiveFocus()
-      wl.cursorSymbol = "AAPL"
-      keyClick(Qt.Key_X)
+
+      var aaplRow = wl.rowItem("AAPL")
+      mouseClick(aaplRow, aaplRow.width / 2, aaplRow.height / 2, Qt.RightButton)
       wait(150)
+      harness.check("right-clicking a row on a named list takes it out of that list only",
+        harness.same(service.symbols, ["NVDA"]) && service.library.indexOf("AAPL") >= 0)
 
       // Manage lists by keyboard: Energy and Wins, Wins current.
       var names = function() { return service.dataSettings.lists.map(function(l) { return l.name }) }
@@ -908,8 +902,7 @@ ShellRoot {
         listsPointed + " | " + checklist.cursor + " " + marks(listRows))
       var powerAt = center(listRows[1])
       mouseMove(body2, powerAt.x, powerAt.y)
-      // Past the double-click interval of the click that opened them.
-      wait(Application.styleHints.mouseDoubleClickInterval + 50)
+      wait(50)
       mouseClick(body2, powerAt.x, powerAt.y)
       wait(100)
       harness.check("a click ticks that row's list", harness.same(power(), ["NVDA", "AAPL"]), power())
@@ -976,8 +969,6 @@ ShellRoot {
       harness.check("All's last symbol cannot be unticked, and the checklist says why",
         harness.same(service.library, ["NVDA"]) && body2.listsSymbol === "NVDA"
           && checklist.note === "Keep at least one symbol")
-      // Past the double-click interval of the open, which takes any click.
-      wait(Application.styleHints.mouseDoubleClickInterval)
       var listsDoneAt = center(harness.find(body2, "symbolListsDone"))
       mouseClick(body2, listsDoneAt.x, listsDoneAt.y)
       wait(100)

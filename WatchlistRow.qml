@@ -37,7 +37,8 @@ Rectangle {
   property string fontFamily: Style.font.family
 
   signal featureRequested()
-  // A right-click, or Ctrl-click, Apple's Control-click: this row's lists.
+  signal removeRequested()
+  // Ctrl-click, Apple's Control-click: this row's lists.
   signal listsRequested()
   // Shift and the wheel over this row, by its angle.
   signal moveWheeled(real angle)
@@ -208,15 +209,14 @@ Rectangle {
     font.bold: true
   }
 
-  // Press and move a few pixels to lift the row; a plain click features it,
-  // and a right-click shows its lists. The list never steals the press, so
-  // the wheel is how it scrolls.
+  // Press and move a few pixels to lift the row; a plain click features it.
+  // The list never steals the press, so the wheel is how it scrolls.
   MouseArea {
     id: mouse
     anchors.fill: parent
     hoverEnabled: true
     preventStealing: true
-    acceptedButtons: Qt.LeftButton | Qt.RightButton
+    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     cursorShape: row.lifted ? Qt.ClosedHandCursor : Qt.PointingHandCursor
 
     property real pressY: -1
@@ -243,8 +243,9 @@ Rectangle {
     }
     onClicked: function(event) {
       if (dragged) return
-      if (event.button === Qt.RightButton || event.modifiers & Qt.ControlModifier) row.listsRequested()
-      else row.featureRequested()
+      if (event.button === Qt.RightButton || event.button === Qt.MiddleButton) row.removeRequested()
+      else if (event.modifiers & Qt.ControlModifier) row.listsRequested()
+      else if (event.button === Qt.LeftButton) row.featureRequested()
     }
     // A double-click is one click: its second would land on whatever took
     // the first one's place, a row sliding up or the rows back from search.

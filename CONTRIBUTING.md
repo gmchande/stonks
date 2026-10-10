@@ -276,7 +276,8 @@ run time.
   sight; without one (on open, on another list), the featured row when that
   is in sight, else the first whole row in sight. The scrollbar moving your
   cursor out of sight, or the rows changing under it, lets it go; removing
-  the cursor's row (`x`, Delete, Backspace) hands the cursor to the row that
+  the cursor's row (`x`, Delete, Backspace, or a right- or middle-click,
+  which puts the cursor there first) hands the cursor to the row that
   takes its place, the next one, or the one before when it was the last
   (`StonksBody.removeRow`). Every symbol in All keeps its row
   across lists: a list shows its members and hides the rest, so a
@@ -293,8 +294,8 @@ run time.
   so a move past the edge carries the rows along and the moved row stays
   still on screen. Shift and the wheel move the row the wheel started on a
   place a notch, however finely the wheel ticks, until the pointer moves.
-  Signals out feature/lists/move/reorder; the body acts on them through
-  the service, and every removal by key goes through `StonksBody.removeRow`.
+  Signals out feature/remove/lists/move/reorder; the body acts on them
+  through the service, and every removal goes through `StonksBody.removeRow`.
 - `Hero.qml`, `HeaderStatus.qml`, `HeroBand.qml`, `AddFooter.qml`,
   `HelpSheet.qml` — shared value-in pieces the body composes. The header
   starts with the day's animal and ends in the look and `?`. The listing
@@ -333,10 +334,9 @@ run time.
   under it.
 - `ManageLists.qml` — rename, reorder, and delete named lists, in the rows'
   place; delete asks in the row. `SymbolLists.qml` — one symbol's tick box
-  per list (`m`, or a right-click or Ctrl-click on a row); it takes no
-  click within the double-click interval of opening, since it opens under
-  the pointer. Both own their keys while open (`StonksBody.ownsKeys`) and
-  share `ListAction.qml`, the caption-sized word that acts.
+  per list (`m`, or Ctrl-click a row). Both own their keys while open
+  (`StonksBody.ownsKeys`) and share `ListAction.qml`, the caption-sized word
+  that acts.
 - `SymbolSearch.qml` — the search field, results, debounce, and Yahoo
   lookup; the body handles `picked` / `chose` / `cancelled`. The
   keyboard owns the choice Enter adds, and tells every change of it
@@ -421,8 +421,7 @@ run time.
 - `WatchlistRow.qml` — one row; value-in, signals out. Owns the press-and-
   move gesture that lifts a row; the watchlist positions it and the others.
   A double-click, on a row or the footer, is one click: its second would
-  land on whatever took the first one's place. A right-click shows the
-  row's lists; no click removes a row, so a slip never loses one.
+  land on whatever took the first one's place.
 - `CursorBar.qml` — the cursor's one mark, a bar down a row's left edge, on
   the watchlist's rows and in every list view.
 - `DayChart.qml`, `Sparkline.qml`, `DrawnAnimal.qml` — the smooth look's
