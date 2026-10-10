@@ -679,6 +679,25 @@ ShellRoot {
         body.watchlist.cancelDrag()
         body.watchlist.snapToRow()
 
+        // A held row keeps the cursor while the wheel scrolls the list under
+        // it, and once it drops: it rides the pointer wherever its old place
+        // went. From the rows review: the cursor left it as soon as its old
+        // place scrolled out of sight, and the next key acted on another row.
+        body.watchlist.contentY = 0
+        wait(50)
+        var held = body.watchlist.displayedSymbols[1]
+        body.watchlist.beginDrag(held, pitch + 10)
+        mouseWheel(body.watchlist, 12, pitch + 10, 0, -600, Qt.NoModifier)
+        wait(700)
+        var heldScrolled = [body.watchlist.cursorRow === held, body.watchlist.contentY >= 4 * pitch].join(",")
+        body.watchlist.endDrag()
+        wait(400)
+        root.check("a held row keeps the cursor while the wheel scrolls the list under it, and once it drops",
+          heldScrolled === "true,true" && body.watchlist.dragSymbol === "" && body.watchlist.cursorRow === held,
+          heldScrolled + " | " + body.watchlist.cursorRow + " for " + held)
+        root.setFixtureWatchlist()
+        wait(100)
+
         // The keyboard cursor always has a row: with none of its own it sits
         // on the featured row, in sight at the top, and it is drawn as a bar,
         // not as a fill.
@@ -730,8 +749,10 @@ ShellRoot {
         wait(100)
         var onThird = [wl.cursorRow === wl.displayedSymbols[2]].concat(misdrawn())
         mouseWheel(third, third.width / 2, third.height / 2, 0, -120, Qt.NoModifier)
+        // At once, before the glide: the row that will rest under the pointer.
+        var atOnce = wl.cursorRow === wl.displayedSymbols[3] && wl.contentY < pitch
         wait(700)
-        var afterWheel = [wl.contentY === pitch, wl.cursorRow === wl.displayedSymbols[3], wl.cursorRow !== wl.displayedSymbols[1]].concat(misdrawn())
+        var afterWheel = [atOnce, wl.contentY === pitch, wl.cursorRow === wl.displayedSymbols[3], wl.cursorRow !== wl.displayedSymbols[1]].concat(misdrawn())
         body.moveCursor(1)
         wait(100)
         var afterDown = [wl.cursorRow === wl.displayedSymbols[4]].concat(misdrawn())
@@ -1163,6 +1184,40 @@ ShellRoot {
         stub.retro = false
         root.check("the range tokens, the list name, the order word, the look icon, the ?, the footer, and a list view's action take the pressed fill on mouse-down, in both looks",
           pressFaults.length === 0, pressFaults.join(" | "))
+
+        // The list views follow the wheel as the rows do: scrolled under a
+        // still pointer, the cursor goes to the row then under it, so Enter
+        // never acts on a row scrolled out of sight. From the rows review:
+        // the cursor stayed on the row the pointer had left.
+        var many = [{ name: "", label: "All", count: 1, symbols: ["FIT1"] }]
+        for (var n = 1; n < 15; n++) many.push({ name: "L" + n, label: "List " + n, count: 0, symbols: [] })
+        stub.lists = many
+        wait(50)
+        var wheeled = function(open, close, viewName, rowName) {
+          open()
+          wait(100)
+          var view = root.find(body, viewName)
+          var rows = root.findAll(view, rowName)
+          var at = rows[1].mapToItem(body, rows[1].width / 2, rows[1].height / 2)
+          mouseMove(body, at.x, at.y)
+          wait(50)
+          var pointed = view.cursor
+          mouseWheel(body, at.x, at.y, 0, -240, Qt.NoModifier)
+          wait(400)
+          var under = -1
+          rows.forEach(function(row, i) { if (row.contains(row.mapFromItem(body, at.x, at.y))) under = i })
+          var cursor = view.cursor
+          close()
+          wait(100)
+          return [pointed === 1, under > 1, cursor === under].join(",") + " " + pointed + "/" + under + "/" + cursor
+        }
+        var wheels = [
+          wheeled(function() { body.openListMenu() }, function() { body.closeListMenu() }, "listMenu", "listChoice"),
+          wheeled(function() { body.openSymbolLists("FIT1") }, function() { body.closeListViews() }, "symbolLists", "symbolListRow"),
+          wheeled(function() { body.openManageLists() }, function() { body.closeListViews() }, "manageLists", "manageRow")
+        ]
+        root.check("in the list menu, a symbol's lists, and Manage lists, the wheel under a still pointer moves the cursor to the row then under it",
+          wheels.every(function(w) { return w.indexOf("true,true,true ") === 0 }), wheels.join(" | "))
 
         console.log("POINTER DONE")
         done.exitCode = root.failures ? 1 : 0

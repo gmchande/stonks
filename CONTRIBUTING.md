@@ -263,9 +263,12 @@ run time.
   cursor, as in the shell's own panels (`Ui/CursorSurface.qml`): moving the
   pointer puts it on the row under it, the wheel on the row it brings under
   a still pointer, a key one row on from wherever it is, and a click on the
-  row clicked; the pointer leaving the list leaves it there. Only a real
-  move counts (`RowPointer.qml`): rows gliding under a still pointer, as a
-  key scrolls them, never hand it the cursor. It is always on a row in
+  row clicked; a lifted row keeps it while the wheel scrolls the list under
+  it; the pointer leaving the list leaves it there. Pointer and wheel read
+  the list where it is headed, as the cursor always does, so mid-glide they
+  name the row that will rest under the pointer. Only a real move counts
+  (`RowPointer.qml`): rows gliding under a still pointer, as a key scrolls
+  them, never hand it the cursor. It is always on a row in
   sight (`cursorRow`): a cursor of your own while any of its row is in
   sight; without one (on open, on another list), the featured row when that
   is in sight, else the first whole row in sight. The scrollbar moving your
@@ -703,7 +706,10 @@ run time.
   featured row takes the selected fill; the cursor's row the shell's
   hover-cursor fill and a bar down the left edge, in the shell's 60 ms,
   and on the featured row only the bar. The list menu, a symbol's lists,
-  and Manage lists mark their cursor the same way. Search keeps its split:
+  and Manage lists move and mark their cursor the same way, the wheel
+  included, except that a name being typed or a delete being asked keeps
+  it. A fill already on its way as a surface closes finishes its 60 ms: Qt
+  pauses no `Behavior`'s animation. Search keeps its split:
   the keys choose a result and the pointer only tints one, so passing over
   results never swaps the hero's preview.
 - Stonks' own controls (the range tokens, the list name, the order word,

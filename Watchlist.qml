@@ -83,7 +83,10 @@ Flickable {
   onHeadedYChanged: letGoUnseen()
   onHeightChanged: letGoUnseen()
   onDisplayedSymbolsChanged: letGoUnseen()
+  // A lifted row rides the pointer wherever its place has scrolled to, so
+  // it keeps the cursor through the drag.
   function ownInSight(top) {
+    if (cursorSymbol !== "" && cursorSymbol === dragSymbol) return true
     var own = displayedSymbols.indexOf(cursorSymbol)
     return cursorSymbol !== "" && own >= 0 && partInSight(own, top)
   }
@@ -168,9 +171,11 @@ Flickable {
     }
   }
 
-  // The cursor to the row at (x, y) in the scene, where the list is headed:
-  // past the rows' ends, or on the scrollbar's gutter, it stays. A lifted
-  // row is the drag's, so the pointer moves no cursor then.
+  // The cursor to the row at (x, y) in the scene, read where the list is
+  // headed, as the cursor always is: mid-glide, that is the row that will
+  // rest under the pointer. Past the rows' ends, or on the scrollbar's
+  // gutter, it stays. A lifted row is the drag's, so the pointer moves no
+  // cursor then.
   function pointAt(x, y) {
     var seen = mapFromItem(null, x, y)
     if (dragSymbol !== "" || seen.x >= rowsBox.width) return

@@ -154,6 +154,7 @@ FocusScope {
   }
 
   RowPointer {
+    id: pointer
     onMoved: function(x, y) { root.pointAt(x, y) }
   }
 
@@ -196,6 +197,9 @@ FocusScope {
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     interactive: contentHeight > height
+    // The wheel scrolling the rows under a still pointer moves the cursor
+    // to the row now under it; a key's scroll (showCursor) is no movement.
+    onContentYChanged: if (moving && pointer.hovered) root.pointAt(pointer.scenePosition.x, pointer.scenePosition.y)
 
     Column {
       id: column
