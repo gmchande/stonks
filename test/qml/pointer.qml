@@ -6,6 +6,7 @@ import Quickshell.Io
 import qs.Commons
 import "plugin/Cells.js" as Cells
 import "plugin/Chart.js" as Chart
+import "plugin/Market.js" as Market
 import "plugin/Quote.js" as Quote
 import "plugin/Settings.js" as Settings
 import "plugin"
@@ -21,6 +22,54 @@ ShellRoot {
     id: watchlistFixture
     path: Quickshell.env("STONKS_WATCHLIST_FIXTURE")
     blockLoading: true
+  }
+
+  FileView {
+    id: calendarFile
+    path: Quickshell.env("STONKS_CALENDARS")
+    blockLoading: true
+  }
+
+  // The listing sweep's saved answers at Wednesday 7 October 14:55, New
+  // York: Tokyo shut for its night, SPY in its session, London after its
+  // close, NBIS, and BTC-USD. SHEL.L's last refresh failed, so its row
+  // warns; NBIS's quote is one kept from earlier, so its row says when it
+  // is from.
+  function setSweepWatchlist() {
+    var dir = Quickshell.env("STONKS_FIXTURES") + "/overnight/sweep-2026-10-07-1455/"
+    var listed = ["7203.T", "SPY", "SHEL.L", "NBIS", "BTC-USD"]
+    var nextQuotes = {}
+    listed.forEach(function(symbol) {
+      var view = Qt.createQmlObject('import Quickshell.Io; FileView { blockLoading: true }', root)
+      view.path = dir + symbol.toLowerCase() + ".json"
+      nextQuotes[symbol] = Quote.parseChart(JSON.parse(view.text()))
+      view.destroy()
+    })
+    stub.calendars = JSON.parse(calendarFile.text())
+    stub.now = Market.epochAt(Market.calendarFor(stub.calendars, nextQuotes.SPY), "2026-10-07", "14:55")
+    var nextEntries = {}
+    listed.forEach(function(symbol) { nextEntries[symbol] = { status: "ok", receivedAt: stub.now } })
+    nextEntries["SHEL.L"] = { status: "failed", receivedAt: stub.now - 600 }
+    nextEntries.NBIS = { status: "saved", receivedAt: 0 }
+    stub.order = "manual"
+    stub.symbols = listed
+    stub.quotes = nextQuotes
+    stub.entries = nextEntries
+    stub.shown = listed.slice()
+    stub.featuredSymbol = "NBIS"
+  }
+
+  // The words a row shows, as drawn: its texts at least `least` opaque.
+  function rowTexts(row, least) {
+    var out = []
+    var walk = function(node, opacity) {
+      if (!node || !node.visible) return
+      var shown = opacity * node.opacity
+      if (typeof node.text === "string" && node.text !== "" && shown >= least) out.push(node.text)
+      for (var i = 0; i < node.children.length; i++) walk(node.children[i], shown)
+    }
+    for (var i = 0; i < row.children.length; i++) walk(row.children[i], 1)
+    return out
   }
 
   function find(item, name) {
@@ -1525,9 +1574,149 @@ ShellRoot {
         root.check("a list view showing through its surface's close moves no cursor as the pointer passes",
           closing.every(function(c) { return c.indexOf("true ") === 0 }), closing.join(" | "))
 
+        hoverMoment()
+
         console.log("POINTER DONE")
         done.exitCode = root.failures ? 1 : 0
         done.start()
+      }
+
+      // frames.js's verdict on `frames` in `mode`.
+      function judged(mode, frames) {
+        grab.judge(mode, frames)
+        tryVerify(function() { return grab.verdict !== null }, 10000)
+        return grab.verdict
+      }
+
+      // A row the pointer rests on for 250 ms says where its market is now,
+      // in the header's words; and where the listing's clock is not the
+      // reader's, its city and time beside the symbol, the words then naming
+      // no zone. A warning or an "As of" stays, the words waiting behind it.
+      // A sweep down the list, or a key, shows no words. The name crossfades
+      // to the words in 160 ms and back as the pointer leaves the row, judged
+      // on rendered frames, and nothing else in the row moves. In both looks.
+      // From the owner's trial: hovering a row did nothing you could see.
+      function hoverMoment() {
+        var wl = body.watchlist
+        var away = function() {
+          mouseMove(body, body.width / 2, 20)
+          wait(400)
+        }
+        away()
+        root.setSweepWatchlist()
+        wl.contentY = 0
+        wait(200)
+        var row = function(symbol) { return wl.rowItem(symbol) }
+        // Onto the row from beside its top, as a hand moves, then still.
+        var restOn = function(symbol) {
+          var item = row(symbol)
+          mouseMove(item, item.width / 3, item.height / 2 - 3)
+          mouseMove(item, item.width / 3, item.height / 2)
+          wait(600)
+          return root.rowTexts(item, 0.99)
+        }
+        var has = function(texts, want) { return want.every(function(w) { return texts.indexOf(w) >= 0 }) }
+        var clock = /^[A-Z][A-Z ]* \d\d:\d\d$/
+        var said = function(texts) { return texts.some(function(t) { return /opens|closes|Closed|around the clock/.test(t) }) }
+        // The rows' texts drawn at all that a still row does not draw.
+        var baseline = {}
+        var extra = function() {
+          var out = []
+          wl.displayedSymbols.forEach(function(s) {
+            root.rowTexts(row(s), 0.01).forEach(function(t) { if (baseline[s].indexOf(t) < 0) out.push(s + ": " + t) })
+          })
+          return out
+        }
+        var rests = [], warns = [], sweeps = [], fades = []
+        ;[false, true].forEach(function(retro) {
+          stub.retro = retro
+          var look = retro ? "retro" : "smooth"
+          away()
+          wl.displayedSymbols.forEach(function(s) { baseline[s] = root.rowTexts(row(s), 0.01) })
+
+          var tokyo = restOn("7203.T")
+          var spy = restOn("SPY")
+          var tokyoName = row("7203.T").view.name
+          rests.push(look + " " + (has(tokyo, ["7203.T", "TOKYO 03:55", "Closed · opens Thu 09:00"]) && tokyo.indexOf(tokyoName) < 0
+            && has(spy, ["Market closes in 1h 05m"]) && !spy.some(function(t) { return clock.test(t) }))
+            + " " + JSON.stringify(tokyo) + " " + JSON.stringify(spy))
+
+          var shel = restOn("SHEL.L")
+          var nbis = restOn("NBIS")
+          warns.push(look + " " + (has(shel, ["LONDON 19:55"]) && shel.some(function(t) { return t.indexOf("! Refresh failed") === 0 }) && !said(shel)
+            && nbis.some(function(t) { return t.indexOf("As of ") === 0 }) && !said(nbis))
+            + " " + JSON.stringify(shel) + " " + JSON.stringify(nbis))
+
+          // A steady sweep from the first row to the last, a few pixels every
+          // 30 ms, every frame watched; then still on the last row; then ↑.
+          away()
+          var flicker = []
+          var watch = function() { extra().forEach(function(t) { if (flicker.indexOf(t) < 0) flicker.push(t) }) }
+          var frames = Qt.createQmlObject('import QtQuick; FrameAnimation { running: true }', root)
+          frames.triggered.connect(watch)
+          var first = row(wl.displayedSymbols[0]).mapToItem(body, 40, 4)
+          var last = row("BTC-USD").mapToItem(body, 40, row("BTC-USD").height / 2)
+          for (var y = first.y; y < last.y; y += 6) {
+            mouseMove(body, first.x, y)
+            wait(30)
+          }
+          mouseMove(body, last.x, last.y)
+          var swept = flicker.slice()
+          wait(600)
+          frames.running = false
+          frames.destroy()
+          var rested = extra()
+          body.moveCursor(-1)
+          wait(600)
+          var keyed = extra()
+          sweeps.push(look + " " + (swept.length === 0 && rested.join() === "BTC-USD: Open around the clock"
+            && wl.cursorRow === "NBIS" && keyed.length === 0)
+            + " swept " + JSON.stringify(swept) + " rested " + JSON.stringify(rested) + " after ↑ " + JSON.stringify(keyed))
+
+          // The crossfade, on Tokyo's row: in from the rest, out as the
+          // pointer goes into the scrollbar's gutter, which keeps the cursor
+          // and so the fill. Marked as the rest begins and ends.
+          away()
+          var item = row("7203.T")
+          var mark = function() { grab.markStart() }
+          if (wl.restingSymbolChanged) wl.restingSymbolChanged.connect(mark)
+          var place = [item.y, item.height].join(",")
+          var figures = Math.round(item.width - item.gap - item.priceWidth - item.gap - item.sparkWidth)
+          var figuresBox = [figures, 0, Math.round(item.width) - figures, Math.round(item.height)].join(",")
+          mouseMove(item, item.width / 3, item.height / 2 - 3)
+          mouseMove(item, item.width / 3, item.height / 2)
+          grab.source = item
+          grab.begin("hover-in-" + look)
+          wait(600)
+          grab.end()
+          tryVerify(function() { return grab.waiting === 0 }, 3000)
+          var inFrames = grab.frames.filter(function(f) { return f.at >= grab.start - 100 })
+          var fadeIn = judged("turn", inFrames)
+          var stillIn = judged("same:" + figuresBox, inFrames)
+          var gutter = wl.mapToItem(item, wl.width - wl.gutter / 2, 0)
+          grab.begin("hover-out-" + look)
+          wait(50)
+          mouseMove(item, gutter.x, item.height / 2)
+          wait(500)
+          grab.end()
+          tryVerify(function() { return grab.waiting === 0 }, 3000)
+          var outFrames = grab.frames.filter(function(f) { return f.at >= grab.start - 50 })
+          var fadeOut = judged("turn", outFrames)
+          var stillOut = judged("same:" + figuresBox, outFrames)
+          if (wl.restingSymbolChanged) wl.restingSymbolChanged.disconnect(mark)
+          fades.push(look + " " + (fadeIn.ok && fadeOut.ok && stillIn.ok && stillOut.ok && [item.y, item.height].join(",") === place)
+            + " in: " + fadeIn.detail + "; out: " + fadeOut.detail + "; figures: " + stillIn.detail + " / " + stillOut.detail)
+        })
+        stub.retro = false
+        var allTrue = function(list) { return list.every(function(l) { return l.split(" ")[1] === "true" }) }
+        root.check("a rest on Tokyo's row reads its market's moment, no zone, with TOKYO 03:55 beside the symbol; SPY's, in New York, no clock",
+          allTrue(rests), rests.join(" | "))
+        root.check("a rest on a warning row keeps the warning, beside London's clock, and an As of row its time: the words wait behind them",
+          allTrue(warns), warns.join(" | "))
+        root.check("a sweep down the list shows no words; resting on the last row shows them there alone; a key moves the cursor and they go",
+          allTrue(sweeps), sweeps.join(" | "))
+        root.check("the name crossfades to the words in 160 ms and back as the pointer leaves, on rendered frames; the figures and line stay put",
+          allTrue(fades), fades.join(" | "))
       }
     }
   }
