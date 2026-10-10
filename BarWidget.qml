@@ -65,7 +65,7 @@ BarWidget {
   readonly property color dimColor: Tones.dim(button.foreground, barGround)
   // A failed or overdue refresh marks the pill too: the bar is the surface
   // most likely to be trusted at a glance.
-  readonly property string changeText: featured ? (warns ? "! " : "") + Format.lookSigns(featured.changeLine, retro)
+  readonly property string changeText: featured ? (warns ? "! " : "") + Format.lookSigns(featured.changeText, retro)
     : (warns ? "! no data" : "…")
 
   // What is left of a notch between wheel events: a high-resolution wheel
@@ -228,14 +228,13 @@ BarWidget {
 
       // The icon form, on either bar: Stonks' mark, the same in both looks,
       // climbing or falling with the day, in its colour, at the size of the
-      // bar's icons, its columns solid so it reads beside their glyphs.
+      // bar's icons.
       StonksMark {
         objectName: "pillMark"
         visible: root.iconOnly
         anchors.verticalCenter: parent.verticalCenter
         falling: !!root.featured && root.featured.tone === "down"
         color: root.trendColor
-        solid: true
         pixel: Math.max(2, Math.round(Style.bar.iconCanvas / 8))
         gap: 1
       }

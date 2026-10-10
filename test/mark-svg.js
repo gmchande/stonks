@@ -1,6 +1,6 @@
 // The launcher icon, share/grvc.stonks.svg, drawn from Stonks' mark in
-// Cells.js (`markLevels`), climbing, as StonksMark draws it at icon size
-// (`solid`): each column one bar at full ink, from its cap to the floor, in
+// Cells.js (`markLevels`), climbing, as StonksMark draws it: each column
+// one bar at full ink, from its cap to the floor, in
 // one green that reads on light and dark launchers. Two-unit columns on a
 // 16-unit square, so 16, 32, and 64 px land on whole pixels.
 //   bun test/mark-svg.js          rewrite share/grvc.stonks.svg

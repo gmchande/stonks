@@ -336,11 +336,6 @@ test("rowModel shows the regular close at rest and the print under the finger", 
   const close = { price: 325.13, priceText: "325.13", tone: "up", dayUp: true }
   expect(view(0, "pct")).toEqual({ ...close, changeText: "+2.61%" })
   expect(view(0, "abs")).toEqual({ ...close, changeText: "+8.28" })
-  expect(view(0, "open")).toEqual({ ...close, changeText: "+3.10%" })
-  // The rows carry the mode's word inline; the hero's SINCE OPEN caption is
-  // pointer.qml's. Percent and amount carry none.
-  expect(M.rowModel(quote, 0, "open")).toMatchObject({ changeLine: "+3.10% open", periodLabel: "SINCE OPEN" })
-  expect(M.rowModel(quote, 0, "abs")).toMatchObject({ changeLine: "+8.28", periodLabel: "" })
   // Scrubbing reads the print at that moment and holds it until the next;
   // the direction is the moment's too, so the bull and bear follow a scrub.
   const mid = quote.points[40]
@@ -349,16 +344,9 @@ test("rowModel shows the regular close at rest and the print under the finger", 
   expect(view(mid.t + 30, "pct")).toEqual(scrubbed)
   // Before the first print the row reads the previous close.
   expect(view(quote.points[0].t - 60, "pct")).toEqual({ price: 316.85, priceText: "316.85", changeText: "0.00%", tone: "flat", dayUp: true })
-  // Open mode can turn the change down while the day is still up.
-  const flip = {
-    ...quote, prevClose: 100, price: 105, marketTime: reg.end - 30,
-    points: [{ t: reg.start + 60, p: 110 }, { t: reg.end - 60, p: 105 }]
-  }
-  expect(view(0, "open", flip)).toMatchObject({ price: 105, tone: "down", dayUp: true })
   // With no data nothing is invented: no price, no change, no direction.
   const nothing = { ...quote, price: null, marketTime: null, points: [] }
   expect(view(0, "pct", nothing)).toMatchObject({ priceText: "—", changeText: "—", dayUp: null })
-  expect(M.rowModel(nothing, 0, "open").changeLine).toBe("—")
   // The scrub has no last print to stop at, rather than failing.
   expect(M.lastPrintTime(nothing)).toBeNull()
   expect(M.rowModel(nothing, 0, "pct")).toMatchObject({ pct: null, asOf: null })
@@ -408,7 +396,6 @@ test("a change that rounds to nothing has no sign and no direction", () => {
   expect(M.changeTone({ abs: 0.004, pct: 0.00004 }, "abs")).toBe("flat")
   expect(M.changeTone({ abs: 1.2, pct: 0.004 }, "pct")).toBe("flat")
   expect(M.changeTone({ abs: 1.2, pct: 0.004 }, "abs")).toBe("up")
-  expect(M.changeTone({ abs: -3, pct: -2 }, "open")).toBe("down")
   expect(M.changeTone({ abs: null, pct: null }, "pct")).toBe("flat")
   const still = { ...quote, prevClose: M.regularClose(quote) }
   const view = M.rowModel(still, 0, "pct")
@@ -659,12 +646,10 @@ test("outside trading an old close is normal, but a failed refresh still shows",
 
 test("sorting ranks the rows as a view over the manual list", () => {
   const q = (symbol, name, prevClose, price) => ({ symbol, name, prevClose, price, marketTime: 1, points: [], session: { regular: null } })
-  // Names that sort unlike the symbols, so each order is its own.
   const quotes = { UP: q("UP", "Alpha Inc", 100, 110), DN: q("DN", "Mid Co", 100, 95), FL: q("FL", "Zeta Corp", 100, 100) }
   const manual = ["FL", "DN", "UP", "NEW"]
   expect(M.sortedSymbols(manual, quotes, "manual")).toEqual(manual)
   expect(M.sortedSymbols(manual, quotes, "symbol")).toEqual(["DN", "FL", "UP", "NEW"])
-  expect(M.sortedSymbols(manual, quotes, "name")).toEqual(["UP", "DN", "FL", "NEW"])
   expect(M.sortedSymbols(manual, quotes, "pct")).toEqual(["UP", "FL", "DN", "NEW"])
   // Reversed, each sorted order runs the other way; a symbol with no quote
   // stays at the bottom, and manual has no direction.

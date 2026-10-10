@@ -95,9 +95,7 @@ the opening bell, New York's lunch lull, the power hour, the closing bell. Durin
 the close; once trading is over it says the market is closed and names the
 next open; weekends and holidays use a schedule the plugin carries. Times
 are the exchange's own, with its zone named when it is not yours: in New
-York, Nasdaq opens at 09:30 and Tokyo at 09:00 JST. The small
-chart icon at the top right shows the look a click switches to: Stonks'
-cells in smooth, a curve in retro; click it, or press `s`. The hero is the
+York, Nasdaq opens at 09:30 and Tokyo at 09:00 JST. The hero is the
 featured symbol: Yahoo's regular-market quote and its change, with the
 pre-market, after-hours, or overnight print on a compact line under it when
 there is one. A US stock or ETF that Robinhood trades around the clock, its
@@ -173,7 +171,7 @@ Adding on a named list puts the symbol in that list and in All; removing on a
 named list takes it out of that list only, and removing on All takes it out
 of every list. All always keeps one symbol; a named list may be empty. Each
 list keeps its own order and direction: click the order word above the rows,
-or press `o`, to cycle manual, symbol, name, and % change, and
+or press `o`, to cycle manual, symbol, and % change, and
 Shift-click it, or press `Shift+O`, to run a sorted order the other way, so
 % change can put the biggest losers first. The arrow before the word says
 which way the values run down the list: `↓` from the largest, `↑` from the
@@ -188,7 +186,7 @@ first, in the row. `m` on the cursor row, or Ctrl-click on any row, shows that
 symbol's lists as tick boxes: ticking adds it to a list, unticking takes it
 out, and unticking All removes it everywhere.
 Rows can be moved by hand only while manual order is shown. Click the change
-to cycle percent, currency amount, and percent since the open; that is the
+to switch between percent and currency amount; that is the
 day's change, so on a range it changes the rows and the hero keeps the
 range's. Sorting by % change ranks the rows and leaves what they show
 alone. In search, the top result is chosen to start with, and the arrows
@@ -210,7 +208,6 @@ and what the mouse does. Every key is in this table:
 | `h` `l` | Scrub one chart step (popup) |
 | `[` `]` | Change the chart range |
 | `p` | Replay the shown chart |
-| `Shift+P` | Replay it in slow motion |
 | `a` or `+` | Search and add a symbol |
 | `x` | Remove the cursor row |
 | `u` | Undo a removal, while the footer offers it |
@@ -222,7 +219,7 @@ and what the mouse does. Every key is in this table:
 | `Shift+W` | Manage lists: rename, reorder, delete |
 | `m` | The cursor row's lists |
 | `,` `.` | Previous or next list, scrolled where you left it |
-| `c` | Cycle the day's change: percent, amount, and since-open |
+| `c` | Switch the day's change between percent and amount |
 | `s` | Switch between the smooth and retro looks |
 | `r` | Refresh |
 | `1` to `9` | Feature that row |
@@ -232,7 +229,7 @@ and what the mouse does. Every key is in this table:
 
 **Two looks.** Smooth is the default: a big price and a line chart. Retro
 draws the way Omarchy draws its own logo: block digits on a lit grid, pixel
-columns, and pixel sparklines. Both put a bull in the header when the
+columns, and pixel sparklines; `s` switches between them. Both put a bull in the header when the
 featured chart is up and a bear when it is down, at the moment shown, drawn
 as a line in smooth and in pixels in retro, and none on a flat day: a
 scrub or a replay across the close turns one into the other. Click the
@@ -246,7 +243,6 @@ Both looks leave a gap where the market paused: Tokyo's lunch break, and a
 quiet night. 5Y, 10Y, and All use a log
 scale. Smooth signs changes with +
 and −, retro with ▲ and ▼. Switching looks moves nothing but the digits.
-Shift-click the chart, or `Shift+P`, for the slow-motion replay.
 
 All, the named lists, each list's order and direction, the current list, the
 featured symbol, the chart range, look, change mode, refresh interval, and

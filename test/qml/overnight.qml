@@ -206,7 +206,7 @@ ShellRoot {
       }
       curtain.widthChanged.connect(watch)
       pixelChart.scrubColumnChanged.connect(watch)
-      body.replay(false)
+      body.replay()
       within(4000, function() { return !body.motion.replayRunning })
       curtain.widthChanged.disconnect(watch)
       pixelChart.scrubColumnChanged.disconnect(watch)
@@ -516,7 +516,7 @@ ShellRoot {
           scrubAt(0)
           var edge = body.headerText + " | " + body.featured.priceText
           endScrub()
-          body.replay(false)
+          body.replay()
           var replayed = body.headerText + " | " + body.featured.priceText
           body.motion.clearScrub()
           var first = "At " + print[2] + " · Overnight | " + print[3]
@@ -606,18 +606,6 @@ ShellRoot {
       harness.check("a scrub at Wednesday's last print reads its move from Tuesday's close, the line's move",
         nightRead === ["At " + line[1] + " · Overnight", line[2], line[3], "┄ PREV CLOSE 249.87"].join(" | "),
         nightRead + " vs " + line.join(" "))
-      // Since the open, at rest, with the chart on Wednesday, the hero says
-      // what its row says: Tuesday's open to its close.
-      keyClick(Qt.Key_C)
-      keyClick(Qt.Key_C)
-      within(2000, function() { return service.changeMode === "open" })
-      var nbisRow = body.watchlist.rowItem("NBIS")
-      harness.check("since the open, at rest, with Wednesday's chart on show, the hero's change is Tuesday's, as its row's is",
-        body.featuredGeometry.start === harness.midnight.wed7
-          && body.featured.changeText === nbisRow.view.changeText && body.featured.changeText !== "+7.44%",
-        body.featuredGeometry.start + " | " + body.featured.changeText + " vs " + nbisRow.view.changeText)
-      keyClick(Qt.Key_C)
-      within(2000, function() { return service.changeMode === "pct" })
       // An answer without its regular price and time: the hero falls back
       // to Tuesday's last regular print, and the line under the price still
       // names the night, against that same close.

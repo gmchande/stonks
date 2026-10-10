@@ -167,7 +167,7 @@ Item {
   // it, so the header, the price, and the bull or bear follow it: along the
   // chart, the way it is laid out: on the day by print for a US listing and
   // by time for any other, and by bar on a range.
-  function replay(slow) {
+  function replay() {
     if (loading) return
     stopReplay()
     drawInAnim.stop()
@@ -175,7 +175,6 @@ Item {
     if (historyActive ? !historyShown || history.bars.length < 2 : !geometry || !scrubEnd) return
     replayAnim.from = historyActive ? 0 : Chart.fractionAtTime(day, scrubStart)
     replayAnim.to = historyActive ? 1 : Chart.fractionAtTime(day, scrubEnd)
-    replayAnim.duration = slow ? 8000 : 2000
     // On its first moment at once, before the animation's first step.
     scrubTo(replayAnim.from)
     replayAnim.start()
@@ -213,6 +212,7 @@ Item {
     id: replayAnim
     target: root
     property: "replayPosition"
+    duration: 2000
     easing.type: Easing.InOutSine
     onFinished: root.scrubT = 0
   }

@@ -19,7 +19,7 @@ import "plugin"
 // sizes and in both looks: the
 // listing line, the price's measured top line, baseline and left edge, the
 // change's baseline and right edge, the range row, the info block, the
-// header's look control and the end of its words, the list's TODAY and its
+// header's help mark and the end of its words, the list's TODAY and its
 // rule, and the first row must not move with the look, and the first row
 // must not move with the symbol or the range. The header's words keep room
 // for its longest states at the popup's width. The footer sits at the
@@ -143,7 +143,7 @@ ShellRoot {
       row: firstRow ? yIn(firstRow, 0) : -1,
       footer: yIn(footer, footer.height),
       footerGap: yIn(footer, 0) - lastRowBottom(),
-      looks: xIn(find(body, "lookIcon"), 0),
+      help: xIn(find(body, "helpMark"), 0),
       statusRight: xIn(status, status.width),
       today: xIn(today, 0),
       todayRight: xIn(today, today.width),
@@ -400,7 +400,7 @@ ShellRoot {
             whole(place + " retro " + c.symbol + " " + c.range, c.line)
             var label = place + " " + c.symbol + " " + c.range
             var fixed = ["listing", "baseline", "change", "changeRight", "captionRight", "strip",
-              "range", "info", "infoHeight", "list", "row", "footer", "looks", "statusRight", "today", "rule"]
+              "range", "info", "infoHeight", "list", "row", "footer", "help", "statusRight", "today", "rule"]
             var moved = fixed.filter(function(key) { return smooth[key] !== retro[key] })
             root.check(label + ": the look moves nothing outside the digits", moved.length === 0,
               moved.join(", ") + " smooth " + root.describe(smooth) + " retro " + root.describe(retro))
@@ -555,7 +555,7 @@ ShellRoot {
         // every closure in calendars.json, as Market names it, for a reader
         // whose clock differs from the exchange's (its zone named): in both
         // looks, in the popup and the window at its widest and its minimum
-        // width (App.qml), beside the look icon and the help mark. Found in
+        // width (App.qml), beside the help mark. Found in
         // the polish board: Tokyo's "Constitution Memorial Day observed"
         // and London's "(substitute day)" closures were cut in the popup.
         var header = find(body, "statusText").parent
@@ -993,29 +993,6 @@ ShellRoot {
         stub.retro = false
         wait(50)
 
-        // The look icon's tooltip shows inside the card, in both looks.
-        // Found in the first run: it drew across the card's top edge.
-        var toggle = find(body, "lookToggle")
-        // A popup is no child item: it is among the toggle's data.
-        var tip = null
-        for (var d = 0; d < toggle.data.length; d++) if (toggle.data[d].objectName === "lookTip") tip = toggle.data[d]
-        var inside = []
-        ;[false, true].forEach(function(retro) {
-          stub.retro = retro
-          mouseMove(toggle, toggle.width / 2, toggle.height / 2)
-          for (var t = 0; t < 2000 && !tip.opened; t += 20) wait(20)
-          var a = tip.background.mapToItem(body, 0, 0)
-          var b = tip.background.mapToItem(body, tip.background.width, tip.background.height)
-          inside.push(tip.opened && a.x >= 0 && a.y >= 0 && b.x <= body.width && b.y <= body.height)
-          inside.push([Math.round(a.x), Math.round(a.y), Math.round(b.x), Math.round(b.y)].join(" "))
-          mouseMove(body, body.width / 2, 20)
-          for (t = 0; t < 2000 && tip.visible; t += 20) wait(20)
-        })
-        root.check("the look icon's tooltip shows inside the card, smooth and retro",
-          inside[0] === true && inside[2] === true, inside.join(" | ") + " in " + body.width + "x" + body.height)
-        stub.retro = false
-        wait(50)
-
         // A new order is a new arrangement: every row takes its place at once.
         // Found live: o slid every row through the others for 110 ms.
         var placed = function() {
@@ -1047,7 +1024,7 @@ ShellRoot {
         var word = find(body, "orderLabel")
         var rule = find(body, "breadthRule")
         var wordFaults = []
-        var wants = { manual: ["↕  MANUAL"], symbol: ["↑  SYMBOL", "↓  SYMBOL"], name: ["↑  NAME", "↓  NAME"],
+        var wants = { manual: ["↕  MANUAL"], symbol: ["↑  SYMBOL", "↓  SYMBOL"],
           pct: ["↓  % CHANGE", "↑  % CHANGE"] }
         for (var ow = 0; ow < 2; ow++) {
           surface.wide = ow === 1

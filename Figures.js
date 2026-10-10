@@ -91,7 +91,7 @@ function extendedStack(quote, latest, now, day) {
   var overnight = !!ext && ext.phase === "overnight"
   var digits = quote.priceDigits
   if (!ext || !Format.isFiniteNumber(close) || (!overnight && Format.money(ext.p, digits) === Format.money(close, digits))) return null
-  var chg = Quote.change({ prevClose: close, points: [] }, ext.p, "pct")
+  var chg = Quote.change({ prevClose: close }, ext.p)
   return {
     price: Format.money(ext.p, digits),
     changeText: Format.pct(chg.pct),
@@ -143,7 +143,7 @@ function listBreadth(symbols, quotes, scrubT, mode) {
     var quote = quotes[symbols[i]]
     var read = quote ? (scrubT ? Quote.readingAt(quote, scrubT) : Quote.headlineQuote(quote)) : null
     var price = read ? read.price : null
-    var chg = quote ? Quote.change(quote, price, mode) : null
+    var chg = quote ? Quote.change(quote, price) : null
     if (!chg || chg.pct === null) out.none++
     else out[Format.changeTone(chg, mode, quote.priceDigits)]++
   }
@@ -152,9 +152,9 @@ function listBreadth(symbols, quotes, scrubT, mode) {
 
 // The one projection every price on screen comes from. The headline is
 // the regular-market quote; a non-zero scrubT reads that moment of the day
-// (`Quote.readingAt`). dayUp is always versus the previous close, so the
-// chart fill does not flip when the change mode does, and it is the
-// direction at the moment shown, as a range's is. dayTone is that change's
+// (`Quote.readingAt`). Every change is measured from the previous close, so
+// dayUp is the direction at the moment shown, whatever the change mode, as
+// a range's is. dayTone is that change's
 // tone, flat when it rounds to nothing, so the bull and bear follow a scrub
 // and a replay, and a flat day has neither.
 // It carries no drawing: a line is drawn from its quote, so it redraws when
@@ -164,8 +164,7 @@ function listBreadth(symbols, quotes, scrubT, mode) {
 function rowModel(quote, scrubT, changeMode) {
   var read = scrubT ? Quote.readingAt(quote, scrubT) : Quote.headlineQuote(quote)
   var price = read ? read.price : null
-  var chg = Quote.change(quote, price, changeMode)
-  var direction = Quote.change(quote, price, "pct")
+  var chg = Quote.change(quote, price)
   return {
     symbol: quote.symbol,
     name: quote.name,
@@ -175,10 +174,8 @@ function rowModel(quote, scrubT, changeMode) {
     // Null stays null: an unavailable change must not read as unchanged.
     pct: chg.pct,
     tone: Format.changeTone(chg, changeMode, quote.priceDigits),
-    dayUp: direction.pct === null ? null : direction.up,
-    dayTone: Format.changeTone(direction, "pct", quote.priceDigits),
-    changeText: Format.changeText(chg, changeMode, quote.priceDigits),
-    changeLine: Format.changeText(chg, changeMode, quote.priceDigits) + (changeMode === "open" && chg.pct !== null ? " open" : ""),
-    periodLabel: Format.changeCaption(changeMode)
+    dayUp: chg.pct === null ? null : chg.up,
+    dayTone: Format.changeTone(chg, "pct", quote.priceDigits),
+    changeText: Format.changeText(chg, changeMode, quote.priceDigits)
   }
 }

@@ -314,7 +314,6 @@ ShellRoot {
       harness.check("the change mode redraws no line", service.changeMode === "abs" && total() === 0,
         service.changeMode + "|" + JSON.stringify(paints))
       keyClick(Qt.Key_C)
-      keyClick(Qt.Key_C)
       wait(50)
       keyClick(Qt.Key_Period)
       wait(100)
@@ -344,10 +343,10 @@ ShellRoot {
       // arrow says which way the values run down the list.
       var label = harness.find(body, "orderLabel")
       var ring = [label.text]
-      for (var i = 0; i < 3; i++) { keyClick(Qt.Key_O); ring.push(service.order, label.text) }
+      for (var i = 0; i < 2; i++) { keyClick(Qt.Key_O); ring.push(service.order, label.text) }
       // No order by the amount: it would rank yen against dollars.
       harness.check("o runs the ring back to manual through % change alone, names each order, and leaves the change mode alone",
-        harness.same(ring, ["↑  SYMBOL", "name", "↑  NAME", "pct", "↓  % CHANGE",
+        harness.same(ring, ["↑  SYMBOL", "pct", "↓  % CHANGE",
           "manual", "↕  MANUAL"]) && service.changeMode === "pct",
         ring + "|" + service.changeMode)
 
@@ -373,14 +372,14 @@ ShellRoot {
       keyClick(Qt.Key_O)
       wait(50)
       var nextOrder = [service.order, service.reversed, label.text]
-      for (var back = 0; back < 2; back++) keyClick(Qt.Key_O)
+      keyClick(Qt.Key_O)
       wait(50)
       harness.check("Shift+O and a Shift-click on the order word reverse a sorted order, kept for the list alone; o and manual have no reversal",
         manualStays && ahead.length === 2
           && harness.same(byKey, [true, "↓  SYMBOL", ahead.slice().reverse().join(",")])
           && energyEntry.order === "symbol" && energyEntry.reversed === true && harness.fileRead.reversed === false
           && harness.same(byClick, [false, "↑  SYMBOL", ahead.join(",")])
-          && harness.same(nextOrder, ["name", false, "↑  NAME"]) && service.order === "manual",
+          && harness.same(nextOrder, ["pct", false, "↓  % CHANGE"]) && service.order === "manual",
         [manualStays, ahead, byKey, JSON.stringify(energyEntry), harness.fileRead.reversed, byClick, nextOrder, service.order].join(" | "))
 
       watchlist.cursorSymbol = "AAPL"
@@ -1254,21 +1253,6 @@ ShellRoot {
       var rowsAgain = !body2.showingHelp
       harness.check("? then a opens search alone, and ? then a row key shows the rows",
         sheetUp && searchOnly && rowsAgain, sheetUp + "|" + searchOnly + "|" + rowsAgain)
-      // So does a click on the header's look, as s does. Found in the review
-      // of the untangle: the click changed the look behind the sheet.
-      keyClick(Qt.Key_Question)
-      wait(50)
-      var lookBefore = service.retro
-      var clickLook = function() {
-        var icon = harness.find(body2, "lookIcon")
-        var over = icon.mapToItem(body2, icon.width / 2, icon.height / 2)
-        mouseClick(body2, over.x, over.y)
-        wait(50)
-      }
-      clickLook()
-      harness.check("a click on the header's look over the key sheet closes it and changes the look once",
-        !body2.showingHelp && service.retro !== lookBefore, body2.showingHelp + "|" + service.retro)
-      clickLook()
 
       // The list menu opens scrolled to its own start, the current list in
       // view, however far the last visit scrolled it. Found in the review of

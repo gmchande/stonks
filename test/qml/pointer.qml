@@ -320,41 +320,6 @@ ShellRoot {
         mouseClick(body, beside.x, beside.y)
         wait(50)
         root.check("and closes it again", !body.showingHelp)
-        // The look icon shows the look a click switches to, as a button shows
-        // what pressing it does: cells (Stonks' mark) in smooth, the curve in
-        // retro, stepping column by column as the look changes. A click on it,
-        // or under it, as the header's full height is the target, switches
-        // the look, and hovering says what a click does.
-        var icon = root.find(body, "lookIcon")
-        var toggle = root.find(body, "lookToggle")
-        var tip = toggle.data.filter(function(o) { return o.objectName === "lookTip" })[0]
-        var cellsShown = function() { return root.findAll(icon, "markCell").filter(function(c) { return c.parent.visible }).length }
-        var onIcon = icon.mapToItem(body, icon.width / 2, icon.height / 2)
-        var underIcon = toggle.mapToItem(body, toggle.width / 2, toggle.height - 2)
-        mouseMove(body, onIcon.x, onIcon.y)
-        wait(50)
-        var smoothShown = cellsShown() + " " + (tip ? tip.text : "")
-        stub.lastSettings = null
-        mouseClick(body, underIcon.x, underIcon.y)
-        wait(50)
-        var picked = stub.lastSettings ? stub.lastSettings.style : ""
-        var steps = []
-        var watchSteps = function() { steps.push(icon.cellColumns) }
-        icon.cellColumnsChanged.connect(watchSteps)
-        stub.retro = true
-        for (var stepWait = 0; stepWait < 2000 && icon.cellColumns !== 0; stepWait += 50) wait(50)
-        icon.cellColumnsChanged.disconnect(watchSteps)
-        var retroShown = cellsShown() + " " + (tip ? tip.text : "")
-        stub.lastSettings = null
-        mouseClick(body, onIcon.x, onIcon.y)
-        wait(50)
-        var back = stub.lastSettings ? stub.lastSettings.style : ""
-        stub.retro = false
-        for (stepWait = 0; stepWait < 2000 && icon.cellColumns !== 5; stepWait += 50) wait(50)
-        root.check("the look icon shows the look a click switches to, steps between cells and curve, says so, and a click on or under it switches",
-          smoothShown === "5 Switch to retro (s)" && picked === "retro" && steps.length >= 3
-            && retroShown === "0 Switch to smooth (s)" && back === "smooth" && cellsShown() === 5,
-          smoothShown + " | " + picked + " | " + steps.join(",") + " | " + retroShown + " | " + back + " | " + cellsShown())
         mouseMove(body, body.width / 2, body.height - 4)
         wait(50)
 
@@ -369,7 +334,7 @@ ShellRoot {
         // Watch the whole sweep: its furthest moment is the last print, and
         // it reaches it rather than stopping short.
         body.motion.scrubT = 0
-        body.replay(false)
+        body.replay()
         var furthest = 0
         var sampled = 0
         while (body.motion.replayRunning && sampled < 80) {
@@ -1246,9 +1211,6 @@ ShellRoot {
           var footer = root.find(body, "footer")
           var overFooter = footer.mapToItem(body, footer.width / 2, footer.height / 2)
           mouseClick(body, overFooter.x, overFooter.y)
-          var look = root.find(body, "lookIcon")
-          var overLook = look.mapToItem(body, look.width / 2, look.height / 2)
-          mouseClick(body, overLook.x, overLook.y)
           var chart = body.chartItem
           var overChart = chart.mapToItem(body, chart.width / 3, chart.height / 2)
           mouseMove(body, overChart.x, overChart.y)
@@ -1280,20 +1242,6 @@ ShellRoot {
           Qt.colorEqual(orderRow.color, Style.hoverFillFor(stub.foreground, Color.accent)))
         mouseMove(body, body.width / 2, 20)
         wait(200)
-
-        // Since the open, the hero's caption names it, in the slot AT CLOSE
-        // would take, and the figure is bare; a row says "open" inline.
-        stub.featuredSymbol = "MU"
-        stub.changeMode = "open"
-        wait(50)
-        var heroCaption = root.find(body, "changeCaption")
-        var heroChange = root.find(body, "changeText")
-        var firstShown = body.watchlist.rowItem(body.watchlist.displayedSymbols[0])
-        root.check("a change since the open is captioned SINCE OPEN, never AT CLOSE",
-          heroCaption.text === "SINCE OPEN" && heroChange.text.indexOf("open") < 0
-            && firstShown.view.changeLine.indexOf(" open") > 0)
-        stub.changeMode = "pct"
-        wait(50)
 
         root.setQuotes(["FIT1", "FIT2"], [101, 102])
         wait(200)
@@ -1417,7 +1365,6 @@ ShellRoot {
             ["range token", token, token],
             ["list name", root.find(body, "listControl"), root.find(body, "listLabel")],
             ["order word", root.find(body, "orderControl"), root.find(body, "orderLabel")],
-            ["look icon", root.find(body, "lookFill"), root.find(body, "lookIcon")],
             ["help mark", root.find(body, "helpFill"), root.find(body, "helpMark")],
             ["footer", root.find(body, "footerFill"), root.find(body, "footerText")]
           ]
@@ -1434,7 +1381,7 @@ ShellRoot {
           wait(100)
         })
         stub.retro = false
-        root.check("the range tokens, the list name, the order word, the look icon, the ?, the footer, and a list view's action take the pressed fill on mouse-down, in both looks",
+        root.check("the range tokens, the list name, the order word, the ?, the footer, and a list view's action take the pressed fill on mouse-down, in both looks",
           pressFaults.length === 0, pressFaults.join(" | "))
 
         // The list views follow the wheel as the rows do: scrolled under a

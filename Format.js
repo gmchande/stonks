@@ -164,18 +164,12 @@ function lookSigns(text, retro) {
   return retro ? String(text).replace("+", "▲").replace(MINUS, "▼") : text
 }
 
-// The change figure alone. What it is measured from, when that is not the
-// previous close, is said beside it: under the hero's figure as its caption
-// (changeCaption), inline on the rows and the pill (changeLine).
-// `digits` is the listing's price decimals, for a move in money.
+// The change figure alone. `digits` is the listing's price decimals, for a
+// move in money.
 function changeText(chg, mode, digits) {
   if (chg.pct === null) return "—"
   if (mode === "abs") return signedMoney(chg.abs, digits)
   return pct(chg.pct)
-}
-
-function changeCaption(mode) {
-  return mode === "open" ? "SINCE OPEN" : ""
 }
 
 // Which way a change figure reads, from the figure as drawn, so its colour

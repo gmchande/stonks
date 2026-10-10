@@ -87,7 +87,7 @@ function periodStats(history) {
   var bars = history && history.bars ? history.bars : []
   var lastBar = bars.length ? bars[bars.length - 1] : null
   var last = lastBar && Format.isFiniteNumber(lastBar.c) ? lastBar.c : null
-  var chg = Quote.change({ prevClose: history ? history.baseline : null, points: [] }, last, "pct")
+  var chg = Quote.change({ prevClose: history ? history.baseline : null }, last)
   var high = null
   var low = null
   for (var i = 0; i < bars.length; i++) {
@@ -277,7 +277,7 @@ function historyRowModel(history, quote, scrubT) {
   var head = !bar && quote ? Quote.headlineQuote(quote) : null
   var price = bar && Format.isFiniteNumber(bar.c) ? bar.c
     : (head ? head.price : stats.last)
-  var chg = Quote.change({ prevClose: history.baseline, points: [] }, price, "pct")
+  var chg = Quote.change({ prevClose: history.baseline }, price)
   return {
     symbol: history.symbol || (quote ? quote.symbol : ""),
     name: quote ? quote.name : (history.symbol || ""),
@@ -289,7 +289,6 @@ function historyRowModel(history, quote, scrubT) {
     dayUp: chg.pct === null ? null : chg.up,
     dayTone: Format.changeTone(chg, "pct"),
     changeText: Format.pct(chg.pct),
-    changeLine: Format.pct(chg.pct),
     // What the change is measured over, said under it the way AT CLOSE is.
     periodLabel: String(history.range || "").toUpperCase()
   }

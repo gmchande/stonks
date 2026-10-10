@@ -500,13 +500,13 @@ ShellRoot {
   }
 
   // A closing popup holds its picture through the card's fade: the card's
-  // edge stops where it was easing, the look icon where it was stepping, and
+  // edge stops where it was easing, and
   // an answer that lands, a hero chosen on another surface, and a removal
   // from All change nothing of its chart, figures, or rows, at the close
   // and through the fade (the next step); the next open takes the latest.
   // Found in the motion audit (finding 3): the fading card changed chart,
-  // and a removed row left a hole; and in its design review: the edge and
-  // the icon went on. The frames as rendered are window-motion.sh's; the
+  // and a removed row left a hole; and in its design review: the edge
+  // went on. The frames as rendered are window-motion.sh's; the
   // popup is never mapped.
   property string heldBefore: ""
   property string heldAtClose: ""
@@ -515,10 +515,9 @@ ShellRoot {
   property var heldQuotes: null
   function shownNow() {
     var body = panel.testBody
-    var icon = test.find(body, "lookIcon")
     return [body.chartSymbol, body.chart ? body.chart.symbol : "none", body.featuredQuote ? body.featuredQuote.price : "none",
       body.watchlist.displayedSymbols.join(","), body.motion.reveal, body.headerText, body.managingLists,
-      panel.testContentHeight, icon.cells.toFixed(4)].join("|")
+      panel.testContentHeight].join("|")
   }
   function closeHolding() {
     var body = panel.testBody
@@ -540,27 +539,21 @@ ShellRoot {
       test.heldAtClose = test.shownNow()
     }
     panel.testContentHeightChanged.connect(closeMid)
-    service.retro = !service.retro
     body.openManageLists()
   }
   function heldThroughFade() {
     var body = panel.testBody
     var throughFade = test.shownNow()
-    var icon = test.find(body, "lookIcon")
-    var moving = test.heldBefore.split("|")
-    test.check("a closing popup holds its edge and look icon mid-motion, and its chart, figures, and rows through an answer, another surface's choice, and a removal from All, at the close and through the fade",
-      test.heldBefore !== "" && Number(moving[8]) > 0 && Number(moving[8]) < 1
-        && test.heldAtClose === test.heldBefore && throughFade === test.heldBefore,
+    test.check("a closing popup holds its edge mid-motion, and its chart, figures, and rows through an answer, another surface's choice, and a removal from All, at the close and through the fade",
+      test.heldBefore !== "" && test.heldAtClose === test.heldBefore && throughFade === test.heldBefore,
       test.heldBefore + " -> " + test.heldAtClose + " -> " + throughFade)
     var other = service.featuredSymbol
     panel.open()
-    test.check("the next open takes the latest, draws in, and settles the edge and the icon",
+    test.check("the next open takes the latest, draws in, and settles the edge",
       body.chartSymbol === other && body.watchlist.displayedSymbols.indexOf(test.heldHero) < 0 && body.motion.reveal < 1
-        && !body.managingLists && panel.testContentHeight === Math.round(panel.fittedCardHeight)
-        && icon.cells === (service.retro ? 0 : 1),
+        && !body.managingLists && panel.testContentHeight === Math.round(panel.fittedCardHeight),
       body.chartSymbol + "|" + body.watchlist.displayedSymbols + "|" + body.motion.reveal + "|" + body.managingLists
-        + "|" + panel.testContentHeight + " vs " + panel.fittedCardHeight + "|" + icon.cells)
-    service.retro = !service.retro
+        + "|" + panel.testContentHeight + " vs " + panel.fittedCardHeight)
     service.symbols = test.heldSymbols
     service.quotes = test.heldQuotes
     service.feature(test.heldHero)
@@ -661,7 +654,7 @@ ShellRoot {
             inHand && onItsWay, inHand + "|" + onItsWay)
           panel.testBody.selectRange("1D")
           // Closing mid-replay keeps the chart as far as the replay had drawn it.
-          panel.testBody.replay(false)
+          panel.testBody.replay()
           panel.close()
           test.check("closing mid-replay keeps what the replay had drawn",
             motion.replayRunning && motion.drawn < 1 && panel.testBody.scrubT !== 0,
@@ -1047,8 +1040,8 @@ ShellRoot {
           if (test.hold(test.savedSettings().hinted === true)) return
           test.check("and the hint shown is saved", test.savedSettings().hinted === true)
         } else if (test.step === 43) {
-          // Nothing pressed in the open popup moves it sideways: c into
-          // "open", which widens the pill, and a narrower featured symbol
+          // Nothing pressed in the open popup moves it sideways: c into the
+          // amount, which changes the pill's width, and a narrower featured symbol
           // leave the card where it opened; the next open takes the pill's
           // new place. Seen live: the card moved about 15 px on c.
           var held = placedPill.panel
@@ -1068,10 +1061,9 @@ ShellRoot {
           held.open()
           var openedAt = placed.cardOrigin.x
           held.testKeyCatcher.textKey("c")
-          held.testKeyCatcher.textKey("c")
           var mode = service.changeMode
-          var widened = pillWidth()
-          var afterOpenMode = placed.cardOrigin.x
+          var switched = pillWidth()
+          var afterMode = placed.cardOrigin.x
           service.feature("MU")
           var narrowed = pillWidth()
           var afterFeature = placed.cardOrigin.x
@@ -1081,11 +1073,11 @@ ShellRoot {
           var expected = Math.round(placedPill.x + narrowed / 2 - placed.contentWidth / 2)
           held.close()
           service.changeMode = "pct"
-          test.check("c into open and a narrower featured symbol leave the open card where it opened, and the next open takes the pill's new place",
-            mode === "open" && widened > before && narrowed < widened
-              && afterOpenMode === openedAt && afterFeature === openedAt && reopenedAt === expected && reopenedAt !== openedAt,
-            [mode, "AAPL " + before + " → " + widened + ", MU " + narrowed,
-              "card x " + openedAt + " → " + afterOpenMode + " → " + afterFeature, "reopened " + reopenedAt + " (expected " + expected + ")"].join(", "))
+          test.check("c into the amount and a narrower featured symbol leave the open card where it opened, and the next open takes the pill's new place",
+            mode === "abs" && switched !== before && narrowed < switched
+              && afterMode === openedAt && afterFeature === openedAt && reopenedAt === expected && reopenedAt !== openedAt,
+            [mode, "AAPL " + before + " → " + switched + ", MU " + narrowed,
+              "card x " + openedAt + " → " + afterMode + " → " + afterFeature, "reopened " + reopenedAt + " (expected " + expected + ")"].join(", "))
           // A removal's undo outlives its note: u long after it, with the
           // footer back on the add, still takes it back.
           test.hintPanel.open()
