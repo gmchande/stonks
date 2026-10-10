@@ -723,6 +723,10 @@ ShellRoot {
       // 235.32 at 14:55:42, is no five-minute mark, and retro once rounded
       // it back to 14:55:00 and read the print before, 235.31.
       featureShown("NBIS")
+      // Its newest print comes with Robinhood's answer, which a chart shown
+      // at once can be on screen before.
+      var newest = harness.midnight.wed7 + 14 * 3600 + 55 * 60 + 42
+      var arrived = within(3000, function() { var p = body.featuredDay.points; return p[p.length - 1].t === newest })
       var edgeRead = [false, true].map(function(retro) {
         if (service.retro !== retro) {
           app.testKeyCatcher.forceActiveFocus()
@@ -738,7 +742,7 @@ ShellRoot {
       keyClick(Qt.Key_S)
       within(2000, function() { return !service.retro })
       harness.check("a scrub at NBIS's newest print, 14:55:42, reads 235.32 there in both looks",
-        edgeRead[0] === edgeRead[1] && edgeRead[0].indexOf("235.32 | ") === 0, edgeRead.join(" vs "))
+        arrived && edgeRead[0] === edgeRead[1] && edgeRead[0].indexOf("235.32 | ") === 0, arrived + ": " + edgeRead.join(" vs "))
       featureShown("BLDP")
       var bldp = body.featuredDay.points
       scrubAt(0)

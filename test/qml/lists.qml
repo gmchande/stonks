@@ -167,10 +167,18 @@ ShellRoot {
         service.listName + "|" + service.symbols + "|" + body.listMenuOpen + "|" + body.adding + "|" + body.search.placeholder)
 
       // An add whose row joins in view, fresh or already quoted in All, is
-      // featured once its join has finished, and its chart draws in. Found
-      // in the review of the untangle: it was featured mid-fade.
-      var addMotions = []
-      var watchAddDraw = function() { if (body.motion.reveal === 0) addMotions.push("draw " + service.featuredSymbol) }
+      // featured once its join has finished, and its chart shows whole at
+      // once. Found in the review of the untangle: it was featured mid-fade.
+      var addShows = []
+      var shownSymbol = body.chartSymbol
+      var watchAddShow = function() {
+        if (body.chartSymbol === shownSymbol) return
+        shownSymbol = body.chartSymbol
+        var row = body.watchlist.rowItem(shownSymbol)
+        addShows.push("show " + shownSymbol + (row && row.resting ? "" : " mid-join") + (body.motion.reveal < 1 ? " drawing in" : ""))
+      }
+      var watchAddDraw = function() { if (body.motion.reveal < 1) addShows.push("draw-in " + service.featuredSymbol) }
+      body.motion.chartChanged.connect(watchAddShow)
       body.motion.revealChanged.connect(watchAddDraw)
       var nvdaCalls = harness.calls("NVDA")
       body.search.picked("NVDA")
@@ -180,9 +188,10 @@ ShellRoot {
       wait(50)
       body.search.picked("AAPL")
       wait(400)
+      body.motion.chartChanged.disconnect(watchAddShow)
       body.motion.revealChanged.disconnect(watchAddDraw)
-      harness.check("an add joining in view draws its chart in once its join is done, each time",
-        addMotions.join(",") === "draw NVDA,draw AAPL", addMotions.join(","))
+      harness.check("an add joining in view shows its chart whole once its join is done, each time",
+        addShows.join(",") === "show NVDA,show AAPL", addShows.join(","))
       harness.readFile()
       tryVerify(function() { return harness.fileRead !== null }, 3000)
       harness.check("adding on a list puts the symbol in it without a second copy in All, and writes it featured",
@@ -1040,11 +1049,10 @@ ShellRoot {
       keyClick(Qt.Key_Escape)
       wait(50)
 
-      // A removal that moves the hero draws its chart in, as any change of
-      // the chart does, and undo brings the symbol back as it was, quote and
-      // all: no fetch, and the hero on its chart at once, drawing in. Found
-      // in motion pass 3: the hero swapped in one frame, and undo showed "No
-      // quote" until a refetch landed.
+      // A removal that moves the hero shows the next chart whole at once,
+      // and undo brings the symbol back as it was, quote and all: no fetch,
+      // and the hero on its chart at once. Found in motion pass 3: undo
+      // showed "No quote" until a refetch landed.
       tryVerify(function() { return !!service.quotes.AAPL && service.testFeed.firstRun.length + service.testFeed.refreshRun.length === 0 }, 3000)
       service.feature("AAPL")
       wait(500)
@@ -1052,13 +1060,13 @@ ShellRoot {
       keys.forceActiveFocus()
       wl.cursorSymbol = "AAPL"
       keyClick(Qt.Key_X)
-      var removal = [service.featuredSymbol, body2.motion.reveal < 1]
+      var removal = [service.featuredSymbol, body2.chartSymbol, body2.motion.reveal]
       wait(100)
       keyClick(Qt.Key_U)
-      var undone = [service.featuredSymbol, !!body2.featuredQuote, body2.motion.reveal < 1]
+      var undone = [service.featuredSymbol, body2.chartSymbol, !!body2.featuredQuote, body2.motion.reveal]
       wait(400)
-      harness.check("a removal that moves the hero draws it in, and undo draws it back with its quote and no fetch",
-        removal.join("|") === "NVDA|true" && undone.join("|") === "AAPL|true|true"
+      harness.check("a removal that moves the hero shows the next chart whole, and undo shows it back with its quote and no fetch",
+        removal.join("|") === "NVDA|NVDA|1" && undone.join("|") === "AAPL|AAPL|true|1"
           && harness.calls("AAPL") === aaplCalls,
         removal.join("|") + " / " + undone.join("|") + " / calls " + aaplCalls + " -> " + harness.calls("AAPL"))
 

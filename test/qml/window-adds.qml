@@ -424,12 +424,13 @@ ShellRoot {
         [heldWhileOut, keyedPending, heroEmptied, !!body.featuredQuote, watchlist.cursorSymbol,
           watchlist.displayedSymbols.join(","), slowSlid].join("|"))
       // Its place is out of view (the window is one row tall), so the list
-      // eases there over several frames, and the chart draws in once the
-      // list is at rest, from the row where it ended up; a wheel already
-      // gliding when the price lands, or turned during the ease, only moves
-      // where that rest is. Found in motion pass 3: the list jumped to the
-      // new row in one frame, and then (review) a stopped or restarted wheel
-      // glide featured the row from the old or a passing position.
+      // eases there over several frames, and the chart changes, whole at
+      // once, when the list is at rest, from the row where it ended up; a
+      // wheel already gliding when the price lands, or turned during the
+      // ease, only moves where that rest is. Found in motion pass 3: the
+      // list jumped to the new row in one frame, and then (review) a stopped
+      // or restarted wheel glide featured the row from the old or a passing
+      // position.
       var landWith = function(wheel) {
         service.removeSymbol("SLOW")
         wait(50)
@@ -437,10 +438,12 @@ ShellRoot {
         var scrolls = []
         var watchScroll = function() { scrolls.push(Math.round(watchlist.contentY)) }
         var at = null
-        // The draw-in starts as the service's change reaches the body, which
+        // The chart changes as the service's change reaches the body, which
         // may be after it reaches this handler.
+        var shown = false
         var drew = false
-        var watchDraw = function() { if (body.motion.reveal === 0 && service.featuredSymbol === "SLOW") drew = true }
+        var watchShown = function() { if (body.chartSymbol === "SLOW") shown = true }
+        var watchDraw = function() { if (body.motion.reveal < 1 && service.featuredSymbol === "SLOW") drew = true }
         var watchFeature = function() {
           if (service.featuredSymbol !== "SLOW" || at !== null) return
           var y = watchlist.rowItem("SLOW").y
@@ -473,6 +476,7 @@ ShellRoot {
         }
         watchlist.contentYChanged.connect(watchScroll)
         body.motion.revealChanged.connect(watchDraw)
+        body.motion.chartChanged.connect(watchShown)
         service.featuredSymbolChanged.connect(watchFeature)
         service.quotesChanged.connect(wheelBefore)
         watchlist.contentYChanged.connect(wheelDuring)
@@ -481,13 +485,14 @@ ShellRoot {
         wait(700)
         watchlist.contentYChanged.disconnect(watchScroll)
         body.motion.revealChanged.disconnect(watchDraw)
+        body.motion.chartChanged.disconnect(watchShown)
         service.featuredSymbolChanged.disconnect(watchFeature)
         service.quotesChanged.disconnect(wheelBefore)
         watchlist.contentYChanged.disconnect(wheelDuring)
         var restedFirst = at !== null && at.contentY === watchlist.contentY
-        var ok = wheel === "" ? restedFirst && scrolls.length >= 4 && drew && at.inView
-          : restedFirst && wheeled && (wheel !== "during" || watchlist.contentY === wheelDest)
-        return ok ? "true" : [restedFirst, scrolls.length, drew, JSON.stringify(at), wheeled, wheelDest, watchlist.contentY].join(":")
+        var ok = wheel === "" ? restedFirst && scrolls.length >= 4 && shown && !drew && at.inView
+          : restedFirst && wheeled && !drew && (wheel !== "during" || watchlist.contentY === wheelDest)
+        return ok ? "true" : [restedFirst, scrolls.length, shown, drew, JSON.stringify(at), wheeled, wheelDest, watchlist.contentY].join(":")
       }
       var landings = [landWith(""), landWith("before"), landWith("during")]
       harness.check("the list eases to a new row out of view, and the chart changes only once it is at rest",
