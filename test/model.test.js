@@ -349,7 +349,7 @@ const library = (extra = {}) => M.fileSettings({
   symbols: ["NBIS", "BE", "IREN", "SPY"], featured: "NBIS", order: "pct",
   lists: [
     { name: "My Portfolio", symbols: ["NBIS", "BE"], order: "manual" },
-    { name: "Energy", symbols: ["BE", "IREN"], order: "name" }
+    { name: "Energy", symbols: ["BE", "IREN"], order: "symbol" }
   ],
   ...extra
 })
@@ -420,10 +420,10 @@ test("membership across several lists", () => {
   const one = M.fileSettings({ symbols: ["NBIS"] })
   expect(M.withMembership(one, "NBIS", "", false, ["NBIS"]).symbols).toEqual(["NBIS"])
   // Each list keeps its own order and manual arrangement, apart from All's.
-  const energy = M.withListOrder(library({ list: "Energy" }), "symbol")
-  expect([M.listOrder(energy), energy.order, energy.lists[0].order]).toEqual(["symbol", "pct", "manual"])
-  const all = M.withListOrder(library(), "symbol")
-  expect([all.order, all.lists[1].order]).toEqual(["symbol", "name"])
+  const energy = M.withListOrder(library({ list: "Energy" }), "manual")
+  expect([M.listOrder(energy), energy.order, energy.lists[0].order]).toEqual(["manual", "pct", "manual"])
+  const all = M.withListOrder(library(), "manual")
+  expect([all.order, all.lists[1].order]).toEqual(["manual", "symbol"])
   const moved = M.withManualOrder(library({ list: "Energy" }), ["IREN", "BE"])
   expect([M.listSymbols(moved), M.listOrder(moved), moved.symbols])
     .toEqual([["IREN", "BE"], "manual", ["NBIS", "BE", "IREN", "SPY"]])

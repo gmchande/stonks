@@ -293,9 +293,10 @@ ShellRoot {
           if (!ok && harness.waited < 2000) return
           harness.check("one persist leaves a complete file", ok, JSON.stringify(obj))
           // An older build's order by the amount, reversed on All and not on
-          // a named list: each reads as % change, its direction kept.
+          // a named list: each reads as % change, its direction kept. A list
+          // saved in Name order, reversed, reads as Symbol, reversed.
           harness.writeThen(harness.bodyFrom({ symbols: ["AAPL", "MSFT"], featured: "MSFT", order: "abs", reversed: true,
-            lists: [{ name: "Yen", symbols: ["MSFT"], order: "abs" }] }), function() {
+            lists: [{ name: "Yen", symbols: ["MSFT"], order: "abs" }, { name: "Names", symbols: ["AAPL", "MSFT"], order: "name", reversed: true }] }), function() {
             harness.go(4)
           })
         })
@@ -305,10 +306,14 @@ ShellRoot {
         if (!over && harness.waited < 2000) return
         harness.check("overwrite reaches the service", over,
           JSON.stringify({ symbols: service.symbols, featured: service.featuredSymbol }))
+        var names = service.dataSettings.lists[1] || {}
+        harness.check("a list saved in Name order reads as Symbol, its direction and its symbols kept",
+          names.name === "Names" && names.order === "symbol" && names.reversed === true && harness.sameSymbols(names.symbols, ["AAPL", "MSFT"]),
+          JSON.stringify(names))
         var saved = service.dataSettings
         var yen = saved.lists[0] || {}
         harness.check("a list saved in $ CHANGE order reads as % change, its direction and its symbols kept",
-          saved.order === "pct" && saved.reversed === true && saved.lists.length === 1
+          saved.order === "pct" && saved.reversed === true && saved.lists.length === 2
             && yen.name === "Yen" && yen.order === "pct" && yen.reversed === false && harness.sameSymbols(yen.symbols, ["MSFT"]),
           JSON.stringify({ order: saved.order, reversed: saved.reversed, lists: saved.lists }))
         harness.renameThen(harness.bodyFrom({ style: "retro" }), function() {

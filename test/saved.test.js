@@ -659,12 +659,10 @@ test("outside trading an old close is normal, but a failed refresh still shows",
 
 test("sorting ranks the rows as a view over the manual list", () => {
   const q = (symbol, name, prevClose, price) => ({ symbol, name, prevClose, price, marketTime: 1, points: [], session: { regular: null } })
-  // Names that sort unlike the symbols, so each order is its own.
   const quotes = { UP: q("UP", "Alpha Inc", 100, 110), DN: q("DN", "Mid Co", 100, 95), FL: q("FL", "Zeta Corp", 100, 100) }
   const manual = ["FL", "DN", "UP", "NEW"]
   expect(M.sortedSymbols(manual, quotes, "manual")).toEqual(manual)
   expect(M.sortedSymbols(manual, quotes, "symbol")).toEqual(["DN", "FL", "UP", "NEW"])
-  expect(M.sortedSymbols(manual, quotes, "name")).toEqual(["UP", "DN", "FL", "NEW"])
   expect(M.sortedSymbols(manual, quotes, "pct")).toEqual(["UP", "FL", "DN", "NEW"])
   // Reversed, each sorted order runs the other way; a symbol with no quote
   // stays at the bottom, and manual has no direction.

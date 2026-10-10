@@ -1047,7 +1047,7 @@ ShellRoot {
         var word = find(body, "orderLabel")
         var rule = find(body, "breadthRule")
         var wordFaults = []
-        var wants = { manual: ["↕  MANUAL"], symbol: ["↑  SYMBOL", "↓  SYMBOL"], name: ["↑  NAME", "↓  NAME"],
+        var wants = { manual: ["↕  MANUAL"], symbol: ["↑  SYMBOL", "↓  SYMBOL"],
           pct: ["↓  % CHANGE", "↑  % CHANGE"] }
         for (var ow = 0; ow < 2; ow++) {
           surface.wide = ow === 1

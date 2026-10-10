@@ -722,7 +722,9 @@ run time.
   has its own order and direction: `o` steps to the next order in its own
   direction, and `O` (or a Shift-click on the order word) reverses a sorted
   one; manual has none. The order word's arrow says which way the values
-  run down the list. Changes sort by percent only: Stonks converts no
+  run down the list. Text sorts by the symbol alone, the row's bold first
+  word, and an order saved as the name (`"name"`) reads as the symbol, in
+  the same direction. Changes sort by percent only: Stonks converts no
   currency, so an amount would rank yen against dollars, and an order saved
   as the amount (`"abs"`) reads as % change. The change mode sets the day's
   change only, so the hero's change is a click target only while it shows

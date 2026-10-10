@@ -33,14 +33,15 @@ function canRemove(symbols) {
 // sorting by % change ranks the rows without changing what their change
 // figures say. There is no order by the amount: Stonks converts no
 // currency, so yen, dollars, and index points would rank as one number.
-var ORDERS = ["manual", "symbol", "name", "pct"]
+var ORDERS = ["manual", "symbol", "pct"]
 
-var ORDER_LABELS = { manual: "MANUAL", symbol: "SYMBOL", name: "NAME", pct: "% CHANGE" }
+var ORDER_LABELS = { manual: "MANUAL", symbol: "SYMBOL", pct: "% CHANGE" }
 
-// An order saved by an older build as "abs", the amount, reads as % change,
-// which runs the same way.
+// An order saved by an older build reads as the nearest one left, in the
+// same direction: the amount ("abs") as % change, the name as the symbol.
 function normalizeOrder(value) {
   if (value === "abs") return "pct"
+  if (value === "name") return "symbol"
   return ORDERS.indexOf(value) >= 0 ? value : "manual"
 }
 
@@ -97,7 +98,6 @@ function sortedSymbols(symbols, quotes, order, reversed) {
 
 function sortKey(quote, order) {
   if (order === "symbol") return quote.symbol.toUpperCase()
-  if (order === "name") return String(quote.name || quote.symbol).toUpperCase()
   return Quote.change(quote, Quote.regularClose(quote), "pct").pct
 }
 

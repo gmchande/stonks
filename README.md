@@ -173,7 +173,7 @@ Adding on a named list puts the symbol in that list and in All; removing on a
 named list takes it out of that list only, and removing on All takes it out
 of every list. All always keeps one symbol; a named list may be empty. Each
 list keeps its own order and direction: click the order word above the rows,
-or press `o`, to cycle manual, symbol, name, and % change, and
+or press `o`, to cycle manual, symbol, and % change, and
 Shift-click it, or press `Shift+O`, to run a sorted order the other way, so
 % change can put the biggest losers first. The arrow before the word says
 which way the values run down the list: `↓` from the largest, `↑` from the
