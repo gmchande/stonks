@@ -43,8 +43,11 @@ BarWidget {
   readonly property bool retro: service ? service.retro : setting("style", "smooth") === "retro"
   // Freshness is judged with or without a quote: a first fetch that failed
   // is what "! no data" is for.
-  readonly property bool warns: Figures.freshnessWarns(service && featuredSymbol
-    ? Figures.freshness(service.entries[featuredSymbol] || null, featuredQuote, service.now, service.asked[featuredSymbol] || 0) : null)
+  readonly property var freshness: service && featuredSymbol
+    ? Figures.freshness(service.entries[featuredSymbol] || null, featuredQuote, service.now, service.asked[featuredSymbol] || 0) : null
+  readonly property bool warns: Figures.freshnessWarns(freshness)
+  // What the "!" means, in the popup's words, for the hover on every form.
+  readonly property string warningText: warns ? Figures.freshnessText(freshness, featuredQuote, service.calendars) : ""
   readonly property color trendColor: featured && featured.tone === "up" ? (plugin && plugin.trendColors ? plugin.trendColors.up : button.foreground)
     : featured && featured.tone === "down" ? Color.urgent : dimColor
   // Quieter than the bar's ink by the same rule as the popup's secondary
@@ -147,9 +150,13 @@ BarWidget {
     hasVisualContent: true
     fixedWidth: root.vertical ? -1 : (root.iconOnly ? Style.bar.iconSlot : content.implicitWidth + Style.space(17))
     fixedHeight: root.vertical ? (root.iconOnly ? Style.bar.iconSlot : Style.bar.iconSlot * 2) : -1
-    // The icon names nothing, so its hover says what the pill would.
-    tooltipText: (root.iconOnly ? (root.featuredSymbol || "STONKS") + " " + root.changeText + " · " : "")
-      + (root.featured ? root.featured.name + " · " + Market.phaseLabel(Market.sessionPhase(root.featuredQuote, root.service.now)) : "Stonks")
+    // The text form shows its words already, so its hover says only what a
+    // warning's "!" means. The icon names nothing, so its hover says what
+    // the pill would; the line and the arrow add the name and the phase.
+    tooltipText: root.barStyle === "text" ? root.warningText
+      : (root.iconOnly ? (root.featuredSymbol || "STONKS") + " " + root.changeText + " · " : "")
+        + (root.featured ? root.featured.name + " · " + Market.phaseLabel(Market.sessionPhase(root.featuredQuote, root.service.now)) : "Stonks")
+        + (root.warningText !== "" ? " · " + root.warningText : "")
 
     onPressed: function(b) {
       if (b === Qt.RightButton) { if (root.plugin) root.plugin.windowHost.toggle() }
